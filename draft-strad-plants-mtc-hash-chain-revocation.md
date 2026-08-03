@@ -9,20 +9,20 @@ number:
 date:
 consensus: true
 v: 3
-area: SEC
-workgroup: PLANTS Working Group
+area: "Security"
+workgroup: "PKI, Logs, And Tree Signatures"
 keyword:
  - merkle tree certificates
  - hash chain
  - revocation
  - micali
 venue:
-  group: PLANTS
-  type: Working Group
-  mail: plants@ietf.org
-  arch: https://mailarchive.ietf.org/arch/browse/plants/
-  github: robstradling/mtc-with-hash-chain-revocation
-  latest: https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html
+  group: "PKI, Logs, And Tree Signatures"
+  type: "Working Group"
+  mail: "plants@ietf.org"
+  arch: "https://mailarchive.ietf.org/arch/browse/plants"
+  github: "robstradling/mtc-with-hash-chain-revocation"
+  latest: "https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html"
 
 author:
  -
