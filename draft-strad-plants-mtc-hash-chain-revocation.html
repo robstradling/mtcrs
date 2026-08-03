@@ -2124,41 +2124,61 @@ incremental burden, not a new class of operational requirement.<a href="#appendi
         <h3 id="name-dns-based-tick-distribution">
 <a href="#appendix-C.1" class="section-number selfRef">C.1. </a><a href="#name-dns-based-tick-distribution" class="section-name selfRef">DNS-Based Tick Distribution</a>
         </h3>
-<p id="appendix-C.1-1">One alternative considered was distributing hash chain ticks via
-DNS records (e.g., a TXT record at <code>_mtc-tick.example.com</code>).
-Under this model, clients would fetch the tick independently via
-DNS, removing the requirement for server participation.<a href="#appendix-C.1-1" class="pilcrow">¶</a></p>
-<p id="appendix-C.1-2">This approach was rejected for several reasons:<a href="#appendix-C.1-2" class="pilcrow">¶</a></p>
+<p id="appendix-C.1-1">An alternative to the HTTP-based tick distribution described in
+<a href="#distribution" class="auto internal xref">Section 7</a> is for the CA to publish current ticks via DNS
+records, which the authenticating party fetches and embeds in the
+MTCProof.  For example, a TXT or other record type at a well-known
+name derived from the CA, log number, and entry index.<a href="#appendix-C.1-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.1-2">Since the tick is embedded in the MTCProof regardless of how it was
+obtained, the relying party's verification procedure is unchanged.
+The choice of distribution channel is purely between the CA and the
+authenticating party.<a href="#appendix-C.1-2" class="pilcrow">¶</a></p>
+<p id="appendix-C.1-3">DNS-based distribution has some advantages over HTTP:<a href="#appendix-C.1-3" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="appendix-C.1-3.1">
-            <p id="appendix-C.1-3.1.1"><strong>Soft-fail risk:</strong> If the DNS lookup fails (network issue,
-resolver misconfiguration, etc.), the client must decide whether to
-fail the connection or proceed without the tick.  Any allowance
-for "proceed without" defeats the revocation mechanism.<a href="#appendix-C.1-3.1.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="appendix-C.1-3.2">
-            <p id="appendix-C.1-3.2.1"><strong>Protocol dependency:</strong> DNS-based distribution only works when
-the relying party can perform DNS lookups in the context of
-certificate verification.  This excludes some TLS use cases (e.g.,
-embedded devices, TLS within TLS).<a href="#appendix-C.1-3.2.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="appendix-C.1-3.3">
-            <p id="appendix-C.1-3.3.1"><strong>Operational complexity for subscribers:</strong> If the subscriber
-publishes the DNS record, they must update DNS every period.
-While feasible for sophisticated operators, this is a significant
-burden for smaller deployments.  If the CA publishes under its own
-zone, the DNS becomes a single point of failure and a target for
-denial-of-service attacks.<a href="#appendix-C.1-3.3.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="appendix-C.1-3.4">
-            <p id="appendix-C.1-3.4.1"><strong>Latency:</strong> An additional DNS lookup adds latency to connection
-establishment, even when parallelized with the A/AAAA lookup.<a href="#appendix-C.1-3.4.1" class="pilcrow">¶</a></p>
+<li class="normal" id="appendix-C.1-4.1">
+            <p id="appendix-C.1-4.1.1"><strong>Caching infrastructure:</strong> DNS's hierarchical caching
+architecture is well-suited to distributing small, frequently
+updated values.  Recursive resolvers naturally cache and serve
+ticks without requiring the CA to operate CDN infrastructure.<a href="#appendix-C.1-4.1.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="appendix-C.1-4">However, DNS-based distribution does have one notable advantage: it
-does not require server software changes.  Deployments that prioritize
-this property over hard-fail semantics <span class="bcp14">MAY</span> define a DNS-based
-distribution profile in a separate document.<a href="#appendix-C.1-4" class="pilcrow">¶</a></p>
+<p id="appendix-C.1-5">However, DNS-based distribution also has limitations:<a href="#appendix-C.1-5" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-C.1-6.1">
+            <p id="appendix-C.1-6.1.1"><strong>Record size constraints:</strong> While a single tick (36 bytes) fits
+easily in a DNS record, scaling to millions of entries may require
+careful zone design.  The CA would need one record per active
+certificate, which could result in very large zones.<a href="#appendix-C.1-6.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.1-6.2">
+            <p id="appendix-C.1-6.2.1"><strong>Update propagation delay:</strong> DNS TTLs and caching may delay
+propagation of new ticks.  The CA <span class="bcp14">SHOULD</span> set TTLs no longer than
+revocation_period seconds, but cached stale records could cause
+authenticating parties to serve expired ticks briefly.<a href="#appendix-C.1-6.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.1-6.3">
+            <p id="appendix-C.1-6.3.1"><strong>Operational complexity for the CA:</strong> The CA must update DNS
+records for every non-revoked certificate each period.  Depending
+on the DNS infrastructure, this may be more complex than serving
+an HTTP endpoint.<a href="#appendix-C.1-6.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="appendix-C.1-7">Deployments <span class="bcp14">MAY</span> use DNS-based distribution as an alternative or
+complement to HTTP-based distribution.  The choice does not affect
+interoperability, since the relying party only sees the tick in the
+MTCProof.<a href="#appendix-C.1-7" class="pilcrow">¶</a></p>
+<p id="appendix-C.1-8">DNSSEC is not required for DNS-based tick distribution and <span class="bcp14">SHOULD NOT</span> be used.  Each tick is self-authenticating: the relying party
+verifies it by hashing it forward to the anchor already committed
+in the Merkle Tree.  An attacker who modifies a tick in transit
+cannot produce a value that passes this verification without
+inverting the hash function.  An attacker who suppresses a tick
+only prevents the authenticating party from obtaining a fresh tick,
+which is equivalent to a network-level denial of service against
+any distribution channel.  Adding DNSSEC would introduce
+unnecessary operational complexity (key management, signature
+generation for frequently changing records) and increase DNS
+response sizes, without improving the security of the revocation
+mechanism.<a href="#appendix-C.1-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="tls-extension-separate-from-certificate">
