@@ -603,37 +603,59 @@ because:
 
 ## DNS-Based Tick Distribution
 
-One alternative considered was distributing hash chain ticks via
-DNS records (e.g., a TXT record at `_mtc-tick.example.com`).
-Under this model, clients would fetch the tick independently via
-DNS, removing the requirement for server participation.
+An alternative to the HTTP-based tick distribution described in
+{{distribution}} is for the CA to publish current ticks via DNS
+records, which the authenticating party fetches and embeds in the
+MTCProof.  For example, a TXT or other record type at a well-known
+name derived from the CA, log number, and entry index.
 
-This approach was rejected for several reasons:
+Since the tick is embedded in the MTCProof regardless of how it was
+obtained, the relying party's verification procedure is unchanged.
+The choice of distribution channel is purely between the CA and the
+authenticating party.
 
-- **Soft-fail risk:** If the DNS lookup fails (network issue,
-  resolver misconfiguration, etc.), the client must decide whether to
-  fail the connection or proceed without the tick.  Any allowance
-  for "proceed without" defeats the revocation mechanism.
+DNS-based distribution has some advantages over HTTP:
 
-- **Protocol dependency:** DNS-based distribution only works when
-  the relying party can perform DNS lookups in the context of
-  certificate verification.  This excludes some TLS use cases (e.g.,
-  embedded devices, TLS within TLS).
+- **Caching infrastructure:** DNS's hierarchical caching
+  architecture is well-suited to distributing small, frequently
+  updated values.  Recursive resolvers naturally cache and serve
+  ticks without requiring the CA to operate CDN infrastructure.
 
-- **Operational complexity for subscribers:** If the subscriber
-  publishes the DNS record, they must update DNS every period.
-  While feasible for sophisticated operators, this is a significant
-  burden for smaller deployments.  If the CA publishes under its own
-  zone, the DNS becomes a single point of failure and a target for
-  denial-of-service attacks.
+However, DNS-based distribution also has limitations:
 
-- **Latency:** An additional DNS lookup adds latency to connection
-  establishment, even when parallelized with the A/AAAA lookup.
+- **Record size constraints:** While a single tick (36 bytes) fits
+  easily in a DNS record, scaling to millions of entries may require
+  careful zone design.  The CA would need one record per active
+  certificate, which could result in very large zones.
 
-However, DNS-based distribution does have one notable advantage: it
-does not require server software changes.  Deployments that prioritize
-this property over hard-fail semantics MAY define a DNS-based
-distribution profile in a separate document.
+- **Update propagation delay:** DNS TTLs and caching may delay
+  propagation of new ticks.  The CA SHOULD set TTLs no longer than
+  revocation_period seconds, but cached stale records could cause
+  authenticating parties to serve expired ticks briefly.
+
+- **Operational complexity for the CA:** The CA must update DNS
+  records for every non-revoked certificate each period.  Depending
+  on the DNS infrastructure, this may be more complex than serving
+  an HTTP endpoint.
+
+Deployments MAY use DNS-based distribution as an alternative or
+complement to HTTP-based distribution.  The choice does not affect
+interoperability, since the relying party only sees the tick in the
+MTCProof.
+
+DNSSEC is not required for DNS-based tick distribution and SHOULD
+NOT be used.  Each tick is self-authenticating: the relying party
+verifies it by hashing it forward to the anchor already committed
+in the Merkle Tree.  An attacker who modifies a tick in transit
+cannot produce a value that passes this verification without
+inverting the hash function.  An attacker who suppresses a tick
+only prevents the authenticating party from obtaining a fresh tick,
+which is equivalent to a network-level denial of service against
+any distribution channel.  Adding DNSSEC would introduce
+unnecessary operational complexity (key management, signature
+generation for frequently changing records) and increase DNS
+response sizes, without improving the security of the revocation
+mechanism.
 
 ## TLS Extension (Separate from Certificate)
 
