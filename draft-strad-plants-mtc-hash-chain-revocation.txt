@@ -2,7 +2,7 @@
 
 
 
-PLANTS Working Group                                        R. Stradling
+PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
 Intended status: Experimental                              3 August 2026
 Expires: 4 February 2027
@@ -17,10 +17,10 @@ Abstract
    Tree Certificates (MTC) [I-D.ietf-plants-merkle-tree-certs].  A
    Merkle Tree CA commits a hash chain anchor into the certificate at
    issuance time.  Periodically, the CA reveals hash chain values that
-   serve as proof of non-revocation.  The authenticating party includes
-   the current hash chain value (a "tick") in the TLS handshake,
-   enabling the relying party to cryptographically verify that the
-   certificate has not been revoked, with granularity as fine as one
+   serve as proof of non-revocation.  The authenticating party embeds
+   the current hash chain value (a "tick") in the certificate's
+   MTCProof, enabling the relying party to cryptographically verify that
+   the certificate has not been revoked, with granularity as fine as one
    hour.
 
    This mechanism provides timely revocation without requiring
@@ -38,10 +38,10 @@ About This Document
    this document may be found at https://datatracker.ietf.org/doc/draft-
    strad-plants-mtc-hash-chain-revocation/.
 
-   Discussion of this document takes place on the PLANTS Working Group
-   mailing list (mailto:plants@ietf.org), which is archived at
-   https://mailarchive.ietf.org/arch/browse/plants/.  Subscribe at
-   https://www.ietf.org/mailman/listinfo/plants/.
+   Discussion of this document takes place on the PKI, Logs, And Tree
+   Signatures Working Group mailing list (mailto:plants@ietf.org), which
+   is archived at https://mailarchive.ietf.org/arch/browse/plants.
+   Subscribe at https://www.ietf.org/mailman/listinfo/plants/.
 
    Source for this draft and an issue tracker can be found at
    https://github.com/robstradling/mtc-with-hash-chain-revocation.
@@ -105,7 +105,6 @@ Table of Contents
      8.5.  Clock Skew
    9.  IANA Considerations
      9.1.  Certificate Extension
-     9.2.  TLS ExtensionType
    10. References
      10.1.  Normative References
      10.2.  Informative References
@@ -114,10 +113,10 @@ Table of Contents
      B.1.  Why Hash Chains (Micali) Instead of Other Revocation
            Mechanisms
      B.2.  Why One Hour (or One Day) Periods
-     B.3.  Why Include the Tick in the Certificate Structure
+     B.3.  Why Embed the Tick in the MTCProof
    Appendix C.  Alternatives Considered
      C.1.  DNS-Based Tick Distribution
-     C.2.  TLS Extension (Optional Stapling)
+     C.2.  TLS Extension (Separate from Certificate)
      C.3.  Shorter Certificate Lifetimes
      C.4.  CRLite / CRLSets / External Revocation
      C.5.  Per-Certificate Signatures (OCSP-like)
@@ -145,9 +144,10 @@ Table of Contents
    entry as an X.509 extension.  Each revocation period (e.g., every
    hour), the CA reveals the next hash chain value for all non-revoked
    certificates.  To revoke a certificate, the CA simply stops revealing
-   values.  The authenticating party (server) includes the current hash
-   chain value in its TLS Certificate message, and the relying party
-   (client) verifies it against the anchor committed in the log entry.
+   values.  The authenticating party (server) embeds the current hash
+   chain value in the certificate's MTCProof (the signatureValue), and
+   the relying party (client) verifies it against the anchor committed
+   in the log entry.
 
    This approach achieves the following properties:
 
@@ -169,7 +169,7 @@ Table of Contents
       relationships or authenticated channels are needed.
 
    *  *Minimal overhead:* A single hash value (32 bytes for SHA-256) is
-      added to the TLS Certificate message.
+      added to the certificate's MTCProof.
 
 1.1.  Rationale for This Approach
 
@@ -294,9 +294,18 @@ Table of Contents
 5.1.  Hash Chain Tick
 
    When a hash chain anchor extension is present in the certificate, the
-   authenticating party MUST include a hash chain tick in the TLS
-   CertificateEntry alongside the certificate.  The tick is carried in a
-   new TLS CertificateEntry extension:
+   authenticating party MUST include a hash chain tick in the MTCProof
+   structure (carried in the certificate's signatureValue).  This
+   document extends the MTCProof with a status_tick field:
+
+   struct {
+       MerkleTreeCertEntryExtension extensions<0..2^16-1>;
+       uint48 start;
+       uint48 end;
+       HashValue inclusion_proof<0..2^16-1>;
+       MTCSignature signatures<0..2^16-1>;
+       HashChainTick status_tick;
+   } MTCProof;
 
    struct {
        uint32 period;
@@ -307,6 +316,17 @@ Table of Contents
 
    value:  The hash chain value h[chain_length - period].
 
+   The status_tick field MUST be present in the MTCProof whenever the
+   certificate's TBSCertificate contains the id-pe-hashChainAnchor
+   extension.
+
+   Since the MTCProof is not committed to the Merkle Tree (only the
+   TBSCertificateLogEntry is hashed into the tree), the status_tick can
+   be updated each period without affecting the inclusion proof or
+   cosignatures.  The authenticating party reconstructs or replaces the
+   signatureValue with a fresh tick while reusing the same inclusion
+   proof and signatures.
+
    The authenticating party MUST include a HashChainTick with a period
    value that is current at the time of the TLS handshake.  A relying
    party SHOULD accept ticks for the current period or the immediately
@@ -314,23 +334,15 @@ Table of Contents
 
 5.2.  Use in TLS
 
-   This document defines a new TLS CertificateEntry extension type:
+   No new TLS extension type is required.  When the authenticating party
+   presents a Merkle Tree Certificate, the hash chain tick is carried
+   within the certificate's signatureValue as part of the MTCProof,
+   which is already transmitted in the CertificateEntry.
 
-   enum {
-       ...
-       hash_chain_tick(TBD),
-       (2^16-1)
-   } ExtensionType;
-
-   When an authenticating party presents a Merkle Tree Certificate whose
-   TBSCertificate contains the id-pe-hashChainAnchor extension, it MUST
-   include the hash_chain_tick extension in the CertificateEntry.  The
-   extension_data contains the serialized HashChainTick structure.
-
-   The presence of id-pe-hashChainAnchor in the certificate signals to
-   the relying party that a hash_chain_tick extension is required in the
-   CertificateEntry.  If the extension is absent or the tick fails
-   verification, the relying party MUST reject the certificate.
+   The presence of id-pe-hashChainAnchor in the TBSCertificate signals
+   to the relying party that the MTCProof contains a status_tick field.
+   If the field is absent, malformed, or fails verification, the relying
+   party MUST reject the certificate.
 
 6.  Verification
 
@@ -342,10 +354,11 @@ Table of Contents
     hashChainAnchor extension.  If not present, skip hash chain
     verification (the certificate does not use this mechanism).
 
-2.  Extract the HashChainTick from the hash_chain_tick
-    CertificateEntry extension.  If the id-pe-hashChainAnchor
-    extension is present but no hash_chain_tick extension is
-    provided, reject the certificate with a bad_certificate error.
+2.  Extract the HashChainTick from the status_tick field of the
+    MTCProof (in the certificate's signatureValue).  If the id-pe-
+    hashChainAnchor extension is present but the MTCProof does not
+    contain a status_tick, reject the certificate with a
+    bad_certificate error.
 
 3.  Compute the expected period from the current time:
 
@@ -396,11 +409,12 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    1.  At least once per revocation_period, the authenticating party
        fetches its updated HashChainTick.
 
-   2.  The authenticating party replaces its stored tick with the newly
-       fetched value.
+   2.  The authenticating party updates the status_tick field in its
+       certificate's MTCProof (signatureValue) with the newly fetched
+       value.  The inclusion proof and cosignatures remain unchanged.
 
-   3.  During TLS handshakes, the authenticating party includes the
-       stored tick in its certificate presentation.
+   3.  During TLS handshakes, the authenticating party presents the
+       certificate with the current status_tick.
 
    If the authenticating party is unable to obtain a fresh tick (e.g.,
    due to CA unavailability), it continues to serve the most recent tick
@@ -480,19 +494,6 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
             +---------+-----------------------+---------------+
 
                                   Table 1
-
-9.2.  TLS ExtensionType
-
-   IANA is requested to register the following entry in the TLS
-   ExtensionType Values registry:
-
-           +=======+=================+=========+===============+
-           | Value | Extension Name  | TLS 1.3 | Reference     |
-           +=======+=================+=========+===============+
-           | TBD   | hash_chain_tick | CH, CT  | This document |
-           +-------+-----------------+---------+---------------+
-
-                                  Table 2
 
 10.  References
 
@@ -645,25 +646,31 @@ B.2.  Why One Hour (or One Day) Periods
    the cost of up to 48-hour revocation latency.  Deployments SHOULD
    choose the shortest period operationally feasible.
 
-B.3.  Why Include the Tick in the Certificate Structure
+B.3.  Why Embed the Tick in the MTCProof
 
-   The tick is included as a mandatory part of the certificate
-   presentation rather than delivered via a separate channel because:
+   The tick is embedded directly in the MTCProof (the certificate's
+   signatureValue) rather than delivered via a separate channel because:
 
-   1.  *No soft-fail ambiguity:* If the tick is separate (e.g., via DNS
-       or a TLS extension), a missing tick could indicate either
-       revocation or a delivery failure.  When the tick is mandatory,
-       its absence always means the certificate is invalid.
+   1.  *Structurally inseparable:* The tick is part of the certificate
+       itself.  A relying party that parses the MTCProof will always
+       encounter the status_tick field.  There is no possibility of the
+       tick being stripped or omitted in transit.
 
-   2.  *No additional round-trips:* The tick travels with the
+   2.  *No new protocol machinery:* No TLS CertificateEntry extension or
+       other signaling mechanism is needed.  The tick travels inside the
+       existing certificate structure, requiring no changes to TLS
+       implementations beyond MTC support.
+
+   3.  *Safe to update dynamically:* The MTCProof is not committed to
+       the Merkle Tree — only the TBSCertificateLogEntry is.  The
+       authenticating party can freely replace the signatureValue each
+       period without invalidating the inclusion proof or cosignatures.
+
+   4.  *No additional round-trips:* The tick travels with the
        certificate in the same TLS message.  No DNS lookups or side-
        channel fetches are needed by the relying party.
 
-   3.  *Universal applicability:* Works for all TLS connections, not
-       only HTTPS.  Mechanisms that depend on DNS or HTTP are limited to
-       protocols where those channels are available.
-
-   4.  *Server must participate:* The authenticating party is already
+   5.  *Server must participate:* The authenticating party is already
        responsible for maintaining its MTC certificate and refreshing it
        before expiry.  Adding a lightweight hourly tick refresh is an
        incremental burden, not a new class of operational requirement.
@@ -704,24 +711,28 @@ C.1.  DNS-Based Tick Distribution
    prioritize this property over hard-fail semantics MAY define a DNS-
    based distribution profile in a separate document.
 
-C.2.  TLS Extension (Optional Stapling)
+C.2.  TLS Extension (Separate from Certificate)
 
-   Another alternative was defining a new TLS extension that optionally
-   carries the hash chain tick, analogous to the status_request
-   extension used for OCSP stapling.
+   Another alternative was carrying the hash chain tick in a TLS
+   CertificateEntry extension or a separate TLS extension, rather than
+   embedding it in the MTCProof.
 
    This approach was rejected because:
+
+   *  *Strippable:* A TLS extension can potentially be omitted by
+      middleboxes or misconfigured servers.  Embedding the tick in the
+      MTCProof makes it structurally inseparable from the certificate.
 
    *  *The OCSP stapling lesson:* OCSP stapling was defined as optional,
       requiring servers to opt in.  After more than a decade, stapling
       adoption remains incomplete, and browsers have been unable to
-      enforce hard-fail policies.  Any optional mechanism will repeat
-      this outcome.
+      enforce hard-fail policies.  Any mechanism that relies on a
+      separate signaling channel risks the same outcome.
 
-   *  *Semantic ambiguity:* An absent extension could mean "server
-      doesn't support it," "server forgot to configure it," or
-      "certificate has been revoked."  Without universal deployment,
-      hard-fail is impossible.
+   *  *Unnecessary complexity:* Defining a new TLS extension type
+      requires IANA registration and implementation changes in TLS
+      stacks.  Embedding in the MTCProof requires no TLS-layer changes
+      beyond MTC support itself.
 
 C.3.  Shorter Certificate Lifetimes
 

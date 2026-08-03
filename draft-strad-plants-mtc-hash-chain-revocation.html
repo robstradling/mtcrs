@@ -6,21 +6,21 @@
 <meta content="initial-scale=1.0" name="viewport">
 <title>Hash Chain Revocation for Merkle Tree Certificates</title>
 <meta content="Rob Stradling" name="author">
-<meta content='
+<meta content="
        This document defines a hash chain revocation mechanism for Merkle
 Tree Certificates (MTC)  .  A
 Merkle Tree CA commits a hash chain anchor into the certificate at
 issuance time.  Periodically, the CA reveals hash chain values that
-serve as proof of non-revocation.  The authenticating party includes
-the current hash chain value (a "tick") in the TLS handshake,
-enabling the relying party to cryptographically verify that the
-certificate has not been revoked, with granularity as fine as one
-hour. 
+serve as proof of non-revocation.  The authenticating party embeds
+the current hash chain value (a &quot;tick&quot;) in the certificate's
+MTCProof, enabling the relying party to cryptographically verify
+that the certificate has not been revoked, with granularity as fine
+as one hour. 
        This mechanism provides timely revocation without requiring
 signatures per revocation check, without relying on the relying
 party to poll for revocation updates, and without introducing new
 trust relationships beyond the existing CA. 
-    ' name="description">
+    " name="description">
 <meta content="xml2rfc 3.34.0" name="generator">
 <meta content="merkle tree certificates" name="keyword">
 <meta content="hash chain" name="keyword">
@@ -1068,7 +1068,7 @@ svg {
 <div id="internal-metadata" class="document-information">
 <dl id="identifiers">
 <dt class="label-workgroup">Workgroup:</dt>
-<dd class="workgroup">PLANTS Working Group</dd>
+<dd class="workgroup">PKI, Logs, And Tree Signatures</dd>
 <dt class="label-internet-draft">Internet-Draft:</dt>
 <dd class="internet-draft">draft-strad-plants-mtc-hash-chain-revocation-latest</dd>
 <dt class="label-published">Published:</dt>
@@ -1095,11 +1095,11 @@ svg {
 Tree Certificates (MTC) <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.  A
 Merkle Tree CA commits a hash chain anchor into the certificate at
 issuance time.  Periodically, the CA reveals hash chain values that
-serve as proof of non-revocation.  The authenticating party includes
-the current hash chain value (a "tick") in the TLS handshake,
-enabling the relying party to cryptographically verify that the
-certificate has not been revoked, with granularity as fine as one
-hour.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+serve as proof of non-revocation.  The authenticating party embeds
+the current hash chain value (a "tick") in the certificate's
+MTCProof, enabling the relying party to cryptographically verify
+that the certificate has not been revoked, with granularity as fine
+as one hour.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 <p id="section-abstract-2">This mechanism provides timely revocation without requiring
 signatures per revocation check, without relying on the relying
 party to poll for revocation updates, and without introducing new
@@ -1115,8 +1115,8 @@ trust relationships beyond the existing CA.<a href="#section-abstract-2" class="
         Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation/">https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
 <p id="section-note.1-3">
         Discussion of this document takes place on the
-        PLANTS Working Group mailing list (<span><a href="mailto:plants@ietf.org">mailto:plants@ietf.org</a></span>),
-        which is archived at <span><a href="https://mailarchive.ietf.org/arch/browse/plants/">https://mailarchive.ietf.org/arch/browse/plants/</a></span>.
+        PKI, Logs, And Tree Signatures Working Group mailing list (<span><a href="mailto:plants@ietf.org">mailto:plants@ietf.org</a></span>),
+        which is archived at <span><a href="https://mailarchive.ietf.org/arch/browse/plants">https://mailarchive.ietf.org/arch/browse/plants</a></span>.
         Subscribe at <span><a href="https://www.ietf.org/mailman/listinfo/plants/">https://www.ietf.org/mailman/listinfo/plants/</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
 <p id="section-note.1-4">Source for this draft and an issue tracker can be found at
         <span><a href="https://github.com/robstradling/mtc-with-hash-chain-revocation">https://github.com/robstradling/mtc-with-hash-chain-revocation</a></span>.<a href="#section-note.1-4" class="pilcrow">¶</a></p>
@@ -1259,9 +1259,6 @@ trust relationships beyond the existing CA.<a href="#section-abstract-2" class="
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
                 <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-certificate-extension" class="internal xref">Certificate Extension</a></p>
 </li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
-                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-tls-extensiontype" class="internal xref">TLS ExtensionType</a></p>
-</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
@@ -1288,7 +1285,7 @@ trust relationships beyond the existing CA.<a href="#section-abstract-2" class="
                 <p id="section-toc.1-1.12.2.2.1"><a href="#appendix-B.2" class="auto internal xref">B.2</a>.  <a href="#name-why-one-hour-or-one-day-per" class="internal xref">Why One Hour (or One Day) Periods</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.3">
-                <p id="section-toc.1-1.12.2.3.1"><a href="#appendix-B.3" class="auto internal xref">B.3</a>.  <a href="#name-why-include-the-tick-in-the" class="internal xref">Why Include the Tick in the Certificate Structure</a></p>
+                <p id="section-toc.1-1.12.2.3.1"><a href="#appendix-B.3" class="auto internal xref">B.3</a>.  <a href="#name-why-embed-the-tick-in-the-m" class="internal xref">Why Embed the Tick in the MTCProof</a></p>
 </li>
             </ul>
 </li>
@@ -1299,7 +1296,7 @@ trust relationships beyond the existing CA.<a href="#section-abstract-2" class="
                 <p id="section-toc.1-1.13.2.1.1"><a href="#appendix-C.1" class="auto internal xref">C.1</a>.  <a href="#name-dns-based-tick-distribution" class="internal xref">DNS-Based Tick Distribution</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.2">
-                <p id="section-toc.1-1.13.2.2.1"><a href="#appendix-C.2" class="auto internal xref">C.2</a>.  <a href="#name-tls-extension-optional-stap" class="internal xref">TLS Extension (Optional Stapling)</a></p>
+                <p id="section-toc.1-1.13.2.2.1"><a href="#appendix-C.2" class="auto internal xref">C.2</a>.  <a href="#name-tls-extension-separate-from" class="internal xref">TLS Extension (Separate from Certificate)</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.3">
                 <p id="section-toc.1-1.13.2.3.1"><a href="#appendix-C.3" class="auto internal xref">C.3</a>.  <a href="#name-shorter-certificate-lifetim" class="internal xref">Shorter Certificate Lifetimes</a></p>
@@ -1344,10 +1341,10 @@ but does not define an in-band revocation mechanism.<a href="#section-1-2" class
 the MTC log entry as an X.509 extension.  Each revocation period
 (e.g., every hour), the CA reveals the next hash chain value for all
 non-revoked certificates.  To revoke a certificate, the CA simply
-stops revealing values.  The authenticating party (server) includes
-the current hash chain value in its TLS Certificate message, and the
-relying party (client) verifies it against the anchor committed in
-the log entry.<a href="#section-1-3" class="pilcrow">¶</a></p>
+stops revealing values.  The authenticating party (server) embeds
+the current hash chain value in the certificate's MTCProof (the
+signatureValue), and the relying party (client) verifies it against
+the anchor committed in the log entry.<a href="#section-1-3" class="pilcrow">¶</a></p>
 <p id="section-1-4">This approach achieves the following properties:<a href="#section-1-4" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-1-5.1">
@@ -1373,7 +1370,7 @@ relationships or authenticated channels are needed.<a href="#section-1-5.4.1" cl
 </li>
         <li class="normal" id="section-1-5.5">
           <p id="section-1-5.5.1"><strong>Minimal overhead:</strong> A single hash value (32 bytes for SHA-256)
-is added to the TLS Certificate message.<a href="#section-1-5.5.1" class="pilcrow">¶</a></p>
+is added to the certificate's MTCProof.<a href="#section-1-5.5.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 <div id="rationale-for-this-approach">
@@ -1572,10 +1569,19 @@ this mechanism <span class="bcp14">MUST</span> enforce hash chain verification a
         </h3>
 <p id="section-5.1-1">When a hash chain anchor extension is present in the certificate,
 the authenticating party <span class="bcp14">MUST</span> include a hash chain tick in the
-TLS CertificateEntry alongside the certificate.  The tick is
-carried in a new TLS CertificateEntry extension:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+MTCProof structure (carried in the certificate's signatureValue).
+This document extends the MTCProof with a status_tick field:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-5.1-2">
 <pre>
+struct {
+    MerkleTreeCertEntryExtension extensions&lt;0..2^16-1&gt;;
+    uint48 start;
+    uint48 end;
+    HashValue inclusion_proof&lt;0..2^16-1&gt;;
+    MTCSignature signatures&lt;0..2^16-1&gt;;
+    HashChainTick status_tick;
+} MTCProof;
+
 struct {
     uint32 period;
     opaque value[HASH_SIZE];
@@ -1594,10 +1600,19 @@ struct {
 </dd>
         <dd class="break"></dd>
 </dl>
-<p id="section-5.1-4">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick with a
+<p id="section-5.1-4">The status_tick field <span class="bcp14">MUST</span> be present in the MTCProof whenever the
+certificate's TBSCertificate contains the id-pe-hashChainAnchor
+extension.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+<p id="section-5.1-5">Since the MTCProof is not committed to the Merkle Tree (only the
+TBSCertificateLogEntry is hashed into the tree), the status_tick
+can be updated each period without affecting the inclusion proof or
+cosignatures.  The authenticating party reconstructs or replaces
+the signatureValue with a fresh tick while reusing the same
+inclusion proof and signatures.<a href="#section-5.1-5" class="pilcrow">¶</a></p>
+<p id="section-5.1-6">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick with a
 period value that is current at the time of the TLS handshake.  A
 relying party <span class="bcp14">SHOULD</span> accept ticks for the current period or the
-immediately preceding period, to allow for clock skew and caching.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+immediately preceding period, to allow for clock skew and caching.<a href="#section-5.1-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="tls-use">
@@ -1605,25 +1620,14 @@ immediately preceding period, to allow for clock skew and caching.<a href="#sect
         <h3 id="name-use-in-tls">
 <a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-use-in-tls" class="section-name selfRef">Use in TLS</a>
         </h3>
-<p id="section-5.2-1">This document defines a new TLS CertificateEntry extension type:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-5.2-2">
-<pre>
-enum {
-    ...
-    hash_chain_tick(TBD),
-    (2^16-1)
-} ExtensionType;
-</pre><a href="#section-5.2-2" class="pilcrow">¶</a>
-</div>
-<p id="section-5.2-3">When an authenticating party presents a Merkle Tree Certificate
-whose TBSCertificate contains the id-pe-hashChainAnchor extension,
-it <span class="bcp14">MUST</span> include the hash_chain_tick extension in the
-CertificateEntry.  The extension_data contains the serialized
-HashChainTick structure.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
-<p id="section-5.2-4">The presence of id-pe-hashChainAnchor in the certificate signals to
-the relying party that a hash_chain_tick extension is required in
-the CertificateEntry.  If the extension is absent or the tick
-fails verification, the relying party <span class="bcp14">MUST</span> reject the certificate.<a href="#section-5.2-4" class="pilcrow">¶</a></p>
+<p id="section-5.2-1">No new TLS extension type is required.  When the authenticating
+party presents a Merkle Tree Certificate, the hash chain tick is
+carried within the certificate's signatureValue as part of the
+MTCProof, which is already transmitted in the CertificateEntry.<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2-2">The presence of id-pe-hashChainAnchor in the TBSCertificate signals
+to the relying party that the MTCProof contains a status_tick
+field.  If the field is absent, malformed, or fails verification,
+the relying party <span class="bcp14">MUST</span> reject the certificate.<a href="#section-5.2-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1643,10 +1647,11 @@ id-pe-hashChainAnchor extension.  If not present, skip hash chain
 verification (the certificate does not use this mechanism).<a href="#section-6-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-6-2.2">
-          <p id="section-6-2.2.1">Extract the HashChainTick from the hash_chain_tick
-CertificateEntry extension.  If the id-pe-hashChainAnchor
-extension is present but no hash_chain_tick extension is
-provided, reject the certificate with a bad_certificate error.<a href="#section-6-2.2.1" class="pilcrow">¶</a></p>
+          <p id="section-6-2.2.1">Extract the HashChainTick from the status_tick field of the
+MTCProof (in the certificate's signatureValue).  If the
+id-pe-hashChainAnchor extension is present but the MTCProof does
+not contain a status_tick, reject the certificate with a
+bad_certificate error.<a href="#section-6-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-6-2.3">
           <p id="section-6-2.3.1">Compute the expected period from the current time:<a href="#section-6-2.3.1" class="pilcrow">¶</a></p>
@@ -1723,12 +1728,13 @@ from the CA:<a href="#section-7.2-1" class="pilcrow">¶</a></p>
 fetches its updated HashChainTick.<a href="#section-7.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-7.2-2.2">
-            <p id="section-7.2-2.2.1">The authenticating party replaces its stored tick with the
-newly fetched value.<a href="#section-7.2-2.2.1" class="pilcrow">¶</a></p>
+            <p id="section-7.2-2.2.1">The authenticating party updates the status_tick field in its
+certificate's MTCProof (signatureValue) with the newly fetched
+value.  The inclusion proof and cosignatures remain unchanged.<a href="#section-7.2-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-7.2-2.3">
-            <p id="section-7.2-2.3.1">During TLS handshakes, the authenticating party includes the
-stored tick in its certificate presentation.<a href="#section-7.2-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-7.2-2.3.1">During TLS handshakes, the authenticating party presents the
+certificate with the current status_tick.<a href="#section-7.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 <p id="section-7.2-3">If the authenticating party is unable to obtain a fresh tick
@@ -1850,34 +1856,6 @@ Security for PKIX Certificate Extension" registry:<a href="#section-9.1-1" class
             <tr>
               <td class="text-left" rowspan="1" colspan="1">TBD</td>
               <td class="text-left" rowspan="1" colspan="1">id-pe-hashChainAnchor</td>
-              <td class="text-left" rowspan="1" colspan="1">This document</td>
-            </tr>
-          </tbody>
-        </table>
-</section>
-</div>
-<div id="tls-extensiontype">
-<section id="section-9.2">
-        <h3 id="name-tls-extensiontype">
-<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-tls-extensiontype" class="section-name selfRef">TLS ExtensionType</a>
-        </h3>
-<p id="section-9.2-1">IANA is requested to register the following entry in the TLS
-ExtensionType Values registry:<a href="#section-9.2-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-2">
-          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
-<thead>
-            <tr>
-              <th class="text-left" rowspan="1" colspan="1">Value</th>
-              <th class="text-left" rowspan="1" colspan="1">Extension Name</th>
-              <th class="text-left" rowspan="1" colspan="1">TLS 1.3</th>
-              <th class="text-left" rowspan="1" colspan="1">Reference</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">TBD</td>
-              <td class="text-left" rowspan="1" colspan="1">hash_chain_tick</td>
-              <td class="text-left" rowspan="1" colspan="1">CH, CT</td>
               <td class="text-left" rowspan="1" colspan="1">This document</td>
             </tr>
           </tbody>
@@ -2093,35 +2071,43 @@ the cost of up to 48-hour revocation latency.  Deployments <span class="bcp14">S
 choose the shortest period operationally feasible.<a href="#appendix-B.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="why-include-the-tick-in-the-certificate-structure">
+<div id="why-embed-the-tick-in-the-mtcproof">
 <section id="appendix-B.3">
-        <h3 id="name-why-include-the-tick-in-the">
-<a href="#appendix-B.3" class="section-number selfRef">B.3. </a><a href="#name-why-include-the-tick-in-the" class="section-name selfRef">Why Include the Tick in the Certificate Structure</a>
+        <h3 id="name-why-embed-the-tick-in-the-m">
+<a href="#appendix-B.3" class="section-number selfRef">B.3. </a><a href="#name-why-embed-the-tick-in-the-m" class="section-name selfRef">Why Embed the Tick in the MTCProof</a>
         </h3>
-<p id="appendix-B.3-1">The tick is included as a mandatory part of the certificate
-presentation rather than delivered via a separate channel because:<a href="#appendix-B.3-1" class="pilcrow">¶</a></p>
+<p id="appendix-B.3-1">The tick is embedded directly in the MTCProof (the certificate's
+signatureValue) rather than delivered via a separate channel
+because:<a href="#appendix-B.3-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="appendix-B.3-2">
 <li id="appendix-B.3-2.1">
-            <p id="appendix-B.3-2.1.1"><strong>No soft-fail ambiguity:</strong> If the tick is separate (e.g., via
-DNS or a TLS extension), a missing tick could indicate either
-revocation or a delivery failure.  When the tick is mandatory,
-its absence always means the certificate is invalid.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
+            <p id="appendix-B.3-2.1.1"><strong>Structurally inseparable:</strong> The tick is part of the certificate
+itself.  A relying party that parses the MTCProof will always
+encounter the status_tick field.  There is no possibility of the
+tick being stripped or omitted in transit.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-B.3-2.2">
-            <p id="appendix-B.3-2.2.1"><strong>No additional round-trips:</strong> The tick travels with the
-certificate in the same TLS message.  No DNS lookups or
-side-channel fetches are needed by the relying party.<a href="#appendix-B.3-2.2.1" class="pilcrow">¶</a></p>
+            <p id="appendix-B.3-2.2.1"><strong>No new protocol machinery:</strong> No TLS CertificateEntry extension
+or other signaling mechanism is needed.  The tick travels inside
+the existing certificate structure, requiring no changes to TLS
+implementations beyond MTC support.<a href="#appendix-B.3-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-B.3-2.3">
-            <p id="appendix-B.3-2.3.1"><strong>Universal applicability:</strong> Works for all TLS connections, not
-only HTTPS.  Mechanisms that depend on DNS or HTTP are limited to
-protocols where those channels are available.<a href="#appendix-B.3-2.3.1" class="pilcrow">¶</a></p>
+            <p id="appendix-B.3-2.3.1"><strong>Safe to update dynamically:</strong> The MTCProof is not committed to
+the Merkle Tree — only the TBSCertificateLogEntry is.  The
+authenticating party can freely replace the signatureValue each
+period without invalidating the inclusion proof or cosignatures.<a href="#appendix-B.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-B.3-2.4">
-            <p id="appendix-B.3-2.4.1"><strong>Server must participate:</strong> The authenticating party is already
+            <p id="appendix-B.3-2.4.1"><strong>No additional round-trips:</strong> The tick travels with the
+certificate in the same TLS message.  No DNS lookups or
+side-channel fetches are needed by the relying party.<a href="#appendix-B.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.3-2.5">
+            <p id="appendix-B.3-2.5.1"><strong>Server must participate:</strong> The authenticating party is already
 responsible for maintaining its MTC certificate and refreshing it
 before expiry.  Adding a lightweight hourly tick refresh is an
-incremental burden, not a new class of operational requirement.<a href="#appendix-B.3-2.4.1" class="pilcrow">¶</a></p>
+incremental burden, not a new class of operational requirement.<a href="#appendix-B.3-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 </section>
@@ -2175,28 +2161,33 @@ this property over hard-fail semantics <span class="bcp14">MAY</span> define a D
 distribution profile in a separate document.<a href="#appendix-C.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="tls-extension-optional-stapling">
+<div id="tls-extension-separate-from-certificate">
 <section id="appendix-C.2">
-        <h3 id="name-tls-extension-optional-stap">
-<a href="#appendix-C.2" class="section-number selfRef">C.2. </a><a href="#name-tls-extension-optional-stap" class="section-name selfRef">TLS Extension (Optional Stapling)</a>
+        <h3 id="name-tls-extension-separate-from">
+<a href="#appendix-C.2" class="section-number selfRef">C.2. </a><a href="#name-tls-extension-separate-from" class="section-name selfRef">TLS Extension (Separate from Certificate)</a>
         </h3>
-<p id="appendix-C.2-1">Another alternative was defining a new TLS extension that optionally
-carries the hash chain tick, analogous to the status_request
-extension used for OCSP stapling.<a href="#appendix-C.2-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.2-1">Another alternative was carrying the hash chain tick in a TLS
+CertificateEntry extension or a separate TLS extension, rather than
+embedding it in the MTCProof.<a href="#appendix-C.2-1" class="pilcrow">¶</a></p>
 <p id="appendix-C.2-2">This approach was rejected because:<a href="#appendix-C.2-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="appendix-C.2-3.1">
-            <p id="appendix-C.2-3.1.1"><strong>The OCSP stapling lesson:</strong> OCSP stapling was defined as
-optional, requiring servers to opt in.  After more than a decade,
-stapling adoption remains incomplete, and browsers have been unable
-to enforce hard-fail policies.  Any optional mechanism will repeat
-this outcome.<a href="#appendix-C.2-3.1.1" class="pilcrow">¶</a></p>
+            <p id="appendix-C.2-3.1.1"><strong>Strippable:</strong> A TLS extension can potentially be omitted by
+middleboxes or misconfigured servers.  Embedding the tick in the
+MTCProof makes it structurally inseparable from the certificate.<a href="#appendix-C.2-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-C.2-3.2">
-            <p id="appendix-C.2-3.2.1"><strong>Semantic ambiguity:</strong> An absent extension could mean "server
-doesn't support it," "server forgot to configure it," or
-"certificate has been revoked."  Without universal deployment,
-hard-fail is impossible.<a href="#appendix-C.2-3.2.1" class="pilcrow">¶</a></p>
+            <p id="appendix-C.2-3.2.1"><strong>The OCSP stapling lesson:</strong> OCSP stapling was defined as
+optional, requiring servers to opt in.  After more than a decade,
+stapling adoption remains incomplete, and browsers have been unable
+to enforce hard-fail policies.  Any mechanism that relies on a
+separate signaling channel risks the same outcome.<a href="#appendix-C.2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.2-3.3">
+            <p id="appendix-C.2-3.3.1"><strong>Unnecessary complexity:</strong> Defining a new TLS extension type
+requires IANA registration and implementation changes in TLS
+stacks.  Embedding in the MTCProof requires no TLS-layer changes
+beyond MTC support itself.<a href="#appendix-C.2-3.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
