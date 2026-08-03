@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Hash Chain Revocation for Merkle Tree Certificates</title>
+<meta content="Rob Stradling" name="author">
+<meta content='
+       This document defines a hash chain revocation mechanism for Merkle
+Tree Certificates (MTC)  .  A
+Merkle Tree CA commits a hash chain anchor into the certificate at
+issuance time.  Periodically, the CA reveals hash chain values that
+serve as proof of non-revocation.  The authenticating party includes
+the current hash chain value (a "tick") in the TLS handshake,
+enabling the relying party to cryptographically verify that the
+certificate has not been revoked, with granularity as fine as one
+hour. 
+       This mechanism provides timely revocation without requiring
+signatures per revocation check, without relying on the relying
+party to poll for revocation updates, and without introducing new
+trust relationships beyond the existing CA. 
+    ' name="description">
+<meta content="xml2rfc 3.34.0" name="generator">
+<meta content="merkle tree certificates" name="keyword">
+<meta content="hash chain" name="keyword">
+<meta content="revocation" name="keyword">
+<meta content="micali" name="keyword">
+<meta content="draft-strad-plants-mtc-hash-chain-revocation-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.34.0
+    Python 3.14.5
+    ConfigArgParse 1.7.5
+    google-i18n-address 3.1.1
+    intervaltree 3.2.1
+    Jinja2 3.1.6
+    lxml 6.1.1
+    natsort 8.4.0
+    platformdirs 4.11.0
+    pycountry 24.6.1
+    PyYAML 6.0.3
+    requests 2.33.1
+    wcwidth 0.8.2
+-->
+<link href="draft-strad-plants-mtc-hash-chain-revocation.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1 {
+  &#title {
+    font-size: 32px;
+    line-height: 40px;
+    clear: both;
+    margin: 1.5em 0 0.2em;
+  }
+  &#rfcnum {
+    margin: 1.5em 0 0.2em;
+    & + h1#title {
+      margin: 0.2em 0;
+    }
+  }
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+  & code, & samp, & tt {
+    font-size: 16px;
+    line-height: 0;
+  }
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    margin: 0;
+    float: right;
+    clear: both;
+  }
+  & > *:nth-child(2) {
+    clear: both;
+    display: block;
+    border: none;
+  }
+}
+svg {
+  display: block;
+  /* font-family isn't space-separated, but =~ will have to do */
+  &[font-family~="monospace" i], & [font-family~="monospace" i] {
+    font-family: var(--font-mono);
+  }
+}
+.alignCenter {
+  margin: 1em 0;
+  &.art-text {
+    background-color: var(--highlight-color);
+    border: 1px solid var(--line-color);
+    border-radius: 3px;
+    padding: 0.5em 1em 0;
+    margin-bottom: 0.5em;
+    & pre {
+      padding: 0;
+      width: auto;
+    }
+  }
+  & > *:first-child {
+    border: none;
+    /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+       support flexbox yet.
+    */
+    display: table;
+    margin: 0 auto;
+  }
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+      float: none;
+    }
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+
+  &:not(.dlNewline) > dt {
+    float: left;
+    margin-right: 2ch;
+    min-width: 8ch;
+  }
+  & > dd {
+    margin-bottom: .8em;
+    margin-left: var(--indent) !important; /* stupid element overrides */
+    min-height: 2ex;
+  }
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a {
+  text-decoration: none;
+  &[href] {
+    color: var(--link-color);
+    &:hover { text-decoration: underline; }
+    &.selfRef {
+      color: var(--text-color);
+      &:hover {
+        text-decoration: none;
+        background-color: var(--highlight-color);
+      }
+    }
+  }
+}
+.iref + a[href].internal {
+  color: var(--text-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+  & blockquote {
+    margin: 0.8em 0.4em 0.4em;
+  }
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) {
+    & p {
+      margin: -2px 0;
+      max-height: 0;
+      transition: max-height 2s ease, margin 0.5s ease 0.5s;
+      overflow: hidden;
+    }
+    &:hover p,
+    & h2:target ~ p {
+      margin: 0.5em 0;
+      max-height: 500px;
+      overflow: auto;
+    }
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+  border-left: 2px var(--pilcrow-strong) solid;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+  &.right { margin-left: auto; }
+  &.center { margin-left: auto; margin-right: auto; }
+  &.left { margin-right: auto; }
+  & .text-left { text-align: left; }
+  & .text-center { text-align: center; }
+  & .text-right { text-align: right; }
+  & caption {
+    margin: 0;
+    padding: 3px 0 3px 1em;
+  }
+  & p { margin: 0; }
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+  @media not print {
+    :hover > &, &:focus {
+      opacity: 1;
+    }
+    &[href]:hover {
+      color: var(--pilcrow-strong);
+      background-color: transparent;
+    }
+  }
+  @media print {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+  & .prepared {
+    float: right;
+  }
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses {
+    & > section {
+      column-count: 2;
+      column-gap: 20px;
+    }
+    & > section > h2 {
+      column-span: all;
+    }
+    /* hack for break-inside: avoid-column */
+    & address {
+      display: inline-block;
+      break-inside: avoid-column;
+    }
+  }
+}
+
+/* Comments */
+.rfcEditorRemove {
+  & p:first-of-type {
+    font-style: italic;
+  }
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc {
+    & nav {
+      font-family: var(--font-title);
+      font-weight: 360;
+      & > ul { margin-bottom: 2em; }
+      & ul {
+        margin: 0 0 0 4px;
+        & :is(p, li) {
+          margin: 2px 0;
+        }
+      }
+    }
+    & a.toplink {
+      float: right;
+    }
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+    & h2 {
+      margin: 0;
+      padding: 2px 0 2px 6px;
+      padding-right: 1em;
+      font-size: 18px;
+      line-height: 24px;
+      min-width: 190px;
+      text-align: right;
+      background-color: #444;
+      color: white;
+      cursor: pointer;
+      &::before { /* css hamburger */
+        float: right;
+        position: relative;
+        width: 1em;
+        height: 1px;
+        left: -164px;
+        margin: 8px 0 0 0;
+        background: white none repeat scroll 0 0;
+        box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+        content: "";
+      }
+    }
+    & nav {
+      display: none;
+      background-color: var(--background-color);
+      padding: 0.5em 1em 1em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      height: calc(100vh - 48px);
+      border-left: 1px solid #ddd;
+    }
+    &.active {
+      opacity: 1;
+      & nav { display: block; }
+    }
+    /* Make the collapsed ToC header render white on gray also when it's a link */
+    & h2 a,
+    & h2 a:is(:link, :focus, :hover),
+    & a.toplink,
+    & a.toplink:hover {
+      color: white;
+      background-color: #444;
+      text-decoration: none;
+    }
+    & a.toplink {
+      margin: 2px 0.5em 0;
+    }
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+    & h2 {
+      margin: 0;
+      padding: 0.25em 1em 1em 0;
+    }
+    & nav {
+      display: block;
+      height: calc(90vh - 84px);
+      bottom: 0;
+      padding: 0.5em 0 2em;
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    & a.toplink {
+      margin: 8px 0.5em 0;
+    }
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc {
+    page-break-before: always;
+    border-top: none;
+    padding-top: 0;
+  }
+  #n-introduction {
+    page-break-before: always;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg {
+  & :is([stroke="black"], [stroke^="#000"]) {
+    stroke: var(--text-color);
+  }
+  & :is([stroke="white"], [stroke^="#fff"]) {
+    stroke: var(--background-color);
+  }
+  & :is([fill="black"], [fill^="#000"], :not([fill])) {
+    fill: var(--text-color);
+  }
+  & :is([fill="white"], [fill^="#fff"]) {
+    fill: var(--background-color);
+  }
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">MTC Hash Chain Revocation</td>
+<td class="right">August 2026</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Stradling</td>
+<td class="center">Expires 4 February 2027</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">PLANTS Working Group</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-strad-plants-mtc-hash-chain-revocation-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2026-08-03" class="published">3 August 2026</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Experimental</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2027-02-04">4 February 2027</time></dd>
+<dt class="label-authors">Author:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">R. Stradling</div>
+<div class="org">Sectigo</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Hash Chain Revocation for Merkle Tree Certificates</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">This document defines a hash chain revocation mechanism for Merkle
+Tree Certificates (MTC) <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.  A
+Merkle Tree CA commits a hash chain anchor into the certificate at
+issuance time.  Periodically, the CA reveals hash chain values that
+serve as proof of non-revocation.  The authenticating party includes
+the current hash chain value (a "tick") in the TLS handshake,
+enabling the relying party to cryptographically verify that the
+certificate has not been revoked, with granularity as fine as one
+hour.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-2">This mechanism provides timely revocation without requiring
+signatures per revocation check, without relying on the relying
+party to poll for revocation updates, and without introducing new
+trust relationships beyond the existing CA.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        The latest revision of this draft can be found at <span><a href="https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html">https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html</a></span>.
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation/">https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">
+        Discussion of this document takes place on the
+        PLANTS Working Group mailing list (<span><a href="mailto:plants@ietf.org">mailto:plants@ietf.org</a></span>),
+        which is archived at <span><a href="https://mailarchive.ietf.org/arch/browse/plants/">https://mailarchive.ietf.org/arch/browse/plants/</a></span>.
+        Subscribe at <span><a href="https://www.ietf.org/mailman/listinfo/plants/">https://www.ietf.org/mailman/listinfo/plants/</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+<p id="section-note.1-4">Source for this draft and an issue tracker can be found at
+        <span><a href="https://github.com/robstradling/mtc-with-hash-chain-revocation">https://github.com/robstradling/mtc-with-hash-chain-revocation</a></span>.<a href="#section-note.1-4" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 4 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2026 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.1">
+                <p id="section-toc.1-1.1.2.1.1" class="keepWithNext"><a href="#section-1.1" class="auto internal xref">1.1</a>.  <a href="#name-rationale-for-this-approach" class="internal xref">Rationale for This Approach</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-hash-chain-construction" class="internal xref">Hash Chain Construction</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
+                <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-parameters" class="internal xref">Parameters</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
+                <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-chain-generation" class="internal xref">Chain Generation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3">
+                <p id="section-toc.1-1.3.2.3.1"><a href="#section-3.3" class="auto internal xref">3.3</a>.  <a href="#name-period-numbering" class="internal xref">Period Numbering</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.4">
+                <p id="section-toc.1-1.3.2.4.1"><a href="#section-3.4" class="auto internal xref">3.4</a>.  <a href="#name-revealing-values" class="internal xref">Revealing Values</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.5">
+                <p id="section-toc.1-1.3.2.5.1"><a href="#section-3.5" class="auto internal xref">3.5</a>.  <a href="#name-security-of-the-hash-chain" class="internal xref">Security of the Hash Chain</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-integration-with-mtc-log-en" class="internal xref">Integration with MTC Log Entries</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-hash-chain-anchor-extension" class="internal xref">Hash Chain Anchor Extension</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-certificate-presentation" class="internal xref">Certificate Presentation</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-hash-chain-tick" class="internal xref">Hash Chain Tick</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-use-in-tls" class="internal xref">Use in TLS</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-verification" class="internal xref">Verification</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-tick-distribution" class="internal xref">Tick Distribution</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-http-interface" class="internal xref">HTTP Interface</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-operational-model" class="internal xref">Operational Model</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.1">
+                <p id="section-toc.1-1.8.2.1.1"><a href="#section-8.1" class="auto internal xref">8.1</a>.  <a href="#name-hash-function-requirements" class="internal xref">Hash Function Requirements</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.2">
+                <p id="section-toc.1-1.8.2.2.1"><a href="#section-8.2" class="auto internal xref">8.2</a>.  <a href="#name-seed-confidentiality" class="internal xref">Seed Confidentiality</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.3">
+                <p id="section-toc.1-1.8.2.3.1"><a href="#section-8.3" class="auto internal xref">8.3</a>.  <a href="#name-denial-of-service-via-tick-" class="internal xref">Denial of Service via Tick Withholding</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.4">
+                <p id="section-toc.1-1.8.2.4.1"><a href="#section-8.4" class="auto internal xref">8.4</a>.  <a href="#name-interaction-with-base-mtc-r" class="internal xref">Interaction with Base MTC Revocation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.5">
+                <p id="section-toc.1-1.8.2.5.1"><a href="#section-8.5" class="auto internal xref">8.5</a>.  <a href="#name-clock-skew" class="internal xref">Clock Skew</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-certificate-extension" class="internal xref">Certificate Extension</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-tls-extensiontype" class="internal xref">TLS ExtensionType</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#appendix-A" class="auto internal xref">Appendix A</a>.  <a href="#name-hash-chain-input-encoding" class="internal xref">Hash Chain Input Encoding</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#appendix-B" class="auto internal xref">Appendix B</a>.  <a href="#name-design-rationale" class="internal xref">Design Rationale</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.1">
+                <p id="section-toc.1-1.12.2.1.1"><a href="#appendix-B.1" class="auto internal xref">B.1</a>.  <a href="#name-why-hash-chains-micali-inst" class="internal xref">Why Hash Chains (Micali) Instead of Other Revocation Mechanisms</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.2">
+                <p id="section-toc.1-1.12.2.2.1"><a href="#appendix-B.2" class="auto internal xref">B.2</a>.  <a href="#name-why-one-hour-or-one-day-per" class="internal xref">Why One Hour (or One Day) Periods</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.3">
+                <p id="section-toc.1-1.12.2.3.1"><a href="#appendix-B.3" class="auto internal xref">B.3</a>.  <a href="#name-why-include-the-tick-in-the" class="internal xref">Why Include the Tick in the Certificate Structure</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#appendix-C" class="auto internal xref">Appendix C</a>.  <a href="#name-alternatives-considered" class="internal xref">Alternatives Considered</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1">
+                <p id="section-toc.1-1.13.2.1.1"><a href="#appendix-C.1" class="auto internal xref">C.1</a>.  <a href="#name-dns-based-tick-distribution" class="internal xref">DNS-Based Tick Distribution</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.2">
+                <p id="section-toc.1-1.13.2.2.1"><a href="#appendix-C.2" class="auto internal xref">C.2</a>.  <a href="#name-tls-extension-optional-stap" class="internal xref">TLS Extension (Optional Stapling)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.3">
+                <p id="section-toc.1-1.13.2.3.1"><a href="#appendix-C.3" class="auto internal xref">C.3</a>.  <a href="#name-shorter-certificate-lifetim" class="internal xref">Shorter Certificate Lifetimes</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.4">
+                <p id="section-toc.1-1.13.2.4.1"><a href="#appendix-C.4" class="auto internal xref">C.4</a>.  <a href="#name-crlite-crlsets-external-rev" class="internal xref">CRLite / CRLSets / External Revocation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.5">
+                <p id="section-toc.1-1.13.2.5.1"><a href="#appendix-C.5" class="auto internal xref">C.5</a>.  <a href="#name-per-certificate-signatures-" class="internal xref">Per-Certificate Signatures (OCSP-like)</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#appendix-D" class="auto internal xref"></a><a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
+            <p id="section-toc.1-1.15.1"><a href="#appendix-E" class="auto internal xref"></a><a href="#name-authors-address" class="internal xref">Author's Address</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">Merkle Tree Certificates <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>
+authenticate TLS connections using compact inclusion proofs into a
+Merkle Tree maintained by a certification authority (CA).  The base
+MTC specification uses a short-lived certificates model, where
+certificate expiration replaces explicit revocation signals.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">However, deployments such as Chrome's draft MTC policy <span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span>
+permit certificate lifetimes of up to 47 days.  At this timescale,
+key compromise or certificate misissuance can cause significant harm
+before natural expiry.  The base MTC specification acknowledges this
+gap and suggests that relying parties with access to external
+revocation systems like <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> or <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span> <span class="bcp14">SHOULD</span> use them,
+but does not define an in-band revocation mechanism.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">This document defines such a mechanism based on hash chains
+<span>[<a href="#MICALI" class="cite xref">MICALI</a>]</span>.  At issuance, the CA commits a hash chain anchor into
+the MTC log entry as an X.509 extension.  Each revocation period
+(e.g., every hour), the CA reveals the next hash chain value for all
+non-revoked certificates.  To revoke a certificate, the CA simply
+stops revealing values.  The authenticating party (server) includes
+the current hash chain value in its TLS Certificate message, and the
+relying party (client) verifies it against the anchor committed in
+the log entry.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">This approach achieves the following properties:<a href="#section-1-4" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1-5.1">
+          <p id="section-1-5.1.1"><strong>Timely revocation:</strong> Revocation takes effect within one period
+(e.g., one hour), regardless of when the relying party last
+updated its trusted subtrees.<a href="#section-1-5.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-5.2">
+          <p id="section-1-5.2.1"><strong>No per-check signatures:</strong> Unlike OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>, verification
+requires only hash computations, not signature verification.  The
+CA incurs no signing load for revocation status.<a href="#section-1-5.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-5.3">
+          <p id="section-1-5.3.1"><strong>Mandatory enforcement:</strong> The hash chain value is a required
+component of the certificate presentation.  Unlike OCSP stapling,
+the mechanism cannot be silently omitted by the authenticating
+party.<a href="#section-1-5.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-5.4">
+          <p id="section-1-5.4.1"><strong>Self-authenticating:</strong> The hash chain value is verified against
+the anchor already committed in the Merkle Tree.  No new trust
+relationships or authenticated channels are needed.<a href="#section-1-5.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-1-5.5">
+          <p id="section-1-5.5.1"><strong>Minimal overhead:</strong> A single hash value (32 bytes for SHA-256)
+is added to the TLS Certificate message.<a href="#section-1-5.5.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<div id="rationale-for-this-approach">
+<section id="section-1.1">
+        <h3 id="name-rationale-for-this-approach">
+<a href="#section-1.1" class="section-number selfRef">1.1. </a><a href="#name-rationale-for-this-approach" class="section-name selfRef">Rationale for This Approach</a>
+        </h3>
+<p id="section-1.1-1">Several alternative revocation mechanisms were considered and
+rejected.  <a href="#alternatives" class="auto internal xref">Appendix C</a> provides detailed analysis of each.
+The hash chain approach was selected because it uniquely combines
+mandatory enforcement (the value is structurally required for
+certificate validity), zero signing overhead, self-authentication
+against an already-trusted anchor, and minimal bandwidth cost.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="conventions-and-definitions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "<span class="bcp14">MUST</span>", "<span class="bcp14">MUST NOT</span>", "<span class="bcp14">REQUIRED</span>", "<span class="bcp14">SHALL</span>", "<span class="bcp14">SHALL NOT</span>", "<span class="bcp14">SHOULD</span>", "<span class="bcp14">SHOULD NOT</span>", "<span class="bcp14">RECOMMENDED</span>", "<span class="bcp14">NOT RECOMMENDED</span>",
+"<span class="bcp14">MAY</span>", and "<span class="bcp14">OPTIONAL</span>" in this document are to be interpreted as
+described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they
+appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="construction">
+<section id="section-3">
+      <h2 id="name-hash-chain-construction">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-hash-chain-construction" class="section-name selfRef">Hash Chain Construction</a>
+      </h2>
+<div id="parameters">
+<section id="section-3.1">
+        <h3 id="name-parameters">
+<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-parameters" class="section-name selfRef">Parameters</a>
+        </h3>
+<p id="section-3.1-1">The hash chain mechanism introduces the following additional
+parameter to the Merkle Tree CA configuration:<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-3.1-2">
+          <dt id="section-3.1-2.1">revocation_period:</dt>
+          <dd style="margin-left: 1.5em" id="section-3.1-2.2">
+            <p id="section-3.1-2.2.1">A duration, in seconds, that determines the granularity of
+revocation.  This <span class="bcp14">MUST</span> evenly divide the CA's certificate lifetime.
+The number of periods in a certificate's lifetime is:
+<code>chain_length = lifetime / revocation_period</code>.<a href="#section-3.1-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="chain-generation">
+<section id="section-3.2">
+        <h3 id="name-chain-generation">
+<a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-chain-generation" class="section-name selfRef">Chain Generation</a>
+        </h3>
+<p id="section-3.2-1">At certificate issuance time, for each log entry, the CA generates a
+hash chain as follows:<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-3.2-2">
+<li id="section-3.2-2.1">
+            <p id="section-3.2-2.1.1">Generate a cryptographically random seed of HASH_SIZE bytes
+(32 bytes for SHA-256).<a href="#section-3.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-3.2-2.2">
+            <p id="section-3.2-2.2.1">Compute the hash chain of length chain_length + 1:<a href="#section-3.2-2.2.1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-3.2-2.2.2">
+<pre>
+h[0] = seed
+h[i] = Hash(HashChainInput(h[i-1], i))  for i = 1, ..., chain_length
+</pre><a href="#section-3.2-2.2.2" class="pilcrow">¶</a>
+</div>
+<p id="section-3.2-2.2.3">
+Where HashChainInput is defined in <a href="#encoding" class="auto internal xref">Appendix A</a>.<a href="#section-3.2-2.2.3" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-3.2-2.3">
+            <p id="section-3.2-2.3.1">The anchor is <code>h[chain_length]</code>, the final value in the chain.<a href="#section-3.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-3.2-3">The anchor is included in the certificate as an X.509 extension (see
+<a href="#assertion-integration" class="auto internal xref">Section 4</a>).<a href="#section-3.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="period-numbering">
+<section id="section-3.3">
+        <h3 id="name-period-numbering">
+<a href="#section-3.3" class="section-number selfRef">3.3. </a><a href="#name-period-numbering" class="section-name selfRef">Period Numbering</a>
+        </h3>
+<p id="section-3.3-1">Periods are numbered starting from 0.  Period 0 begins at the
+certificate's issuance time and each subsequent period begins
+revocation_period seconds later.  The period number at any given time
+t is:<a href="#section-3.3-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-3.3-2">
+<pre>
+period = floor((t - issuance_time) / revocation_period)
+</pre><a href="#section-3.3-2" class="pilcrow">¶</a>
+</div>
+</section>
+</div>
+<div id="revealing-values">
+<section id="section-3.4">
+        <h3 id="name-revealing-values">
+<a href="#section-3.4" class="section-number selfRef">3.4. </a><a href="#name-revealing-values" class="section-name selfRef">Revealing Values</a>
+        </h3>
+<p id="section-3.4-1">For each non-revoked certificate, at the start of period t, the CA
+reveals the hash chain value <code>h[chain_length - t]</code>.  This value can
+be verified by hashing it t times and comparing with the anchor.<a href="#section-3.4-1" class="pilcrow">¶</a></p>
+<p id="section-3.4-2">To revoke a certificate, the CA stops revealing new values.  Once the
+previous value expires (at the start of the next period), the
+certificate is effectively revoked: no party can produce a valid
+value without knowledge of unrevealed chain elements, which requires
+inverting the hash function.<a href="#section-3.4-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="security-of-the-hash-chain">
+<section id="section-3.5">
+        <h3 id="name-security-of-the-hash-chain">
+<a href="#section-3.5" class="section-number selfRef">3.5. </a><a href="#name-security-of-the-hash-chain" class="section-name selfRef">Security of the Hash Chain</a>
+        </h3>
+<p id="section-3.5-1">The security of this mechanism relies on the preimage resistance of
+the hash function.  Given <code>h[i]</code>, it is computationally infeasible to
+compute <code>h[i-1]</code> (which would be needed to forge a future validity
+proof).  The chain is revealed in reverse order precisely for this
+reason: knowledge of the current value does not help compute future
+values.<a href="#section-3.5-1" class="pilcrow">¶</a></p>
+<p id="section-3.5-2">The domain separation in HashChainInput (<a href="#encoding" class="auto internal xref">Appendix A</a>) prevents
+values from being confused with other protocol elements or with hash
+chain values at different positions.<a href="#section-3.5-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="assertion-integration">
+<section id="section-4">
+      <h2 id="name-integration-with-mtc-log-en">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-integration-with-mtc-log-en" class="section-name selfRef">Integration with MTC Log Entries</a>
+      </h2>
+<div id="hash-chain-anchor-extension">
+<section id="section-4.1">
+        <h3 id="name-hash-chain-anchor-extension">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-hash-chain-anchor-extension" class="section-name selfRef">Hash Chain Anchor Extension</a>
+        </h3>
+<p id="section-4.1-1">This document defines a new X.509 certificate extension for carrying
+the hash chain anchor.  This extension is included in the
+TBSCertificateLogEntry's extensions field, and thus appears in the
+TBSCertificate of the resulting Merkle Tree Certificate.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.1-2">
+<pre>
+id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) dod(6) internet(1)
+    security(5) mechanisms(5) pkix(7) pe(1) TBD }
+</pre><a href="#section-4.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-4.1-3">The extension value contains the DER encoding of the following
+ASN.1 structure:<a href="#section-4.1-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-4.1-4">
+<pre>
+HashChainAnchorInfo ::= SEQUENCE {
+    revocationPeriod  INTEGER,
+    anchor            OCTET STRING
+}
+</pre><a href="#section-4.1-4" class="pilcrow">¶</a>
+</div>
+<span class="break"></span><dl class="dlParallel" id="section-4.1-5">
+          <dt id="section-4.1-5.1">revocationPeriod:</dt>
+          <dd style="margin-left: 1.5em" id="section-4.1-5.2">
+            <p id="section-4.1-5.2.1">The revocation period in seconds.  <span class="bcp14">MUST</span> match the CA's configured
+revocation_period.<a href="#section-4.1-5.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-4.1-5.3">anchor:</dt>
+          <dd style="margin-left: 1.5em" id="section-4.1-5.4">
+            <p id="section-4.1-5.4.1">The hash chain anchor value <code>h[chain_length]</code> (HASH_SIZE bytes).<a href="#section-4.1-5.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-4.1-6">The id-pe-hashChainAnchor extension <span class="bcp14">MUST</span> be marked non-critical, so
+that relying parties that do not implement this mechanism can still
+process the certificate.  However, relying parties that do implement
+this mechanism <span class="bcp14">MUST</span> enforce hash chain verification as described in
+<a href="#verification" class="auto internal xref">Section 6</a> when the extension is present.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
+<p id="section-4.1-7">The extension <span class="bcp14">MUST</span> appear at most once in a certificate.<a href="#section-4.1-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="cert-format">
+<section id="section-5">
+      <h2 id="name-certificate-presentation">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-certificate-presentation" class="section-name selfRef">Certificate Presentation</a>
+      </h2>
+<div id="hash-chain-tick">
+<section id="section-5.1">
+        <h3 id="name-hash-chain-tick">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-hash-chain-tick" class="section-name selfRef">Hash Chain Tick</a>
+        </h3>
+<p id="section-5.1-1">When a hash chain anchor extension is present in the certificate,
+the authenticating party <span class="bcp14">MUST</span> include a hash chain tick in the
+TLS CertificateEntry alongside the certificate.  The tick is
+carried in a new TLS CertificateEntry extension:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1-2">
+<pre>
+struct {
+    uint32 period;
+    opaque value[HASH_SIZE];
+} HashChainTick;
+</pre><a href="#section-5.1-2" class="pilcrow">¶</a>
+</div>
+<span class="break"></span><dl class="dlParallel" id="section-5.1-3">
+          <dt id="section-5.1-3.1">period:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.1-3.2">
+            <p id="section-5.1-3.2.1">The period number for which this tick is valid.<a href="#section-5.1-3.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-5.1-3.3">value:</dt>
+          <dd style="margin-left: 1.5em" id="section-5.1-3.4">
+            <p id="section-5.1-3.4.1">The hash chain value <code>h[chain_length - period]</code>.<a href="#section-5.1-3.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-5.1-4">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick with a
+period value that is current at the time of the TLS handshake.  A
+relying party <span class="bcp14">SHOULD</span> accept ticks for the current period or the
+immediately preceding period, to allow for clock skew and caching.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="tls-use">
+<section id="section-5.2">
+        <h3 id="name-use-in-tls">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-use-in-tls" class="section-name selfRef">Use in TLS</a>
+        </h3>
+<p id="section-5.2-1">This document defines a new TLS CertificateEntry extension type:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.2-2">
+<pre>
+enum {
+    ...
+    hash_chain_tick(TBD),
+    (2^16-1)
+} ExtensionType;
+</pre><a href="#section-5.2-2" class="pilcrow">¶</a>
+</div>
+<p id="section-5.2-3">When an authenticating party presents a Merkle Tree Certificate
+whose TBSCertificate contains the id-pe-hashChainAnchor extension,
+it <span class="bcp14">MUST</span> include the hash_chain_tick extension in the
+CertificateEntry.  The extension_data contains the serialized
+HashChainTick structure.<a href="#section-5.2-3" class="pilcrow">¶</a></p>
+<p id="section-5.2-4">The presence of id-pe-hashChainAnchor in the certificate signals to
+the relying party that a hash_chain_tick extension is required in
+the CertificateEntry.  If the extension is absent or the tick
+fails verification, the relying party <span class="bcp14">MUST</span> reject the certificate.<a href="#section-5.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="verification">
+<section id="section-6">
+      <h2 id="name-verification">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-verification" class="section-name selfRef">Verification</a>
+      </h2>
+<p id="section-6-1">When a relying party receives a Merkle Tree Certificate with the
+id-pe-hashChainAnchor extension, it performs the following steps in
+addition to the base MTC verification procedure:<a href="#section-6-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-6-2">
+<li id="section-6-2.1">
+          <p id="section-6-2.1.1">Extract the HashChainAnchorInfo from the certificate's
+id-pe-hashChainAnchor extension.  If not present, skip hash chain
+verification (the certificate does not use this mechanism).<a href="#section-6-2.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-2.2">
+          <p id="section-6-2.2.1">Extract the HashChainTick from the hash_chain_tick
+CertificateEntry extension.  If the id-pe-hashChainAnchor
+extension is present but no hash_chain_tick extension is
+provided, reject the certificate with a bad_certificate error.<a href="#section-6-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-2.3">
+          <p id="section-6-2.3.1">Compute the expected period from the current time:<a href="#section-6-2.3.1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6-2.3.2">
+<pre>
+expected_period = floor((current_time - issuance_time) / revocation_period)
+</pre><a href="#section-6-2.3.2" class="pilcrow">¶</a>
+</div>
+</li>
+        <li id="section-6-2.4">
+          <p id="section-6-2.4.1">Check that <code>tick.period</code> is equal to expected_period or
+expected_period - 1.  If not, reject the certificate with a
+certificate_expired error.<a href="#section-6-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-2.5">
+          <p id="section-6-2.5.1">Starting from <code>tick.value</code>, iteratively hash <code>tick.period</code>
+times:<a href="#section-6-2.5.1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6-2.5.2">
+<pre>
+v = tick.value
+for i = chain_length - tick.period + 1 to chain_length:
+    v = Hash(HashChainInput(v, i))
+</pre><a href="#section-6-2.5.2" class="pilcrow">¶</a>
+</div>
+</li>
+        <li id="section-6-2.6">
+          <p id="section-6-2.6.1">Compare the result with anchor from the HashChainAnchorInfo.  If
+they do not match, reject the certificate with a bad_certificate
+error.<a href="#section-6-2.6.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<p id="section-6-3">If all steps succeed, the hash chain verification passes, confirming
+that the CA has not revoked this certificate as of the indicated
+period.<a href="#section-6-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="distribution">
+<section id="section-7">
+      <h2 id="name-tick-distribution">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-tick-distribution" class="section-name selfRef">Tick Distribution</a>
+      </h2>
+<p id="section-7-1">The CA <span class="bcp14">MUST</span> provide a mechanism for authenticating parties to obtain
+current hash chain ticks.  This document defines an HTTP
+interface for this purpose.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<div id="http-interface">
+<section id="section-7.1">
+        <h3 id="name-http-interface">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-http-interface" class="section-name selfRef">HTTP Interface</a>
+        </h3>
+<p id="section-7.1-1">The CA (or a mirror) exposes the following endpoint:<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.1-2">
+<pre>
+GET {prefix}/tick/{log_number}/{index}
+</pre><a href="#section-7.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-7.1-3">This returns the current HashChainTick for the log entry at the
+given index in the given issuance log.  The response is the
+serialized HashChainTick structure (4 bytes period + HASH_SIZE
+bytes value).<a href="#section-7.1-3" class="pilcrow">¶</a></p>
+<p id="section-7.1-4">The CA <span class="bcp14">SHOULD</span> set HTTP cache headers with a max-age no longer than
+revocation_period seconds.<a href="#section-7.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="operational-model">
+<section id="section-7.2">
+        <h3 id="name-operational-model">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-operational-model" class="section-name selfRef">Operational Model</a>
+        </h3>
+<p id="section-7.2-1">The authenticating party periodically fetches its current tick
+from the CA:<a href="#section-7.2-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-7.2-2">
+<li id="section-7.2-2.1">
+            <p id="section-7.2-2.1.1">At least once per revocation_period, the authenticating party
+fetches its updated HashChainTick.<a href="#section-7.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.2-2.2">
+            <p id="section-7.2-2.2.1">The authenticating party replaces its stored tick with the
+newly fetched value.<a href="#section-7.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-7.2-2.3">
+            <p id="section-7.2-2.3.1">During TLS handshakes, the authenticating party includes the
+stored tick in its certificate presentation.<a href="#section-7.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-7.2-3">If the authenticating party is unable to obtain a fresh tick
+(e.g., due to CA unavailability), it continues to serve the most
+recent tick until that tick's period expires.  After expiry,
+the certificate becomes unusable until a fresh tick is obtained
+or a new certificate is provisioned.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="security-considerations">
+<section id="section-8">
+      <h2 id="name-security-considerations">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<div id="hash-function-requirements">
+<section id="section-8.1">
+        <h3 id="name-hash-function-requirements">
+<a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-hash-function-requirements" class="section-name selfRef">Hash Function Requirements</a>
+        </h3>
+<p id="section-8.1-1">The security of this mechanism depends on the preimage resistance of
+the hash function used.  SHA-256 <span>[<a href="#SHS" class="cite xref">SHS</a>]</span> provides 256 bits of
+preimage resistance, which is sufficient for all foreseeable
+certificate lifetimes.  With a one-hour revocation_period and a
+47-day lifetime, the chain length is 1,128, which does not
+meaningfully degrade the security margin.<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="seed-confidentiality">
+<section id="section-8.2">
+        <h3 id="name-seed-confidentiality">
+<a href="#section-8.2" class="section-number selfRef">8.2. </a><a href="#name-seed-confidentiality" class="section-name selfRef">Seed Confidentiality</a>
+        </h3>
+<p id="section-8.2-1">The CA <span class="bcp14">MUST</span> keep the hash chain seed (h[0]) and all not-yet-revealed
+chain values confidential.  Compromise of these values would allow an
+attacker to produce future ticks, defeating revocation.<a href="#section-8.2-1" class="pilcrow">¶</a></p>
+<p id="section-8.2-2">If the CA's seed storage is compromised, the CA <span class="bcp14">MUST</span> revoke all
+affected certificates via the base MTC revocation mechanism
+(revoked ranges of serial numbers) as a fallback.<a href="#section-8.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="denial-of-service-via-tick-withholding">
+<section id="section-8.3">
+        <h3 id="name-denial-of-service-via-tick-">
+<a href="#section-8.3" class="section-number selfRef">8.3. </a><a href="#name-denial-of-service-via-tick-" class="section-name selfRef">Denial of Service via Tick Withholding</a>
+        </h3>
+<p id="section-8.3-1">A compromised or malicious CA could withhold ticks from a
+legitimate authenticating party, effectively denying service.  This
+is analogous to a CA refusing to issue OCSP responses and is
+mitigated by the same market forces: an authenticating party that
+cannot obtain ticks will switch to another CA.<a href="#section-8.3-1" class="pilcrow">¶</a></p>
+<p id="section-8.3-2">Additionally, since ticks are small (36 bytes), they can be
+efficiently distributed via CDN, reducing the attack surface for
+tick withholding.<a href="#section-8.3-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="interaction-with-base-mtc-revocation">
+<section id="section-8.4">
+        <h3 id="name-interaction-with-base-mtc-r">
+<a href="#section-8.4" class="section-number selfRef">8.4. </a><a href="#name-interaction-with-base-mtc-r" class="section-name selfRef">Interaction with Base MTC Revocation</a>
+        </h3>
+<p id="section-8.4-1">The hash chain mechanism complements rather than replaces the base
+MTC revoked ranges mechanism.  Revoked ranges provide a fallback
+for scenarios where the hash chain mechanism is insufficient:<a href="#section-8.4-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-8.4-2.1">
+            <p id="section-8.4-2.1.1">Compromise of the CA's hash chain seed storage<a href="#section-8.4-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-8.4-2.2">
+            <p id="section-8.4-2.2.1">Bulk revocation of many certificates simultaneously<a href="#section-8.4-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-8.4-2.3">
+            <p id="section-8.4-2.3.1">Relying parties that have not yet implemented hash chain
+verification<a href="#section-8.4-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-8.4-3">Relying parties that support both mechanisms <span class="bcp14">SHOULD</span> check both:
+a certificate is considered revoked if either mechanism indicates
+revocation.<a href="#section-8.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="clock-skew">
+<section id="section-8.5">
+        <h3 id="name-clock-skew">
+<a href="#section-8.5" class="section-number selfRef">8.5. </a><a href="#name-clock-skew" class="section-name selfRef">Clock Skew</a>
+        </h3>
+<p id="section-8.5-1">The grace period of accepting the current or immediately preceding
+period's tick (<a href="#verification" class="auto internal xref">Section 6</a>, step 4) provides tolerance for
+clock skew of up to one full revocation_period.  Deployments with
+known clock skew issues <span class="bcp14">MAY</span> extend this to two preceding periods at
+the cost of slightly delayed revocation enforcement.<a href="#section-8.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="iana-considerations">
+<section id="section-9">
+      <h2 id="name-iana-considerations">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<div id="certificate-extension">
+<section id="section-9.1">
+        <h3 id="name-certificate-extension">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-certificate-extension" class="section-name selfRef">Certificate Extension</a>
+        </h3>
+<p id="section-9.1-1">IANA is requested to register the following entry in the "SMI
+Security for PKIX Certificate Extension" registry:<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Decimal</th>
+              <th class="text-left" rowspan="1" colspan="1">Description</th>
+              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">TBD</td>
+              <td class="text-left" rowspan="1" colspan="1">id-pe-hashChainAnchor</td>
+              <td class="text-left" rowspan="1" colspan="1">This document</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+<div id="tls-extensiontype">
+<section id="section-9.2">
+        <h3 id="name-tls-extensiontype">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-tls-extensiontype" class="section-name selfRef">TLS ExtensionType</a>
+        </h3>
+<p id="section-9.2-1">IANA is requested to register the following entry in the TLS
+ExtensionType Values registry:<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-2">
+          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Value</th>
+              <th class="text-left" rowspan="1" colspan="1">Extension Name</th>
+              <th class="text-left" rowspan="1" colspan="1">TLS 1.3</th>
+              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">TBD</td>
+              <td class="text-left" rowspan="1" colspan="1">hash_chain_tick</td>
+              <td class="text-left" rowspan="1" colspan="1">CH, CT</td>
+              <td class="text-left" rowspan="1" colspan="1">This document</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+</section>
+</div>
+<div id="sec-combined-references">
+<section id="section-10">
+      <h2 id="name-references">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-references" class="section-name selfRef">References</a>
+      </h2>
+<div id="sec-normative-references">
+<section id="section-10.1">
+        <h3 id="name-normative-references">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
+<dl class="references">
+<dt id="I-D.ietf-plants-merkle-tree-certs">[I-D.ietf-plants-merkle-tree-certs]</dt>
+        <dd>
+<span class="refAuthor">Benjamin, D.</span>, <span class="refAuthor">O'Brien, D.</span>, <span class="refAuthor">Westerbaan, B.</span>, <span class="refAuthor">Valenta, L.</span>, and <span class="refAuthor">F. Valsorda</span>, <span class="refTitle">"Merkle Tree Certificates"</span>, <time datetime="2026-07" class="refDate">July 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/draft-ietf-plants-merkle-tree-certs/">https://datatracker.ietf.org/doc/draft-ietf-plants-merkle-tree-certs/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC2119">[RFC2119]</dt>
+        <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc2119">https://www.rfc-editor.org/rfc/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5280">[RFC5280]</dt>
+        <dd>
+<span class="refAuthor">Cooper, D.</span>, <span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Boeyen, S.</span>, <span class="refAuthor">Housley, R.</span>, and <span class="refAuthor">W. Polk</span>, <span class="refTitle">"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile"</span>, <span class="seriesInfo">RFC 5280</span>, <span class="seriesInfo">DOI 10.17487/RFC5280</span>, <time datetime="2008-05" class="refDate">May 2008</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5280">https://www.rfc-editor.org/rfc/rfc5280</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+        <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8174">https://www.rfc-editor.org/rfc/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8446">[RFC8446]</dt>
+        <dd>
+<span class="refAuthor">Rescorla, E.</span>, <span class="refTitle">"The Transport Layer Security (TLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 8446</span>, <span class="seriesInfo">DOI 10.17487/RFC8446</span>, <time datetime="2018-08" class="refDate">August 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc8446">https://www.rfc-editor.org/rfc/rfc8446</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="SHS">[SHS]</dt>
+      <dd>
+<span class="refAuthor">National Institute of Standards and Technology (U.S.)</span>, <span class="refTitle">"Secure Hash Standard"</span>, <time datetime="2015" class="refDate">2015</time>, <span>&lt;<a href="https://doi.org/10.6028/nist.fips.180-4">https://doi.org/10.6028/nist.fips.180-4</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-10.2">
+        <h3 id="name-informative-references">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
+<dt id="CHROME-MTC">[CHROME-MTC]</dt>
+        <dd>
+<span class="refAuthor">Google Chrome</span>, <span class="refTitle">"Chrome MTC Policy"</span>, <time datetime="2025" class="refDate">2025</time>, <span>&lt;<a href="https://googlechrome.github.io/CertificateTransparency/mtc_policy.html">https://googlechrome.github.io/CertificateTransparency/mtc_policy.html</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="CRLite">[CRLite]</dt>
+        <dd>
+<span class="refAuthor">Larisch, J.</span>, <span class="refAuthor">Choffnes, D.</span>, <span class="refAuthor">Levin, D.</span>, <span class="refAuthor">Maggs, B.</span>, <span class="refAuthor">Mislove, A.</span>, and <span class="refAuthor">C. Wilson</span>, <span class="refTitle">"CRLite: A Scalable System for Pushing All TLS Revocations to All Browsers"</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://doi.org/10.1109/sp.2017.17">https://doi.org/10.1109/sp.2017.17</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="CRLSets">[CRLSets]</dt>
+        <dd>
+<span class="refAuthor">Chromium</span>, <span class="refTitle">"CRLSets"</span>, <time datetime="2022-08" class="refDate">August 2022</time>, <span>&lt;<a href="https://www.chromium.org/Home/chromium-security/crlsets/">https://www.chromium.org/Home/chromium-security/crlsets/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="MICALI">[MICALI]</dt>
+        <dd>
+<span class="refAuthor">Micali, S.</span>, <span class="refTitle">"Efficient Certificate Revocation"</span>, <time datetime="1996" class="refDate">1996</time>, <span>&lt;<a href="https://people.csail.mit.edu/silvio/Selected%20Scientific%20Papers/Digital%20Signatures/Efficient_Certificate_Revocation.pdf">https://people.csail.mit.edu/silvio/Selected%20Scientific%20Papers/Digital%20Signatures/Efficient_Certificate_Revocation.pdf</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6960">[RFC6960]</dt>
+        <dd>
+<span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Myers, M.</span>, <span class="refAuthor">Ankney, R.</span>, <span class="refAuthor">Malpani, A.</span>, <span class="refAuthor">Galperin, S.</span>, and <span class="refAuthor">C. Adams</span>, <span class="refTitle">"X.509 Internet Public Key Infrastructure Online Certificate Status Protocol - OCSP"</span>, <span class="seriesInfo">RFC 6960</span>, <span class="seriesInfo">DOI 10.17487/RFC6960</span>, <time datetime="2013-06" class="refDate">June 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6960">https://www.rfc-editor.org/rfc/rfc6960</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC6962">[RFC6962]</dt>
+      <dd>
+<span class="refAuthor">Laurie, B.</span>, <span class="refAuthor">Langley, A.</span>, and <span class="refAuthor">E. Kasper</span>, <span class="refTitle">"Certificate Transparency"</span>, <span class="seriesInfo">RFC 6962</span>, <span class="seriesInfo">DOI 10.17487/RFC6962</span>, <time datetime="2013-06" class="refDate">June 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6962">https://www.rfc-editor.org/rfc/rfc6962</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+</section>
+</div>
+<div id="encoding">
+<section id="appendix-A">
+      <h2 id="name-hash-chain-input-encoding">
+<a href="#appendix-A" class="section-number selfRef">Appendix A. </a><a href="#name-hash-chain-input-encoding" class="section-name selfRef">Hash Chain Input Encoding</a>
+      </h2>
+<p id="appendix-A-1">The HashChainInput structure provides domain separation for hash
+chain computations:<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="appendix-A-2">
+<pre>
+struct {
+    uint8 label[24] = "MTC HashChain Revocation";
+    TrustAnchorID issuer_id&lt;1..2^8-1&gt;;
+    uint16 log_number;
+    uint48 index;
+    uint32 position;
+    opaque preimage[HASH_SIZE];
+} HashChainInput;
+</pre><a href="#appendix-A-2" class="pilcrow">¶</a>
+</div>
+<span class="break"></span><dl class="dlParallel" id="appendix-A-3">
+        <dt id="appendix-A-3.1">label:</dt>
+        <dd style="margin-left: 1.5em" id="appendix-A-3.2">
+          <p id="appendix-A-3.2.1">A fixed ASCII string providing domain separation from other uses
+of the hash function in MTC.<a href="#appendix-A-3.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="appendix-A-3.3">issuer_id:</dt>
+        <dd style="margin-left: 1.5em" id="appendix-A-3.4">
+          <p id="appendix-A-3.4.1">The CA's trust anchor ID.  Binds the chain to a specific CA.<a href="#appendix-A-3.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="appendix-A-3.5">log_number:</dt>
+        <dd style="margin-left: 1.5em" id="appendix-A-3.6">
+          <p id="appendix-A-3.6.1">The log number of the issuance log containing this entry.  Binds
+the chain to a specific log.<a href="#appendix-A-3.6.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="appendix-A-3.7">index:</dt>
+        <dd style="margin-left: 1.5em" id="appendix-A-3.8">
+          <p id="appendix-A-3.8.1">The entry's index within the issuance log.  Binds the chain to a
+specific entry.<a href="#appendix-A-3.8.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="appendix-A-3.9">position:</dt>
+        <dd style="margin-left: 1.5em" id="appendix-A-3.10">
+          <p id="appendix-A-3.10.1">The position in the chain (1 to chain_length).  Prevents values
+at different positions from being interchangeable.<a href="#appendix-A-3.10.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="appendix-A-3.11">preimage:</dt>
+        <dd style="margin-left: 1.5em" id="appendix-A-3.12">
+          <p id="appendix-A-3.12.1">The previous hash chain value being hashed.<a href="#appendix-A-3.12.1" class="pilcrow">¶</a></p>
+</dd>
+      <dd class="break"></dd>
+</dl>
+<p id="appendix-A-4">The Hash function is the same hash function used by the Merkle Tree
+CA (SHA-256 for CAs using SHA-256).<a href="#appendix-A-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="rationale">
+<section id="appendix-B">
+      <h2 id="name-design-rationale">
+<a href="#appendix-B" class="section-number selfRef">Appendix B. </a><a href="#name-design-rationale" class="section-name selfRef">Design Rationale</a>
+      </h2>
+<p id="appendix-B-1">This section provides rationale for the choices made in this
+document.<a href="#appendix-B-1" class="pilcrow">¶</a></p>
+<div id="why-hash-chains-micali-instead-of-other-revocation-mechanisms">
+<section id="appendix-B.1">
+        <h3 id="name-why-hash-chains-micali-inst">
+<a href="#appendix-B.1" class="section-number selfRef">B.1. </a><a href="#name-why-hash-chains-micali-inst" class="section-name selfRef">Why Hash Chains (Micali) Instead of Other Revocation Mechanisms</a>
+        </h3>
+<p id="appendix-B.1-1">Hash chains <span>[<a href="#MICALI" class="cite xref">MICALI</a>]</span> were selected because they are the only known
+mechanism that simultaneously provides:<a href="#appendix-B.1-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="appendix-B.1-2">
+<li id="appendix-B.1-2.1">
+            <p id="appendix-B.1-2.1.1"><strong>Self-authentication:</strong> The tick is verified against data
+already committed in the Merkle Tree (the anchor).  No additional
+signatures, certificates, or trust relationships are needed.<a href="#appendix-B.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.1-2.2">
+            <p id="appendix-B.1-2.2.1"><strong>Zero CA signing load:</strong> Each revocation period, the CA reveals a
+precomputed value.  There is no per-certificate, per-period
+signing operation.  This is critical for CAs with millions of
+active certificates.<a href="#appendix-B.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.1-2.3">
+            <p id="appendix-B.1-2.3.1"><strong>Mandatory enforcement:</strong> Because the tick is structurally
+part of the certificate presentation, relying parties can hard-
+fail on its absence.  This avoids the soft-fail problem that
+plagued OCSP.<a href="#appendix-B.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.1-2.4">
+            <p id="appendix-B.1-2.4.1"><strong>Minimal bandwidth:</strong> 36 bytes per handshake (4-byte period +
+32-byte hash value).<a href="#appendix-B.1-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.1-2.5">
+            <p id="appendix-B.1-2.5.1"><strong>Simple implementation:</strong> The mechanism requires only a hash
+function and basic arithmetic.  No new cryptographic primitives
+are introduced.<a href="#appendix-B.1-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+</section>
+</div>
+<div id="why-one-hour-or-one-day-periods">
+<section id="appendix-B.2">
+        <h3 id="name-why-one-hour-or-one-day-per">
+<a href="#appendix-B.2" class="section-number selfRef">B.2. </a><a href="#name-why-one-hour-or-one-day-per" class="section-name selfRef">Why One Hour (or One Day) Periods</a>
+        </h3>
+<p id="appendix-B.2-1">A one-hour revocation_period provides a good balance:<a href="#appendix-B.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-B.2-2.1">
+            <p id="appendix-B.2-2.1.1"><strong>Revocation latency:</strong> A compromised key is unusable within at
+most two hours (current period + grace period).<a href="#appendix-B.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-B.2-2.2">
+            <p id="appendix-B.2-2.2.1"><strong>Operational feasibility:</strong> Authenticating parties must fetch a
+new tick once per hour.  This is a trivial HTTP request for a
+36-byte response.<a href="#appendix-B.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-B.2-2.3">
+            <p id="appendix-B.2-2.3.1"><strong>Chain length:</strong> For 47-day certificates, the chain length is
+1,128.  Verification requires at most 1,128 hash computations,
+which takes microseconds on modern hardware.<a href="#appendix-B.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-B.2-2.4">
+            <p id="appendix-B.2-2.4.1"><strong>CA storage:</strong> The CA must store one seed per active certificate.
+With 32 bytes per seed, 10 million certificates require 320 MB.<a href="#appendix-B.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="appendix-B.2-3">A one-day period is also viable, reducing operational frequency at
+the cost of up to 48-hour revocation latency.  Deployments <span class="bcp14">SHOULD</span>
+choose the shortest period operationally feasible.<a href="#appendix-B.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="why-include-the-tick-in-the-certificate-structure">
+<section id="appendix-B.3">
+        <h3 id="name-why-include-the-tick-in-the">
+<a href="#appendix-B.3" class="section-number selfRef">B.3. </a><a href="#name-why-include-the-tick-in-the" class="section-name selfRef">Why Include the Tick in the Certificate Structure</a>
+        </h3>
+<p id="appendix-B.3-1">The tick is included as a mandatory part of the certificate
+presentation rather than delivered via a separate channel because:<a href="#appendix-B.3-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="appendix-B.3-2">
+<li id="appendix-B.3-2.1">
+            <p id="appendix-B.3-2.1.1"><strong>No soft-fail ambiguity:</strong> If the tick is separate (e.g., via
+DNS or a TLS extension), a missing tick could indicate either
+revocation or a delivery failure.  When the tick is mandatory,
+its absence always means the certificate is invalid.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.3-2.2">
+            <p id="appendix-B.3-2.2.1"><strong>No additional round-trips:</strong> The tick travels with the
+certificate in the same TLS message.  No DNS lookups or
+side-channel fetches are needed by the relying party.<a href="#appendix-B.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.3-2.3">
+            <p id="appendix-B.3-2.3.1"><strong>Universal applicability:</strong> Works for all TLS connections, not
+only HTTPS.  Mechanisms that depend on DNS or HTTP are limited to
+protocols where those channels are available.<a href="#appendix-B.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="appendix-B.3-2.4">
+            <p id="appendix-B.3-2.4.1"><strong>Server must participate:</strong> The authenticating party is already
+responsible for maintaining its MTC certificate and refreshing it
+before expiry.  Adding a lightweight hourly tick refresh is an
+incremental burden, not a new class of operational requirement.<a href="#appendix-B.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+</section>
+</div>
+</section>
+</div>
+<div id="alternatives">
+<section id="appendix-C">
+      <h2 id="name-alternatives-considered">
+<a href="#appendix-C" class="section-number selfRef">Appendix C. </a><a href="#name-alternatives-considered" class="section-name selfRef">Alternatives Considered</a>
+      </h2>
+<div id="dns-based-tick-distribution">
+<section id="appendix-C.1">
+        <h3 id="name-dns-based-tick-distribution">
+<a href="#appendix-C.1" class="section-number selfRef">C.1. </a><a href="#name-dns-based-tick-distribution" class="section-name selfRef">DNS-Based Tick Distribution</a>
+        </h3>
+<p id="appendix-C.1-1">One alternative considered was distributing hash chain ticks via
+DNS records (e.g., a TXT record at <code>_mtc-tick.example.com</code>).
+Under this model, clients would fetch the tick independently via
+DNS, removing the requirement for server participation.<a href="#appendix-C.1-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.1-2">This approach was rejected for several reasons:<a href="#appendix-C.1-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-C.1-3.1">
+            <p id="appendix-C.1-3.1.1"><strong>Soft-fail risk:</strong> If the DNS lookup fails (network issue,
+resolver misconfiguration, etc.), the client must decide whether to
+fail the connection or proceed without the tick.  Any allowance
+for "proceed without" defeats the revocation mechanism.<a href="#appendix-C.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.1-3.2">
+            <p id="appendix-C.1-3.2.1"><strong>Protocol dependency:</strong> DNS-based distribution only works when
+the relying party can perform DNS lookups in the context of
+certificate verification.  This excludes some TLS use cases (e.g.,
+embedded devices, TLS within TLS).<a href="#appendix-C.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.1-3.3">
+            <p id="appendix-C.1-3.3.1"><strong>Operational complexity for subscribers:</strong> If the subscriber
+publishes the DNS record, they must update DNS every period.
+While feasible for sophisticated operators, this is a significant
+burden for smaller deployments.  If the CA publishes under its own
+zone, the DNS becomes a single point of failure and a target for
+denial-of-service attacks.<a href="#appendix-C.1-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.1-3.4">
+            <p id="appendix-C.1-3.4.1"><strong>Latency:</strong> An additional DNS lookup adds latency to connection
+establishment, even when parallelized with the A/AAAA lookup.<a href="#appendix-C.1-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="appendix-C.1-4">However, DNS-based distribution does have one notable advantage: it
+does not require server software changes.  Deployments that prioritize
+this property over hard-fail semantics <span class="bcp14">MAY</span> define a DNS-based
+distribution profile in a separate document.<a href="#appendix-C.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="tls-extension-optional-stapling">
+<section id="appendix-C.2">
+        <h3 id="name-tls-extension-optional-stap">
+<a href="#appendix-C.2" class="section-number selfRef">C.2. </a><a href="#name-tls-extension-optional-stap" class="section-name selfRef">TLS Extension (Optional Stapling)</a>
+        </h3>
+<p id="appendix-C.2-1">Another alternative was defining a new TLS extension that optionally
+carries the hash chain tick, analogous to the status_request
+extension used for OCSP stapling.<a href="#appendix-C.2-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.2-2">This approach was rejected because:<a href="#appendix-C.2-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-C.2-3.1">
+            <p id="appendix-C.2-3.1.1"><strong>The OCSP stapling lesson:</strong> OCSP stapling was defined as
+optional, requiring servers to opt in.  After more than a decade,
+stapling adoption remains incomplete, and browsers have been unable
+to enforce hard-fail policies.  Any optional mechanism will repeat
+this outcome.<a href="#appendix-C.2-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.2-3.2">
+            <p id="appendix-C.2-3.2.1"><strong>Semantic ambiguity:</strong> An absent extension could mean "server
+doesn't support it," "server forgot to configure it," or
+"certificate has been revoked."  Without universal deployment,
+hard-fail is impossible.<a href="#appendix-C.2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="shorter-certificate-lifetimes">
+<section id="appendix-C.3">
+        <h3 id="name-shorter-certificate-lifetim">
+<a href="#appendix-C.3" class="section-number selfRef">C.3. </a><a href="#name-shorter-certificate-lifetim" class="section-name selfRef">Shorter Certificate Lifetimes</a>
+        </h3>
+<p id="appendix-C.3-1">The simplest revocation strategy is to make certificates short-lived
+enough that revocation is unnecessary.  For example, 1-day
+certificates have at most 24-hour exposure after compromise.<a href="#appendix-C.3-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.3-2">This approach has trade-offs that motivate longer lifetimes:<a href="#appendix-C.3-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-C.3-3.1">
+            <p id="appendix-C.3-3.1.1"><strong>Issuance infrastructure load:</strong> Shorter lifetimes require more
+frequent issuance.  With millions of subscribers, daily
+certificate issuance produces proportionally larger logs and
+more frequent Merkle Tree constructions.<a href="#appendix-C.3-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.3-3.2">
+            <p id="appendix-C.3-3.2.1"><strong>Availability risk:</strong> An authenticating party that cannot reach
+the CA for one day loses its certificate entirely.  Longer
+lifetimes provide more buffer against CA outages.<a href="#appendix-C.3-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.3-3.3">
+            <p id="appendix-C.3-3.3.1"><strong>Trusted subtree state:</strong> The number of landmark subtrees relying
+parties must maintain grows with shorter lifetimes and more
+frequent landmark allocation, at the cost of increased CA
+operational complexity.<a href="#appendix-C.3-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.3-3.4">
+            <p id="appendix-C.3-3.4.1"><strong>Deployment constraints:</strong> Root program policies such as
+<span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span> have set maximum lifetimes (e.g., 47 days) based
+on ecosystem-wide operational feasibility assessments.  Not all
+deployments can support arbitrarily short lifetimes.<a href="#appendix-C.3-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="appendix-C.3-4">Hash chain revocation provides the revocation latency benefits of
+short-lived certificates while retaining the operational advantages
+of longer lifetimes.<a href="#appendix-C.3-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="crlite-crlsets-external-revocation">
+<section id="appendix-C.4">
+        <h3 id="name-crlite-crlsets-external-rev">
+<a href="#appendix-C.4" class="section-number selfRef">C.4. </a><a href="#name-crlite-crlsets-external-rev" class="section-name selfRef">CRLite / CRLSets / External Revocation</a>
+        </h3>
+<p id="appendix-C.4-1">External revocation systems like <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> and <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span> compress
+revocation information into compact data structures pushed to relying
+parties.  The base MTC specification suggests using these as a
+complement.<a href="#appendix-C.4-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.4-2">This approach has limitations when used as the sole revocation
+mechanism for MTC:<a href="#appendix-C.4-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-C.4-3.1">
+            <p id="appendix-C.4-3.1.1"><strong>Push latency:</strong> These systems are updated on the order of hours
+to days, depending on the deployment.  They do not provide a
+guaranteed upper bound on revocation latency.<a href="#appendix-C.4-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.4-3.2">
+            <p id="appendix-C.4-3.2.1"><strong>Relying party coverage:</strong> Not all relying parties subscribe to
+external revocation feeds.  A mechanism that depends on the relying
+party having an up-to-date feed cannot provide universal
+revocation enforcement.<a href="#appendix-C.4-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.4-3.3">
+            <p id="appendix-C.4-3.3.1"><strong>Separate trust path:</strong> External revocation requires the relying
+party to trust the feed provider (e.g., the browser vendor) in
+addition to the CA.  Hash chain revocation uses only the existing
+CA trust relationship.<a href="#appendix-C.4-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="appendix-C.4-4">These mechanisms remain valuable as defense-in-depth and as a
+fallback for the hash chain mechanism, as discussed in
+<a href="#security-considerations" class="auto internal xref">Section 8</a>.<a href="#appendix-C.4-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="per-certificate-signatures-ocsp-like">
+<section id="appendix-C.5">
+        <h3 id="name-per-certificate-signatures-">
+<a href="#appendix-C.5" class="section-number selfRef">C.5. </a><a href="#name-per-certificate-signatures-" class="section-name selfRef">Per-Certificate Signatures (OCSP-like)</a>
+        </h3>
+<p id="appendix-C.5-1">A CA could sign per-certificate non-revocation statements each
+period, analogous to OCSP responses.<a href="#appendix-C.5-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.5-2">This approach was rejected because:<a href="#appendix-C.5-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-C.5-3.1">
+            <p id="appendix-C.5-3.1.1"><strong>Signing load:</strong> A CA with millions of active certificates would
+need to produce millions of signatures per period.  With post-
+quantum signature algorithms, this is computationally expensive.<a href="#appendix-C.5-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.5-3.2">
+            <p id="appendix-C.5-3.2.1"><strong>Response size:</strong> OCSP responses include a full signature (e.g.,
+3,309 bytes for ML-DSA-65).  Hash chain ticks are 36 bytes.<a href="#appendix-C.5-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-C.5-3.3">
+            <p id="appendix-C.5-3.3.1"><strong>Complexity:</strong> OCSP requires its own responder infrastructure,
+certificate chain, and protocol.  Hash chains require only a hash
+function.<a href="#appendix-C.5-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="appendix-D">
+      <h2 id="name-acknowledgments">
+<a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="appendix-D-1">The hash chain revocation concept is based on Silvio Micali's
+foundational work on efficient certificate revocation <span>[<a href="#MICALI" class="cite xref">MICALI</a>]</span>.<a href="#appendix-D-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-E">
+      <h2 id="name-authors-address">
+<a href="#name-authors-address" class="section-name selfRef">Author's Address</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Rob Stradling</span></div>
+<div dir="auto" class="left"><span class="org">Sectigo</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:rob@sectigo.com" class="email">rob@sectigo.com</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,811 @@
+
+
+
+
+PLANTS Working Group                                        R. Stradling
+Internet-Draft                                                   Sectigo
+Intended status: Experimental                              3 August 2026
+Expires: 4 February 2027
+
+
+           Hash Chain Revocation for Merkle Tree Certificates
+          draft-strad-plants-mtc-hash-chain-revocation-latest
+
+Abstract
+
+   This document defines a hash chain revocation mechanism for Merkle
+   Tree Certificates (MTC) [I-D.ietf-plants-merkle-tree-certs].  A
+   Merkle Tree CA commits a hash chain anchor into the certificate at
+   issuance time.  Periodically, the CA reveals hash chain values that
+   serve as proof of non-revocation.  The authenticating party includes
+   the current hash chain value (a "tick") in the TLS handshake,
+   enabling the relying party to cryptographically verify that the
+   certificate has not been revoked, with granularity as fine as one
+   hour.
+
+   This mechanism provides timely revocation without requiring
+   signatures per revocation check, without relying on the relying party
+   to poll for revocation updates, and without introducing new trust
+   relationships beyond the existing CA.
+
+About This Document
+
+   This note is to be removed before publishing as an RFC.
+
+   The latest revision of this draft can be found at
+   https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-
+   strad-plants-mtc-hash-chain-revocation.html.  Status information for
+   this document may be found at https://datatracker.ietf.org/doc/draft-
+   strad-plants-mtc-hash-chain-revocation/.
+
+   Discussion of this document takes place on the PLANTS Working Group
+   mailing list (mailto:plants@ietf.org), which is archived at
+   https://mailarchive.ietf.org/arch/browse/plants/.  Subscribe at
+   https://www.ietf.org/mailman/listinfo/plants/.
+
+   Source for this draft and an issue tracker can be found at
+   https://github.com/robstradling/mtc-with-hash-chain-revocation.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 4 February 2027.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction
+     1.1.  Rationale for This Approach
+   2.  Conventions and Definitions
+   3.  Hash Chain Construction
+     3.1.  Parameters
+     3.2.  Chain Generation
+     3.3.  Period Numbering
+     3.4.  Revealing Values
+     3.5.  Security of the Hash Chain
+   4.  Integration with MTC Log Entries
+     4.1.  Hash Chain Anchor Extension
+   5.  Certificate Presentation
+     5.1.  Hash Chain Tick
+     5.2.  Use in TLS
+   6.  Verification
+   7.  Tick Distribution
+     7.1.  HTTP Interface
+     7.2.  Operational Model
+   8.  Security Considerations
+     8.1.  Hash Function Requirements
+     8.2.  Seed Confidentiality
+     8.3.  Denial of Service via Tick Withholding
+     8.4.  Interaction with Base MTC Revocation
+     8.5.  Clock Skew
+   9.  IANA Considerations
+     9.1.  Certificate Extension
+     9.2.  TLS ExtensionType
+   10. References
+     10.1.  Normative References
+     10.2.  Informative References
+   Appendix A.  Hash Chain Input Encoding
+   Appendix B.  Design Rationale
+     B.1.  Why Hash Chains (Micali) Instead of Other Revocation
+           Mechanisms
+     B.2.  Why One Hour (or One Day) Periods
+     B.3.  Why Include the Tick in the Certificate Structure
+   Appendix C.  Alternatives Considered
+     C.1.  DNS-Based Tick Distribution
+     C.2.  TLS Extension (Optional Stapling)
+     C.3.  Shorter Certificate Lifetimes
+     C.4.  CRLite / CRLSets / External Revocation
+     C.5.  Per-Certificate Signatures (OCSP-like)
+   Acknowledgments
+   Author's Address
+
+1.  Introduction
+
+   Merkle Tree Certificates [I-D.ietf-plants-merkle-tree-certs]
+   authenticate TLS connections using compact inclusion proofs into a
+   Merkle Tree maintained by a certification authority (CA).  The base
+   MTC specification uses a short-lived certificates model, where
+   certificate expiration replaces explicit revocation signals.
+
+   However, deployments such as Chrome's draft MTC policy [CHROME-MTC]
+   permit certificate lifetimes of up to 47 days.  At this timescale,
+   key compromise or certificate misissuance can cause significant harm
+   before natural expiry.  The base MTC specification acknowledges this
+   gap and suggests that relying parties with access to external
+   revocation systems like [CRLite] or [CRLSets] SHOULD use them, but
+   does not define an in-band revocation mechanism.
+
+   This document defines such a mechanism based on hash chains [MICALI].
+   At issuance, the CA commits a hash chain anchor into the MTC log
+   entry as an X.509 extension.  Each revocation period (e.g., every
+   hour), the CA reveals the next hash chain value for all non-revoked
+   certificates.  To revoke a certificate, the CA simply stops revealing
+   values.  The authenticating party (server) includes the current hash
+   chain value in its TLS Certificate message, and the relying party
+   (client) verifies it against the anchor committed in the log entry.
+
+   This approach achieves the following properties:
+
+   *  *Timely revocation:* Revocation takes effect within one period
+      (e.g., one hour), regardless of when the relying party last
+      updated its trusted subtrees.
+
+   *  *No per-check signatures:* Unlike OCSP [RFC6960], verification
+      requires only hash computations, not signature verification.  The
+      CA incurs no signing load for revocation status.
+
+   *  *Mandatory enforcement:* The hash chain value is a required
+      component of the certificate presentation.  Unlike OCSP stapling,
+      the mechanism cannot be silently omitted by the authenticating
+      party.
+
+   *  *Self-authenticating:* The hash chain value is verified against
+      the anchor already committed in the Merkle Tree.  No new trust
+      relationships or authenticated channels are needed.
+
+   *  *Minimal overhead:* A single hash value (32 bytes for SHA-256) is
+      added to the TLS Certificate message.
+
+1.1.  Rationale for This Approach
+
+   Several alternative revocation mechanisms were considered and
+   rejected.  Appendix C provides detailed analysis of each.  The hash
+   chain approach was selected because it uniquely combines mandatory
+   enforcement (the value is structurally required for certificate
+   validity), zero signing overhead, self-authentication against an
+   already-trusted anchor, and minimal bandwidth cost.
+
+2.  Conventions and Definitions
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+
+3.  Hash Chain Construction
+
+3.1.  Parameters
+
+   The hash chain mechanism introduces the following additional
+   parameter to the Merkle Tree CA configuration:
+
+   revocation_period:  A duration, in seconds, that determines the
+      granularity of revocation.  This MUST evenly divide the CA's
+      certificate lifetime.  The number of periods in a certificate's
+      lifetime is: chain_length = lifetime / revocation_period.
+
+3.2.  Chain Generation
+
+   At certificate issuance time, for each log entry, the CA generates a
+   hash chain as follows:
+
+   1.  Generate a cryptographically random seed of HASH_SIZE bytes (32
+       bytes for SHA-256).
+
+   2.  Compute the hash chain of length chain_length + 1:
+
+    h[0] = seed
+    h[i] = Hash(HashChainInput(h[i-1], i))  for i = 1, ..., chain_length
+
+       Where HashChainInput is defined in Appendix A.
+
+   3.  The anchor is h[chain_length], the final value in the chain.
+
+   The anchor is included in the certificate as an X.509 extension (see
+   Section 4).
+
+3.3.  Period Numbering
+
+   Periods are numbered starting from 0.  Period 0 begins at the
+   certificate's issuance time and each subsequent period begins
+   revocation_period seconds later.  The period number at any given time
+   t is:
+
+   period = floor((t - issuance_time) / revocation_period)
+
+3.4.  Revealing Values
+
+   For each non-revoked certificate, at the start of period t, the CA
+   reveals the hash chain value h[chain_length - t].  This value can be
+   verified by hashing it t times and comparing with the anchor.
+
+   To revoke a certificate, the CA stops revealing new values.  Once the
+   previous value expires (at the start of the next period), the
+   certificate is effectively revoked: no party can produce a valid
+   value without knowledge of unrevealed chain elements, which requires
+   inverting the hash function.
+
+3.5.  Security of the Hash Chain
+
+   The security of this mechanism relies on the preimage resistance of
+   the hash function.  Given h[i], it is computationally infeasible to
+   compute h[i-1] (which would be needed to forge a future validity
+   proof).  The chain is revealed in reverse order precisely for this
+   reason: knowledge of the current value does not help compute future
+   values.
+
+   The domain separation in HashChainInput (Appendix A) prevents values
+   from being confused with other protocol elements or with hash chain
+   values at different positions.
+
+4.  Integration with MTC Log Entries
+
+4.1.  Hash Chain Anchor Extension
+
+   This document defines a new X.509 certificate extension for carrying
+   the hash chain anchor.  This extension is included in the
+   TBSCertificateLogEntry's extensions field, and thus appears in the
+   TBSCertificate of the resulting Merkle Tree Certificate.
+
+   id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
+       iso(1) identified-organization(3) dod(6) internet(1)
+       security(5) mechanisms(5) pkix(7) pe(1) TBD }
+
+   The extension value contains the DER encoding of the following ASN.1
+   structure:
+
+   HashChainAnchorInfo ::= SEQUENCE {
+       revocationPeriod  INTEGER,
+       anchor            OCTET STRING
+   }
+
+   revocationPeriod:  The revocation period in seconds.  MUST match the
+      CA's configured revocation_period.
+
+   anchor:  The hash chain anchor value h[chain_length] (HASH_SIZE
+      bytes).
+
+   The id-pe-hashChainAnchor extension MUST be marked non-critical, so
+   that relying parties that do not implement this mechanism can still
+   process the certificate.  However, relying parties that do implement
+   this mechanism MUST enforce hash chain verification as described in
+   Section 6 when the extension is present.
+
+   The extension MUST appear at most once in a certificate.
+
+5.  Certificate Presentation
+
+5.1.  Hash Chain Tick
+
+   When a hash chain anchor extension is present in the certificate, the
+   authenticating party MUST include a hash chain tick in the TLS
+   CertificateEntry alongside the certificate.  The tick is carried in a
+   new TLS CertificateEntry extension:
+
+   struct {
+       uint32 period;
+       opaque value[HASH_SIZE];
+   } HashChainTick;
+
+   period:  The period number for which this tick is valid.
+
+   value:  The hash chain value h[chain_length - period].
+
+   The authenticating party MUST include a HashChainTick with a period
+   value that is current at the time of the TLS handshake.  A relying
+   party SHOULD accept ticks for the current period or the immediately
+   preceding period, to allow for clock skew and caching.
+
+5.2.  Use in TLS
+
+   This document defines a new TLS CertificateEntry extension type:
+
+   enum {
+       ...
+       hash_chain_tick(TBD),
+       (2^16-1)
+   } ExtensionType;
+
+   When an authenticating party presents a Merkle Tree Certificate whose
+   TBSCertificate contains the id-pe-hashChainAnchor extension, it MUST
+   include the hash_chain_tick extension in the CertificateEntry.  The
+   extension_data contains the serialized HashChainTick structure.
+
+   The presence of id-pe-hashChainAnchor in the certificate signals to
+   the relying party that a hash_chain_tick extension is required in the
+   CertificateEntry.  If the extension is absent or the tick fails
+   verification, the relying party MUST reject the certificate.
+
+6.  Verification
+
+   When a relying party receives a Merkle Tree Certificate with the id-
+   pe-hashChainAnchor extension, it performs the following steps in
+   addition to the base MTC verification procedure:
+
+1.  Extract the HashChainAnchorInfo from the certificate's id-pe-
+    hashChainAnchor extension.  If not present, skip hash chain
+    verification (the certificate does not use this mechanism).
+
+2.  Extract the HashChainTick from the hash_chain_tick
+    CertificateEntry extension.  If the id-pe-hashChainAnchor
+    extension is present but no hash_chain_tick extension is
+    provided, reject the certificate with a bad_certificate error.
+
+3.  Compute the expected period from the current time:
+
+expected_period = floor((current_time - issuance_time) / revocation_period)
+
+4.  Check that tick.period is equal to expected_period or
+    expected_period - 1.  If not, reject the certificate with a
+    certificate_expired error.
+
+5.  Starting from tick.value, iteratively hash tick.period times:
+
+   v = tick.value
+   for i = chain_length - tick.period + 1 to chain_length:
+       v = Hash(HashChainInput(v, i))
+
+6.  Compare the result with anchor from the HashChainAnchorInfo.  If
+    they do not match, reject the certificate with a bad_certificate
+    error.
+
+   If all steps succeed, the hash chain verification passes, confirming
+   that the CA has not revoked this certificate as of the indicated
+   period.
+
+7.  Tick Distribution
+
+   The CA MUST provide a mechanism for authenticating parties to obtain
+   current hash chain ticks.  This document defines an HTTP interface
+   for this purpose.
+
+7.1.  HTTP Interface
+
+   The CA (or a mirror) exposes the following endpoint:
+
+   GET {prefix}/tick/{log_number}/{index}
+
+   This returns the current HashChainTick for the log entry at the given
+   index in the given issuance log.  The response is the serialized
+   HashChainTick structure (4 bytes period + HASH_SIZE bytes value).
+
+   The CA SHOULD set HTTP cache headers with a max-age no longer than
+   revocation_period seconds.
+
+7.2.  Operational Model
+
+   The authenticating party periodically fetches its current tick from
+   the CA:
+
+   1.  At least once per revocation_period, the authenticating party
+       fetches its updated HashChainTick.
+
+   2.  The authenticating party replaces its stored tick with the newly
+       fetched value.
+
+   3.  During TLS handshakes, the authenticating party includes the
+       stored tick in its certificate presentation.
+
+   If the authenticating party is unable to obtain a fresh tick (e.g.,
+   due to CA unavailability), it continues to serve the most recent tick
+   until that tick's period expires.  After expiry, the certificate
+   becomes unusable until a fresh tick is obtained or a new certificate
+   is provisioned.
+
+8.  Security Considerations
+
+8.1.  Hash Function Requirements
+
+   The security of this mechanism depends on the preimage resistance of
+   the hash function used.  SHA-256 [SHS] provides 256 bits of preimage
+   resistance, which is sufficient for all foreseeable certificate
+   lifetimes.  With a one-hour revocation_period and a 47-day lifetime,
+   the chain length is 1,128, which does not meaningfully degrade the
+   security margin.
+
+8.2.  Seed Confidentiality
+
+   The CA MUST keep the hash chain seed (h[0]) and all not-yet-revealed
+   chain values confidential.  Compromise of these values would allow an
+   attacker to produce future ticks, defeating revocation.
+
+   If the CA's seed storage is compromised, the CA MUST revoke all
+   affected certificates via the base MTC revocation mechanism (revoked
+   ranges of serial numbers) as a fallback.
+
+8.3.  Denial of Service via Tick Withholding
+
+   A compromised or malicious CA could withhold ticks from a legitimate
+   authenticating party, effectively denying service.  This is analogous
+   to a CA refusing to issue OCSP responses and is mitigated by the same
+   market forces: an authenticating party that cannot obtain ticks will
+   switch to another CA.
+
+   Additionally, since ticks are small (36 bytes), they can be
+   efficiently distributed via CDN, reducing the attack surface for tick
+   withholding.
+
+8.4.  Interaction with Base MTC Revocation
+
+   The hash chain mechanism complements rather than replaces the base
+   MTC revoked ranges mechanism.  Revoked ranges provide a fallback for
+   scenarios where the hash chain mechanism is insufficient:
+
+   *  Compromise of the CA's hash chain seed storage
+
+   *  Bulk revocation of many certificates simultaneously
+
+   *  Relying parties that have not yet implemented hash chain
+      verification
+
+   Relying parties that support both mechanisms SHOULD check both: a
+   certificate is considered revoked if either mechanism indicates
+   revocation.
+
+8.5.  Clock Skew
+
+   The grace period of accepting the current or immediately preceding
+   period's tick (Section 6, step 4) provides tolerance for clock skew
+   of up to one full revocation_period.  Deployments with known clock
+   skew issues MAY extend this to two preceding periods at the cost of
+   slightly delayed revocation enforcement.
+
+9.  IANA Considerations
+
+9.1.  Certificate Extension
+
+   IANA is requested to register the following entry in the "SMI
+   Security for PKIX Certificate Extension" registry:
+
+            +=========+=======================+===============+
+            | Decimal | Description           | Reference     |
+            +=========+=======================+===============+
+            | TBD     | id-pe-hashChainAnchor | This document |
+            +---------+-----------------------+---------------+
+
+                                  Table 1
+
+9.2.  TLS ExtensionType
+
+   IANA is requested to register the following entry in the TLS
+   ExtensionType Values registry:
+
+           +=======+=================+=========+===============+
+           | Value | Extension Name  | TLS 1.3 | Reference     |
+           +=======+=================+=========+===============+
+           | TBD   | hash_chain_tick | CH, CT  | This document |
+           +-------+-----------------+---------+---------------+
+
+                                  Table 2
+
+10.  References
+
+10.1.  Normative References
+
+   [I-D.ietf-plants-merkle-tree-certs]
+              Benjamin, D., O'Brien, D., Westerbaan, B., Valenta, L.,
+              and F. Valsorda, "Merkle Tree Certificates", July 2026,
+              <https://datatracker.ietf.org/doc/draft-ietf-plants-
+              merkle-tree-certs/>.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/rfc/rfc2119>.
+
+   [RFC5280]  Cooper, D., Santesson, S., Farrell, S., Boeyen, S.,
+              Housley, R., and W. Polk, "Internet X.509 Public Key
+              Infrastructure Certificate and Certificate Revocation List
+              (CRL) Profile", RFC 5280, DOI 10.17487/RFC5280, May 2008,
+              <https://www.rfc-editor.org/rfc/rfc5280>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/rfc/rfc8174>.
+
+   [RFC8446]  Rescorla, E., "The Transport Layer Security (TLS) Protocol
+              Version 1.3", RFC 8446, DOI 10.17487/RFC8446, August 2018,
+              <https://www.rfc-editor.org/rfc/rfc8446>.
+
+   [SHS]      National Institute of Standards and Technology (U.S.),
+              "Secure Hash Standard", 2015,
+              <https://doi.org/10.6028/nist.fips.180-4>.
+
+10.2.  Informative References
+
+   [CHROME-MTC]
+              Google Chrome, "Chrome MTC Policy", 2025,
+              <https://googlechrome.github.io/CertificateTransparency/
+              mtc_policy.html>.
+
+   [CRLite]   Larisch, J., Choffnes, D., Levin, D., Maggs, B., Mislove,
+              A., and C. Wilson, "CRLite: A Scalable System for Pushing
+              All TLS Revocations to All Browsers", May 2017,
+              <https://doi.org/10.1109/sp.2017.17>.
+
+   [CRLSets]  Chromium, "CRLSets", August 2022,
+              <https://www.chromium.org/Home/chromium-security/
+              crlsets/>.
+
+   [MICALI]   Micali, S., "Efficient Certificate Revocation", 1996,
+              <https://people.csail.mit.edu/silvio/
+              Selected%20Scientific%20Papers/Digital%20Signatures/
+              Efficient_Certificate_Revocation.pdf>.
+
+   [RFC6960]  Santesson, S., Myers, M., Ankney, R., Malpani, A.,
+              Galperin, S., and C. Adams, "X.509 Internet Public Key
+              Infrastructure Online Certificate Status Protocol - OCSP",
+              RFC 6960, DOI 10.17487/RFC6960, June 2013,
+              <https://www.rfc-editor.org/rfc/rfc6960>.
+
+   [RFC6962]  Laurie, B., Langley, A., and E. Kasper, "Certificate
+              Transparency", RFC 6962, DOI 10.17487/RFC6962, June 2013,
+              <https://www.rfc-editor.org/rfc/rfc6962>.
+
+Appendix A.  Hash Chain Input Encoding
+
+   The HashChainInput structure provides domain separation for hash
+   chain computations:
+
+   struct {
+       uint8 label[24] = "MTC HashChain Revocation";
+       TrustAnchorID issuer_id<1..2^8-1>;
+       uint16 log_number;
+       uint48 index;
+       uint32 position;
+       opaque preimage[HASH_SIZE];
+   } HashChainInput;
+
+   label:  A fixed ASCII string providing domain separation from other
+      uses of the hash function in MTC.
+
+   issuer_id:  The CA's trust anchor ID.  Binds the chain to a specific
+      CA.
+
+   log_number:  The log number of the issuance log containing this
+      entry.  Binds the chain to a specific log.
+
+   index:  The entry's index within the issuance log.  Binds the chain
+      to a specific entry.
+
+   position:  The position in the chain (1 to chain_length).  Prevents
+      values at different positions from being interchangeable.
+
+   preimage:  The previous hash chain value being hashed.
+
+   The Hash function is the same hash function used by the Merkle Tree
+   CA (SHA-256 for CAs using SHA-256).
+
+Appendix B.  Design Rationale
+
+   This section provides rationale for the choices made in this
+   document.
+
+B.1.  Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
+
+   Hash chains [MICALI] were selected because they are the only known
+   mechanism that simultaneously provides:
+
+   1.  *Self-authentication:* The tick is verified against data already
+       committed in the Merkle Tree (the anchor).  No additional
+       signatures, certificates, or trust relationships are needed.
+
+   2.  *Zero CA signing load:* Each revocation period, the CA reveals a
+       precomputed value.  There is no per-certificate, per-period
+       signing operation.  This is critical for CAs with millions of
+       active certificates.
+
+   3.  *Mandatory enforcement:* Because the tick is structurally part of
+       the certificate presentation, relying parties can hard- fail on
+       its absence.  This avoids the soft-fail problem that plagued
+       OCSP.
+
+   4.  *Minimal bandwidth:* 36 bytes per handshake (4-byte period +
+       32-byte hash value).
+
+   5.  *Simple implementation:* The mechanism requires only a hash
+       function and basic arithmetic.  No new cryptographic primitives
+       are introduced.
+
+B.2.  Why One Hour (or One Day) Periods
+
+   A one-hour revocation_period provides a good balance:
+
+   *  *Revocation latency:* A compromised key is unusable within at most
+      two hours (current period + grace period).
+
+   *  *Operational feasibility:* Authenticating parties must fetch a new
+      tick once per hour.  This is a trivial HTTP request for a 36-byte
+      response.
+
+   *  *Chain length:* For 47-day certificates, the chain length is
+      1,128.  Verification requires at most 1,128 hash computations,
+      which takes microseconds on modern hardware.
+
+   *  *CA storage:* The CA must store one seed per active certificate.
+      With 32 bytes per seed, 10 million certificates require 320 MB.
+
+   A one-day period is also viable, reducing operational frequency at
+   the cost of up to 48-hour revocation latency.  Deployments SHOULD
+   choose the shortest period operationally feasible.
+
+B.3.  Why Include the Tick in the Certificate Structure
+
+   The tick is included as a mandatory part of the certificate
+   presentation rather than delivered via a separate channel because:
+
+   1.  *No soft-fail ambiguity:* If the tick is separate (e.g., via DNS
+       or a TLS extension), a missing tick could indicate either
+       revocation or a delivery failure.  When the tick is mandatory,
+       its absence always means the certificate is invalid.
+
+   2.  *No additional round-trips:* The tick travels with the
+       certificate in the same TLS message.  No DNS lookups or side-
+       channel fetches are needed by the relying party.
+
+   3.  *Universal applicability:* Works for all TLS connections, not
+       only HTTPS.  Mechanisms that depend on DNS or HTTP are limited to
+       protocols where those channels are available.
+
+   4.  *Server must participate:* The authenticating party is already
+       responsible for maintaining its MTC certificate and refreshing it
+       before expiry.  Adding a lightweight hourly tick refresh is an
+       incremental burden, not a new class of operational requirement.
+
+Appendix C.  Alternatives Considered
+
+C.1.  DNS-Based Tick Distribution
+
+   One alternative considered was distributing hash chain ticks via DNS
+   records (e.g., a TXT record at _mtc-tick.example.com).  Under this
+   model, clients would fetch the tick independently via DNS, removing
+   the requirement for server participation.
+
+   This approach was rejected for several reasons:
+
+   *  *Soft-fail risk:* If the DNS lookup fails (network issue, resolver
+      misconfiguration, etc.), the client must decide whether to fail
+      the connection or proceed without the tick.  Any allowance for
+      "proceed without" defeats the revocation mechanism.
+
+   *  *Protocol dependency:* DNS-based distribution only works when the
+      relying party can perform DNS lookups in the context of
+      certificate verification.  This excludes some TLS use cases (e.g.,
+      embedded devices, TLS within TLS).
+
+   *  *Operational complexity for subscribers:* If the subscriber
+      publishes the DNS record, they must update DNS every period.
+      While feasible for sophisticated operators, this is a significant
+      burden for smaller deployments.  If the CA publishes under its own
+      zone, the DNS becomes a single point of failure and a target for
+      denial-of-service attacks.
+
+   *  *Latency:* An additional DNS lookup adds latency to connection
+      establishment, even when parallelized with the A/AAAA lookup.
+
+   However, DNS-based distribution does have one notable advantage: it
+   does not require server software changes.  Deployments that
+   prioritize this property over hard-fail semantics MAY define a DNS-
+   based distribution profile in a separate document.
+
+C.2.  TLS Extension (Optional Stapling)
+
+   Another alternative was defining a new TLS extension that optionally
+   carries the hash chain tick, analogous to the status_request
+   extension used for OCSP stapling.
+
+   This approach was rejected because:
+
+   *  *The OCSP stapling lesson:* OCSP stapling was defined as optional,
+      requiring servers to opt in.  After more than a decade, stapling
+      adoption remains incomplete, and browsers have been unable to
+      enforce hard-fail policies.  Any optional mechanism will repeat
+      this outcome.
+
+   *  *Semantic ambiguity:* An absent extension could mean "server
+      doesn't support it," "server forgot to configure it," or
+      "certificate has been revoked."  Without universal deployment,
+      hard-fail is impossible.
+
+C.3.  Shorter Certificate Lifetimes
+
+   The simplest revocation strategy is to make certificates short-lived
+   enough that revocation is unnecessary.  For example, 1-day
+   certificates have at most 24-hour exposure after compromise.
+
+   This approach has trade-offs that motivate longer lifetimes:
+
+   *  *Issuance infrastructure load:* Shorter lifetimes require more
+      frequent issuance.  With millions of subscribers, daily
+      certificate issuance produces proportionally larger logs and more
+      frequent Merkle Tree constructions.
+
+   *  *Availability risk:* An authenticating party that cannot reach the
+      CA for one day loses its certificate entirely.  Longer lifetimes
+      provide more buffer against CA outages.
+
+   *  *Trusted subtree state:* The number of landmark subtrees relying
+      parties must maintain grows with shorter lifetimes and more
+      frequent landmark allocation, at the cost of increased CA
+      operational complexity.
+
+   *  *Deployment constraints:* Root program policies such as
+      [CHROME-MTC] have set maximum lifetimes (e.g., 47 days) based on
+      ecosystem-wide operational feasibility assessments.  Not all
+      deployments can support arbitrarily short lifetimes.
+
+   Hash chain revocation provides the revocation latency benefits of
+   short-lived certificates while retaining the operational advantages
+   of longer lifetimes.
+
+C.4.  CRLite / CRLSets / External Revocation
+
+   External revocation systems like [CRLite] and [CRLSets] compress
+   revocation information into compact data structures pushed to relying
+   parties.  The base MTC specification suggests using these as a
+   complement.
+
+   This approach has limitations when used as the sole revocation
+   mechanism for MTC:
+
+   *  *Push latency:* These systems are updated on the order of hours to
+      days, depending on the deployment.  They do not provide a
+      guaranteed upper bound on revocation latency.
+
+   *  *Relying party coverage:* Not all relying parties subscribe to
+      external revocation feeds.  A mechanism that depends on the
+      relying party having an up-to-date feed cannot provide universal
+      revocation enforcement.
+
+   *  *Separate trust path:* External revocation requires the relying
+      party to trust the feed provider (e.g., the browser vendor) in
+      addition to the CA.  Hash chain revocation uses only the existing
+      CA trust relationship.
+
+   These mechanisms remain valuable as defense-in-depth and as a
+   fallback for the hash chain mechanism, as discussed in Section 8.
+
+C.5.  Per-Certificate Signatures (OCSP-like)
+
+   A CA could sign per-certificate non-revocation statements each
+   period, analogous to OCSP responses.
+
+   This approach was rejected because:
+
+   *  *Signing load:* A CA with millions of active certificates would
+      need to produce millions of signatures per period.  With post-
+      quantum signature algorithms, this is computationally expensive.
+
+   *  *Response size:* OCSP responses include a full signature (e.g.,
+      3,309 bytes for ML-DSA-65).  Hash chain ticks are 36 bytes.
+
+   *  *Complexity:* OCSP requires its own responder infrastructure,
+      certificate chain, and protocol.  Hash chains require only a hash
+      function.
+
+Acknowledgments
+
+   The hash chain revocation concept is based on Silvio Micali's
+   foundational work on efficient certificate revocation [MICALI].
+
+Author's Address
+
+   Rob Stradling
+   Sectigo
+   Email: rob@sectigo.com
