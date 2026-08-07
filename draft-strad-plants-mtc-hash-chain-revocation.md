@@ -263,11 +263,14 @@ revocationPeriod:
 anchor:
 : The hash chain anchor value `h[chain_length]` (HASH_SIZE bytes).
 
-The id-pe-hashChainAnchor extension MUST be marked non-critical, so
+The id-pe-hashChainAnchor extension SHOULD be marked non-critical, so
 that relying parties that do not implement this mechanism can still
 process the certificate.  However, relying parties that do implement
 this mechanism MUST enforce hash chain verification as described in
-{{verification}} when the extension is present.
+{{verification}} when the extension is present.  An MTC ecosystem in
+which all relying parties are expected to support hash chain
+revocation MAY mark the extension critical, causing implementations
+that do not recognize it to reject the certificate.
 
 The extension MUST appear at most once in a certificate.
 
@@ -756,6 +759,352 @@ This approach was rejected because:
 - **Complexity:** OCSP requires its own responder infrastructure,
   certificate chain, and protocol.  Hash chains require only a hash
   function.
+
+# Anticipated Objections {#objections}
+
+This section addresses some potential objections that may arise from
+the PLANTS community regarding this proposal.
+
+## "MTC Was Designed to Avoid Revocation Complexity"
+
+The base MTC specification deliberately uses short-lived certificates
+to sidestep the complexity of traditional revocation mechanisms (CRLs,
+OCSP).  Adding a revocation layer may appear to reintroduce the very
+complexity MTC was designed to eliminate.
+
+However, this mechanism is fundamentally simpler than traditional
+revocation.  It requires no new PKI infrastructure (no responder
+certificates, no separate signing keys), no new protocols (no OCSP
+request/response), and no per-check signatures.  The entire mechanism
+is a single hash function applied iteratively.  The complexity budget
+is closer to "one additional hash computation per handshake" than to
+"deploy and operate an OCSP responder fleet."  The alternative — living
+with up to 47-day exposure windows after key compromise — is a concrete
+security cost, not a simplification.
+
+## "This Creates a New Availability Dependency"
+
+Authenticating parties must fetch a fresh tick at least once per
+revocation_period.  If the CA's tick distribution infrastructure is
+unavailable for longer than one period, the certificate becomes
+unusable.  This may be seen as undermining MTC's advantage of
+decoupling certificate validity from real-time CA availability.
+
+This concern is real but bounded.  First, the dependency is on a
+trivial HTTP GET returning 36 bytes — far less fragile than ACME
+issuance or OCSP responder availability.  Second, the authenticating
+party has a full period (e.g., one hour) of buffer; brief outages are
+invisible to relying parties.  Third, CAs already operate high-
+availability infrastructure for issuance; tick distribution is a
+strictly simpler service (static content, cacheable, CDN-friendly).
+Additionally, relying parties can choose to accept ticks that are
+slightly stale (e.g., two or three periods old rather than only
+the current or immediately preceding period), according to local
+policy.  This trades revocation latency for resilience: if a CA
+outage prevents the authenticating party from obtaining a fresh tick,
+relying parties with a more permissive staleness policy will continue
+to accept the certificate while the outage is resolved.  The base
+verification procedure ({{verification}}, step 4) already allows
+the immediately preceding period; deployments with known availability
+concerns MAY extend this window further.  Finally, the alternative
+(no in-band revocation) means the ecosystem depends entirely on
+external revocation systems whose availability the CA does not
+control.
+
+## "Just Use Shorter Certificate Lifetimes"
+
+If revocation latency is the concern, reducing certificate lifetimes
+(e.g., to one day) achieves similar bounds without new mechanism
+complexity.  The PLANTS community may prefer this simpler approach.
+
+Shorter lifetimes and hash chain revocation are not mutually exclusive,
+but shorter lifetimes alone impose costs that hash chains avoid.  Daily
+issuance for millions of subscribers produces proportionally larger
+Merkle Trees, more frequent log publications, and tighter availability
+requirements on issuance infrastructure.  A one-day certificate that
+cannot be renewed due to a 2-hour CA outage causes immediate service
+disruption; a 47-day certificate with hash chain revocation survives
+the same outage with no impact (the tick was already fetched).  Hash
+chains provide short revocation latency while preserving the
+operational headroom that longer lifetimes afford.
+
+## "CRLite/CRLSets Already Solve This Problem"
+
+Browser vendors already push compressed revocation data to relying
+parties.  Adding an in-band mechanism may appear redundant.
+
+External revocation systems and hash chain revocation serve different
+roles.  CRLite and CRLSets are controlled by the browser vendor, not
+the CA; they operate on the vendor's update schedule; and they provide
+coverage only to relying parties that subscribe to the feed.  Hash
+chain revocation is CA-operated, has a deterministic latency bound
+(one period), and is enforced by every relying party that validates
+the certificate — including non-browser TLS clients, IoT devices, and
+any implementation that supports MTC but has no external revocation
+feed.  The two mechanisms are complementary: external revocation is
+defense-in-depth, while hash chains provide a universal baseline.
+
+## "The Non-Critical Extension Means Split Enforcement"
+
+Since id-pe-hashChainAnchor is marked non-critical, relying parties
+that have not implemented this mechanism will ignore it.  This creates
+a transition period where revocation via hash chains is enforced by
+some relying parties but not others.
+
+This is an intentional deployment strategy, not a design flaw.
+Marking the extension non-critical enables incremental deployment:
+CAs can begin issuing certificates with hash chain anchors today,
+and relying parties can adopt enforcement as implementations mature.
+During the transition, the base MTC revoked-ranges mechanism and
+external revocation systems continue to provide coverage.  This is
+consistent with how many X.509 extensions are specified as non-
+critical (e.g., Authority Information Access, Authority Key
+Identifier, CRL Distribution Points per {{RFC5280}}): the extension
+carries useful information that aware implementations act on, while
+unaware implementations can safely proceed without it.
+
+Furthermore, this document specifies SHOULD rather than MUST for the
+non-critical marking.  An MTC ecosystem in which all relying parties
+are known to support hash chain revocation MAY mark the extension
+critical, providing hard enforcement from day one within that
+ecosystem.  A root program policy could similarly mandate critical
+marking once adoption is deemed sufficient.
+
+## "CA Seed Compromise Is Catastrophic"
+
+If an attacker compromises the CA's stored hash chain seeds, they
+can compute valid ticks for revoked certificates, completely
+defeating the mechanism.
+
+This is true, and is acknowledged in {{security-considerations}}.
+However, the threat model is no worse than the status quo: a CA whose
+signing key is compromised can issue arbitrary certificates.  Seeds
+require confidentiality and integrity protection — for example,
+encrypted-at-rest storage with strong access controls and monitoring —
+but their operational profile differs from signing keys: a CA with
+millions of active certificates must store and retrieve seeds in bulk,
+which is better suited to encrypted database storage than to HSMs
+designed for a small number of high-value keys.  Additionally, the
+fallback to revoked ranges provides a recovery path: if seed
+compromise is detected, the CA revokes affected certificates via
+ranges, which relying parties enforce regardless of hash chain state.
+
+## "Modifying MTCProof Breaks Existing Implementations"
+
+Adding a status_tick field to MTCProof requires changes to every MTC
+implementation.  The base MTC specification may not have anticipated
+this kind of extension.
+
+This objection is well-founded.  Section 7.2 of
+{{I-D.ietf-plants-merkle-tree-certs}} explicitly requires relying
+parties to reject an MTCProof if the signatureValue contains "extra
+data after the MTCProof."  The current MTCProof structure has no
+extensibility mechanism: it is a fixed sequence of fields with no
+trailing extensions block or version indicator.
+
+Consequently, appending a status_tick to the MTCProof will cause any
+existing MTC implementation to reject the certificate — regardless
+of whether the X.509 extension is marked critical or non-critical.
+An unaware relying party will ignore the non-critical
+id-pe-hashChainAnchor extension, proceed to parse the MTCProof, find
+36 unexpected trailing bytes, and fail verification.
+
+This means that, in practice, deploying this mechanism requires one
+of the following:
+
+1. **Amendment to the base MTC specification:** The MTCProof
+   structure is extended with a trailing extensions field (see
+   {{mtcproof-extensibility}}) that existing parsers can safely
+   skip.  This is the preferred approach and is proposed by this
+   document.
+
+2. **Critical extension only:** The id-pe-hashChainAnchor extension
+   is marked critical, so unaware implementations reject at the
+   X.509 extension stage (before reaching MTCProof parsing).  This
+   sacrifices incremental deployment.
+
+3. **Concurrent deployment:** Since MTC is not yet deployed at scale,
+   both the base spec and this extension can be implemented together
+   before the ecosystem ossifies.  Early implementations can adopt
+   the extended MTCProof structure from the start.
+
+This document pursues option 1 as the primary path, with option 3 as
+a practical fallback during the current development window.  See
+{{mtcproof-extensibility}} for the proposed MTCProof amendment.
+
+## "Hourly Tick Refresh Adds Operational Burden to Servers"
+
+Authenticating parties already perform periodic certificate
+management: renewing certificates before expiry (recommended at 75%
+of lifetime, per Section 10.4 of
+{{I-D.ietf-plants-merkle-tree-certs}}) and optionally fetching
+landmark-relative certificates as new landmarks are allocated.
+Adding an hourly tick refresh introduces a new operational loop with
+a tighter cadence than certificate renewal and — unlike the
+landmark-relative fetch, which is optional and best-effort — a hard
+deadline: if the tick is not refreshed in a timely manner, the
+certificate becomes unusable.
+
+The refresh is a single HTTP GET returning 36 bytes, with no
+cryptographic operations required on the authenticating party's side.
+This is orders of magnitude simpler than ACME certificate renewal
+(which involves key generation, CSR construction, challenge
+completion, and certificate installation).  The authenticating party
+can implement tick refresh as a lightweight background process with
+retry logic and local caching.  If the period is set to one day
+instead of one hour, the operational cadence matches what servers
+already do for DNS record TTL refreshes.
+
+## "This Introduces a Covert Denial-of-Service Vector"
+
+A CA can selectively withhold ticks from a specific subscriber,
+effectively revoking their certificate without any auditable signal.
+This weaponizes the revocation mechanism as a censorship tool.
+
+This concern applies equally to any CA-mediated revocation system
+and is inherent in the CA trust model.  A CA can already refuse to
+issue or renew certificates for any subscriber.  Tick withholding is
+detectable: the authenticating party knows it did not receive a tick
+and can raise an alarm, switch CAs, or fall back to a traditionally-
+signed certificate.  Furthermore, the tick distribution endpoint can
+be monitored by third parties (CT-style auditing), making selective
+withholding observable.  The threat is real but not novel, and the
+mitigations (market pressure, monitoring, CA switching) are the same
+ones that discipline CA behavior today.
+
+## "Verification Cost Grows Linearly with Certificate Age"
+
+A relying party verifying a tick near the end of a 47-day
+certificate's lifetime must compute up to 1,128 hashes.  This linear
+cost may be unacceptable for constrained devices.
+
+On modern hardware, 1,128 SHA-256 operations take approximately
+10-20 microseconds — negligible compared to the TLS handshake's
+asymmetric cryptography (ECDHE key exchange, signature verification).
+Even on constrained IoT devices, SHA-256 is typically hardware-
+accelerated and the computation completes in under a millisecond.
+For comparison, verifying a single Ed25519 signature costs roughly
+the same as hundreds of SHA-256 operations.  If the linear cost is
+nonetheless a concern for a specific deployment, choosing a shorter
+certificate lifetime (reducing chain_length) or a longer
+revocation_period (also reducing chain_length) provides a direct
+mitigation.
+
+# Proposed MTCProof Extensibility {#mtcproof-extensibility}
+
+This document proposes that the base MTC specification
+{{I-D.ietf-plants-merkle-tree-certs}} amend the MTCProof structure
+to include a trailing proof-level extensions field, enabling future
+mechanisms (including hash chain revocation) to attach additional
+data to the certificate presentation without breaking existing
+parsers.
+
+## Motivation
+
+The current MTCProof structure is a fixed sequence of fields with no
+extensibility point:
+
+    struct {
+        MerkleTreeCertEntryExtension extensions<0..2^16-1>;
+        uint48 start;
+        uint48 end;
+        HashValue inclusion_proof<0..2^16-1>;
+        MTCSignature signatures<0..2^16-1>;
+    } MTCProof;
+
+Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} requires
+implementations to reject certificates where the signatureValue
+contains extra data after the MTCProof.  This means no trailing data
+can be added without breaking all existing parsers.
+
+The existing `extensions` field in MTCProof carries the log entry's
+MerkleTreeCertEntryExtension values, which are committed to the
+Merkle Tree.  These cannot carry dynamic, per-period data like hash
+chain ticks because the Merkle Tree inclusion proof would fail.
+
+A proof-level extensions field — not committed to the tree and
+freely updatable by the authenticating party — would allow the
+MTCProof to carry revocation ticks and potentially other future
+mechanisms (e.g., key transparency signals, policy assertions)
+without requiring a new version of the base specification for each.
+
+## Proposed Amendment
+
+This document proposes updating
+{{I-D.ietf-plants-merkle-tree-certs}} with the following extended
+MTCProof structure:
+
+    enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
+
+    struct {
+        MTCProofExtensionType extension_type;
+        opaque extension_data<0..2^16-1>;
+    } MTCProofExtension;
+
+    struct {
+        MerkleTreeCertEntryExtension entry_extensions<0..2^16-1>;
+        uint48 start;
+        uint48 end;
+        HashValue inclusion_proof<0..2^16-1>;
+        MTCSignature signatures<0..2^16-1>;
+        MTCProofExtension proof_extensions<0..2^16-1>;
+    } MTCProof;
+
+The `proof_extensions` field is a variable-length list with a 2-byte
+length prefix.  When empty, it encodes as two zero bytes (0x0000),
+adding minimal overhead to certificates that do not use any proof
+extensions.
+
+The existing `extensions` field is renamed to `entry_extensions` to
+distinguish it from the new `proof_extensions` field.  Both are
+variable-length lists of tag-length-value structures, but they serve
+different roles: `entry_extensions` carries the log entry's
+MerkleTreeCertEntryExtension values (committed to the Merkle Tree),
+while `proof_extensions` carries proof-level data that can be freely
+updated without affecting the inclusion proof.
+
+Relying parties MUST ignore unrecognized proof extension types.
+
+The "extra data" check in Section 7.2 of
+{{I-D.ietf-plants-merkle-tree-certs}} would be amended to account
+for the trailing `proof_extensions` field.
+
+## Hash Chain Tick as a Proof Extension
+
+With this extensibility mechanism, the hash chain tick is carried as
+a proof extension rather than a bare trailing field:
+
+    struct {
+        uint32 period;
+        opaque value[HASH_SIZE];
+    } HashChainTick;
+
+The HashChainTick is encoded as an MTCProofExtension with
+`extension_type` set to `hash_chain_tick(0)` and `extension_data`
+containing the serialized HashChainTick (4 + HASH_SIZE bytes).
+
+## Backward Compatibility
+
+Because the `proof_extensions` field uses a length-prefixed encoding,
+an implementation that supports the extended structure but does not
+recognize a particular extension type can skip over it by consuming
+the declared length.  Implementations that predate the amendment
+will reject the certificate at the MTCProof parsing stage (due to
+trailing bytes), which is acceptable: such implementations would
+also not recognize the id-pe-hashChainAnchor extension's semantics,
+so they cannot verify hash chain revocation regardless.
+
+For the transition period, ecosystems have two options:
+
+- **Mark the extension critical:** Unaware implementations reject at
+  the X.509 extension stage, producing a clear error rather than an
+  opaque parse failure.
+
+- **Deploy the base spec amendment first:** Once the proof_extensions
+  field is adopted into the base MTC specification, all conforming
+  implementations will parse it (ignoring unknown types), enabling
+  incremental deployment of hash chain revocation with a non-critical
+  X.509 extension.
 
 # Acknowledgments
 {:numbered="false"}
