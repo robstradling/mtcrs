@@ -483,6 +483,33 @@ mirrors) via out-of-band configuration, but the `.well-known` path
 under the issuer_id-derived origin serves as the default discovery
 mechanism.
 
+## ACME Integration {#acme-integration}
+
+When the CA issues certificates via ACME, it SHOULD include the
+tick distribution URL in the ACME order object as a new field:
+
+    "tickDistributionURL": "https://cdn.ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0"
+
+The `tickDistributionURL` field contains the full URL from which
+the authenticating party fetches its current HashChainTick.  If
+present, the authenticating party MUST use this URL instead of
+deriving one from the issuer_id.
+
+This mechanism allows the CA to direct authenticating parties to
+CDN endpoints, regional mirrors, or infrastructure that does not
+match the `.well-known` derivation, without adding bytes to the
+certificate or log entry.
+
+If the `tickDistributionURL` field is absent from the ACME order,
+the authenticating party derives the tick URL from the issuer_id as
+described above.
+
+CAs using issuance protocols other than ACME SHOULD provide an
+equivalent mechanism for communicating the tick distribution URL
+during certificate provisioning.
+
+## Response Format
+
 The response body is the serialized HashChainTick structure: a
 4-byte big-endian period followed by HASH_SIZE bytes of value
 (36 bytes total for SHA-256).  The response Content-Type MUST be
