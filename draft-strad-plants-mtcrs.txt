@@ -8,8 +8,8 @@ Intended status: Experimental                              8 August 2026
 Expires: 9 February 2027
 
 
-           Hash Chain Revocation for Merkle Tree Certificates
-          draft-strad-plants-mtc-hash-chain-revocation-latest
+           Merkle Tree Certificate Revocation Status (MTCRS)
+                    draft-strad-plants-mtcrs-latest
 
 Abstract
 
@@ -34,9 +34,8 @@ About This Document
 
    The latest revision of this draft can be found at
    https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-
-   strad-plants-mtc-hash-chain-revocation.html.  Status information for
-   this document may be found at https://datatracker.ietf.org/doc/draft-
-   strad-plants-mtc-hash-chain-revocation/.
+   strad-plants-mtcrs.html.  Status information for this document may be
+   found at https://datatracker.ietf.org/doc/draft-strad-plants-mtcrs/.
 
    Discussion of this document takes place on the PKI, Logs, And Tree
    Signatures Working Group mailing list (mailto:plants@ietf.org), which

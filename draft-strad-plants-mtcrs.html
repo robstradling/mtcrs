@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta content="Common,Latin" name="scripts">
 <meta content="initial-scale=1.0" name="viewport">
-<title>Hash Chain Revocation for Merkle Tree Certificates</title>
+<title>Merkle Tree Certificate Revocation Status (MTCRS)</title>
 <meta content="Rob Stradling" name="author">
 <meta content="
        This document defines a hash chain revocation mechanism for Merkle
@@ -26,7 +26,7 @@ trust relationships beyond the existing CA.
 <meta content="hash chain" name="keyword">
 <meta content="revocation" name="keyword">
 <meta content="micali" name="keyword">
-<meta content="draft-strad-plants-mtc-hash-chain-revocation-latest" name="ietf.draft">
+<meta content="draft-strad-plants-mtcrs-latest" name="ietf.draft">
 <!-- Generator version information:
   xml2rfc 3.34.0
     Python 3.14.5
@@ -42,7 +42,7 @@ trust relationships beyond the existing CA.
     requests 2.33.1
     wcwidth 0.8.2
 -->
-<link href="draft-strad-plants-mtc-hash-chain-revocation.xml" rel="alternate" type="application/rfc+xml">
+<link href="draft-strad-plants-mtcrs.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
 <style type="text/css">@font-face {
   font-family: 'Lora';
@@ -1055,7 +1055,7 @@ svg {
 <table class="ears">
 <thead><tr>
 <td class="left">Internet-Draft</td>
-<td class="center">MTC Hash Chain Revocation</td>
+<td class="center">MTCRS</td>
 <td class="right">August 2026</td>
 </tr></thead>
 <tfoot><tr>
@@ -1070,7 +1070,7 @@ svg {
 <dt class="label-workgroup">Workgroup:</dt>
 <dd class="workgroup">PKI, Logs, And Tree Signatures</dd>
 <dt class="label-internet-draft">Internet-Draft:</dt>
-<dd class="internet-draft">draft-strad-plants-mtc-hash-chain-revocation-latest</dd>
+<dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
 <time datetime="2026-08-08" class="published">8 August 2026</time>
@@ -1088,7 +1088,7 @@ svg {
 </dd>
 </dl>
 </div>
-<h1 id="title">Hash Chain Revocation for Merkle Tree Certificates</h1>
+<h1 id="title">Merkle Tree Certificate Revocation Status (MTCRS)</h1>
 <section id="section-abstract">
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
 <p id="section-abstract-1">This document defines a hash chain revocation mechanism for Merkle
@@ -1111,8 +1111,8 @@ trust relationships beyond the existing CA.<a href="#section-abstract-2" class="
       </h2>
 <p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
 <p id="section-note.1-2">
-        The latest revision of this draft can be found at <span><a href="https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html">https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html</a></span>.
-        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation/">https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+        The latest revision of this draft can be found at <span><a href="https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtcrs.html">https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtcrs.html</a></span>.
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-strad-plants-mtcrs/">https://datatracker.ietf.org/doc/draft-strad-plants-mtcrs/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
 <p id="section-note.1-3">
         Discussion of this document takes place on the
         PKI, Logs, And Tree Signatures Working Group mailing list (<span><a href="mailto:plants@ietf.org">mailto:plants@ietf.org</a></span>),
