@@ -60,7 +60,7 @@ informative:
     author:
       - name: Silvio Micali
     date: 1996
-    target: https://people.csail.mit.edu/silvio/Selected%20Scientific%20Papers/Digital%20Signatures/Efficient_Certificate_Revocation.pdf
+    target: https://dl.acm.org/doi/10.5555/889659
   CHROME-MTC:
     title: "Chrome MTC Policy"
     author:
