@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                              7 August 2026
-Expires: 8 February 2027
+Intended status: Experimental                              8 August 2026
+Expires: 9 February 2027
 
 
            Hash Chain Revocation for Merkle Tree Certificates
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 8 February 2027.
+   This Internet-Draft will expire on 9 February 2027.
 
 Copyright Notice
 
@@ -564,9 +564,7 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
               crlsets/>.
 
    [MICALI]   Micali, S., "Efficient Certificate Revocation", 1996,
-              <https://people.csail.mit.edu/silvio/
-              Selected%20Scientific%20Papers/Digital%20Signatures/
-              Efficient_Certificate_Revocation.pdf>.
+              <https://dl.acm.org/doi/10.5555/889659>.
 
    [RFC6960]  Santesson, S., Myers, M., Ankney, R., Malpani, A.,
               Galperin, S., and C. Adams, "X.509 Internet Public Key
