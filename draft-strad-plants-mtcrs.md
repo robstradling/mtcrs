@@ -164,6 +164,84 @@ mandatory enforcement (the value is structurally required for
 certificate validity), zero signing overhead, self-authentication
 against an already-trusted anchor, and minimal bandwidth cost.
 
+## Why Functional Revocation Is Superior to Passive Expiry {#revocation-vs-expiry}
+
+A common argument holds that sufficiently short certificate
+lifetimes eliminate the need for revocation: if a certificate
+expires in one day, the window of exposure after key compromise or
+misissuance is bounded by that day.  This reasoning is incomplete.
+Three independent time intervals govern the security of a
+certificate:
+
+1. **Certificate lifetime:** The maximum duration for which a
+   certificate can be presented.  Without revocation, this is the
+   upper bound on exposure after any problem.
+
+2. **Revocation latency:** Once the CA decides to revoke, how
+   quickly can the certificate become unusable?  Without a
+   revocation mechanism, this equals the remaining certificate
+   lifetime.  With hash chain revocation, this is at most two
+   revocation periods (e.g., two hours).
+
+3. **CA validation frequency:** How often the CA re-verifies that
+   the subscriber remains authorized (domain control, organization
+   identity, etc.).  This determines how quickly the CA *learns* of
+   problems that are not self-reported by the subscriber.
+
+These three intervals interact as follows.  The worst-case exposure
+time after a problem occurs is:
+
+    exposure = min(remaining_lifetime, detection_time + revocation_latency)
+
+Without revocation, detection_time is irrelevant — the certificate
+remains valid until it expires regardless of what the CA knows.
+With revocation, the CA can act as soon as it detects the problem,
+and the certificate becomes unusable within the revocation latency.
+
+This has a counterintuitive consequence: a certificate with a long
+lifetime but active revocation can provide *shorter* exposure than
+a certificate with a short lifetime but no revocation.  For example:
+
+- A 1-day certificate without revocation: worst-case exposure is
+  ~24 hours (compromise occurs immediately after issuance).
+
+- A 47-day certificate with 1-hour hash chain revocation: if the CA
+  learns of the compromise within minutes (subscriber report, domain
+  validation re-check, or external notification), worst-case exposure
+  is ~2 hours.
+
+The critical difference is that passive expiry provides no mechanism
+for the CA to act on new information.  A hash chain tick is a
+*continuous assertion of non-revocation* — each tick is an active
+statement by the CA that, as of this period, it has not revoked the
+certificate.  Absence of the tick is immediately detectable and
+enforced by the relying party.
+
+### The Role of CA Validation Frequency
+
+Even with functional revocation, the CA cannot revoke a certificate
+for a problem it does not know about.  The frequency of CA
+re-validation therefore determines the effective security bound for
+non-self-reported problems (e.g., loss of domain control that the
+subscriber does not notice or report).
+
+Without revocation, validation frequency is largely irrelevant:
+even if the CA discovers a problem mid-lifetime, it cannot shorten
+the certificate's validity.  The only recourse is to publish the
+revocation via an external mechanism (CRLite, CRLSets) that may or
+may not reach all relying parties.
+
+With hash chain revocation, frequent CA validation translates
+directly into security improvement: the CA can revoke within one
+period of detecting any problem.  This creates an incentive
+structure where CAs that validate more frequently provide
+measurably better security — an incentive that does not exist in a
+pure short-lived-certificate model without revocation.
+
+Root program policies can leverage this by requiring both short
+revocation periods and minimum re-validation frequencies, achieving
+a defence-in-depth posture that neither mechanism provides alone.
+
 # Conventions and Definitions
 
 {::boilerplate bcp14-tagged}
