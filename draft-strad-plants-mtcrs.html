@@ -1170,15 +1170,23 @@ trust relationships beyond the existing CA.<a href="#section-abstract-2" class="
         </h2>
 <nav class="toc"><ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
-            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+            <p id="section-toc.1-1.1.1"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.1">
                 <p id="section-toc.1-1.1.2.1.1" class="keepWithNext"><a href="#section-1.1" class="auto internal xref">1.1</a>.  <a href="#name-rationale-for-this-approach" class="internal xref">Rationale for This Approach</a></p>
 </li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.2">
+                <p id="section-toc.1-1.1.2.2.1" class="keepWithNext"><a href="#section-1.2" class="auto internal xref">1.2</a>.  <a href="#name-why-functional-revocation-i" class="internal xref">Why Functional Revocation Is Superior to Passive Expiry</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.2.2.1">
+                    <p id="section-toc.1-1.1.2.2.2.1.1" class="keepWithNext"><a href="#section-1.2.1" class="auto internal xref">1.2.1</a>.  <a href="#name-the-role-of-ca-validation-f" class="internal xref">The Role of CA Validation Frequency</a></p>
+</li>
+                </ul>
+</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
-            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+            <p id="section-toc.1-1.2.1"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
             <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-hash-chain-construction" class="internal xref">Hash Chain Construction</a></p>
@@ -1436,6 +1444,97 @@ The hash chain approach was selected because it uniquely combines
 mandatory enforcement (the value is structurally required for
 certificate validity), zero signing overhead, self-authentication
 against an already-trusted anchor, and minimal bandwidth cost.<a href="#section-1.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="revocation-vs-expiry">
+<section id="section-1.2">
+        <h3 id="name-why-functional-revocation-i">
+<a href="#section-1.2" class="section-number selfRef">1.2. </a><a href="#name-why-functional-revocation-i" class="section-name selfRef">Why Functional Revocation Is Superior to Passive Expiry</a>
+        </h3>
+<p id="section-1.2-1">A common argument holds that sufficiently short certificate
+lifetimes eliminate the need for revocation: if a certificate
+expires in one day, the window of exposure after key compromise or
+misissuance is bounded by that day.  This reasoning is incomplete.
+Three independent time intervals govern the security of a
+certificate:<a href="#section-1.2-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-1.2-2">
+<li id="section-1.2-2.1">
+            <p id="section-1.2-2.1.1"><strong>Certificate lifetime:</strong> The maximum duration for which a
+certificate can be presented.  Without revocation, this is the
+upper bound on exposure after any problem.<a href="#section-1.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-1.2-2.2">
+            <p id="section-1.2-2.2.1"><strong>Revocation latency:</strong> Once the CA decides to revoke, how
+quickly can the certificate become unusable?  Without a
+revocation mechanism, this equals the remaining certificate
+lifetime.  With hash chain revocation, this is at most two
+revocation periods (e.g., two hours).<a href="#section-1.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-1.2-2.3">
+            <p id="section-1.2-2.3.1"><strong>CA validation frequency:</strong> How often the CA re-verifies that
+the subscriber remains authorized (domain control, organization
+identity, etc.).  This determines how quickly the CA <em>learns</em> of
+problems that are not self-reported by the subscriber.<a href="#section-1.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-1.2-3">These three intervals interact as follows.  The worst-case exposure
+time after a problem occurs is:<a href="#section-1.2-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-1.2-4">
+<pre>
+exposure = min(remaining_lifetime, detection_time + revocation_latency)
+</pre><a href="#section-1.2-4" class="pilcrow">¶</a>
+</div>
+<p id="section-1.2-5">Without revocation, detection_time is irrelevant — the certificate
+remains valid until it expires regardless of what the CA knows.
+With revocation, the CA can act as soon as it detects the problem,
+and the certificate becomes unusable within the revocation latency.<a href="#section-1.2-5" class="pilcrow">¶</a></p>
+<p id="section-1.2-6">This has a counterintuitive consequence: a certificate with a long
+lifetime but active revocation can provide <em>shorter</em> exposure than
+a certificate with a short lifetime but no revocation.  For example:<a href="#section-1.2-6" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-1.2-7.1">
+            <p id="section-1.2-7.1.1">A 1-day certificate without revocation: worst-case exposure is
+~24 hours (compromise occurs immediately after issuance).<a href="#section-1.2-7.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-1.2-7.2">
+            <p id="section-1.2-7.2.1">A 47-day certificate with 1-hour hash chain revocation: if the CA
+learns of the compromise within minutes (subscriber report, domain
+validation re-check, or external notification), worst-case exposure
+is ~2 hours.<a href="#section-1.2-7.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-1.2-8">The critical difference is that passive expiry provides no mechanism
+for the CA to act on new information.  A hash chain tick is a
+<em>continuous assertion of non-revocation</em> — each tick is an active
+statement by the CA that, as of this period, it has not revoked the
+certificate.  Absence of the tick is immediately detectable and
+enforced by the relying party.<a href="#section-1.2-8" class="pilcrow">¶</a></p>
+<div id="the-role-of-ca-validation-frequency">
+<section id="section-1.2.1">
+          <h4 id="name-the-role-of-ca-validation-f">
+<a href="#section-1.2.1" class="section-number selfRef">1.2.1. </a><a href="#name-the-role-of-ca-validation-f" class="section-name selfRef">The Role of CA Validation Frequency</a>
+          </h4>
+<p id="section-1.2.1-1">Even with functional revocation, the CA cannot revoke a certificate
+for a problem it does not know about.  The frequency of CA
+re-validation therefore determines the effective security bound for
+non-self-reported problems (e.g., loss of domain control that the
+subscriber does not notice or report).<a href="#section-1.2.1-1" class="pilcrow">¶</a></p>
+<p id="section-1.2.1-2">Without revocation, validation frequency is largely irrelevant:
+even if the CA discovers a problem mid-lifetime, it cannot shorten
+the certificate's validity.  The only recourse is to publish the
+revocation via an external mechanism (CRLite, CRLSets) that may or
+may not reach all relying parties.<a href="#section-1.2.1-2" class="pilcrow">¶</a></p>
+<p id="section-1.2.1-3">With hash chain revocation, frequent CA validation translates
+directly into security improvement: the CA can revoke within one
+period of detecting any problem.  This creates an incentive
+structure where CAs that validate more frequently provide
+measurably better security — an incentive that does not exist in a
+pure short-lived-certificate model without revocation.<a href="#section-1.2.1-3" class="pilcrow">¶</a></p>
+<p id="section-1.2.1-4">Root program policies can leverage this by requiring both short
+revocation periods and minimum re-validation frequencies, achieving
+a defence-in-depth posture that neither mechanism provides alone.<a href="#section-1.2.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 </section>
