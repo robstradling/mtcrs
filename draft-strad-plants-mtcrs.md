@@ -1,9 +1,9 @@
 ---
-title: "Hash Chain Revocation for Merkle Tree Certificates"
-abbrev: "MTC Hash Chain Revocation"
+title: "Merkle Tree Certificate Revocation Status (MTCRS)"
+abbrev: "MTCRS"
 category: exp
 
-docname: draft-strad-plants-mtc-hash-chain-revocation-latest
+docname: draft-strad-plants-mtcrs-latest
 submissiontype: IETF
 number:
 date:
@@ -22,7 +22,7 @@ venue:
   mail: "plants@ietf.org"
   arch: "https://mailarchive.ietf.org/arch/browse/plants"
   github: "robstradling/mtc-with-hash-chain-revocation"
-  latest: "https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtc-hash-chain-revocation.html"
+  latest: "https://robstradling.github.io/mtc-with-hash-chain-revocation/draft-strad-plants-mtcrs.html"
 
 author:
  -
