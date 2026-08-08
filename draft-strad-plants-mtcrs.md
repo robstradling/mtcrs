@@ -458,15 +458,44 @@ interface for this purpose.
 
 The CA (or a mirror) exposes the following endpoint:
 
-    GET {prefix}/tick/{log_number}/{index}
+    GET {base_url}/.well-known/mtcrs/tick/{entry_hash}
 
-This returns the current HashChainTick for the log entry at the
-given index in the given issuance log.  The response is the
-serialized HashChainTick structure (4 bytes period + HASH_SIZE
-bytes value).
+where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the
+certificate's TBSCertificateLogEntry, and {base_url} is derived from
+the CA's issuer_id.  Specifically, the canonical tick distribution
+URL for a CA is constructed by interpreting the CA's TrustAnchorID
+as a DNS name and prepending `https://`:
+
+    base_url = "https://" || issuer_id
+
+The authenticating party computes {entry_hash} from the
+TBSCertificateLogEntry it already possesses (the same structure
+whose hash is committed as the leaf of the Merkle Tree).  No
+additional metadata from the CA is required.
+
+For example, a CA with issuer_id "ca.example.com" would expose ticks
+at:
+
+    https://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
+
+CAs MAY advertise alternative tick distribution URLs (e.g., CDN
+mirrors) via out-of-band configuration, but the `.well-known` path
+under the issuer_id-derived origin serves as the default discovery
+mechanism.
+
+The response body is the serialized HashChainTick structure: a
+4-byte big-endian period followed by HASH_SIZE bytes of value
+(36 bytes total for SHA-256).  The response Content-Type MUST be
+`application/octet-stream`.
+
+A successful response MUST use HTTP status code 200.  If the
+certificate has been revoked (no tick will be issued), the CA
+MUST respond with HTTP status code 404.
 
 The CA SHOULD set HTTP cache headers with a max-age no longer than
-revocation_period seconds.
+revocation_period seconds.  For example:
+
+    Cache-Control: public, max-age=3600
 
 ## Operational Model
 
@@ -737,6 +766,38 @@ unnecessary operational complexity (key management, signature
 generation for frequently changing records) and increase DNS
 response sizes, without improving the security of the revocation
 mechanism.
+
+## AIA-Based Tick URL Discovery
+
+Another alternative is to convey the tick distribution URL via a new
+Authority Information Access (AIA) access method in the certificate,
+following the established pattern used for OCSP responder URLs in
+{{RFC5280}}.
+
+This approach was rejected because:
+
+- **Inflates log entries:** AIA is part of the TBSCertificate, which
+  is committed to the Merkle Tree.  A ~50-80 byte URL in every log
+  entry increases tree size and inclusion proof transmission costs,
+  conflicting with MTC's goal of compactness.
+
+- **Immutable once issued:** If the CA migrates its tick
+  distribution infrastructure, all existing certificates still
+  contain the old URL.  Deriving the URL from the issuer_id allows
+  the CA to update DNS routing without certificate reissuance.
+
+- **Only the authenticating party needs it:** Relying parties never
+  contact the tick endpoint.  Adding per-certificate bytes visible
+  to all parties to convey a URL used by only one party is wasteful.
+
+- **Redundant given existing CA relationship:** The authenticating
+  party obtained the certificate from the CA (e.g., via ACME) and
+  can receive the tick URL at that point, or derive it from the
+  issuer_id at zero per-certificate cost.
+
+The `.well-known` derivation from issuer_id ({{distribution}})
+provides a zero-overhead default.  CAs that require non-default URLs
+can communicate them out-of-band during certificate provisioning.
 
 ## TLS Extension (Separate from Certificate)
 
