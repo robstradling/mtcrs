@@ -1,7 +1,7 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-08-06T02:37:03.800787+00:00",
-  "repo": "robstradling/mtc-with-hash-chain-revocation",
+  "timestamp": "2026-08-09T01:47:30.519130+00:00",
+  "repo": "robstradling/mtcrs",
   "labels": [
     {
       "name": "bug",
