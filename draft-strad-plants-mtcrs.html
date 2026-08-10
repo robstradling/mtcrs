@@ -8,7 +8,7 @@
 <meta content="Rob Stradling" name="author">
 <meta content="
        This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC)  .
-A Merkle Tree CA commits a hash chain anchor into the certificate at issuance time.
+A Merkle Tree CA includes a hash chain anchor (the &quot;target&quot;) in the certificate at issuance time.
 Periodically, the CA reveals hash chain values that serve as proof of non-revocation.
 The authenticating party embeds the current hash chain value (a &quot;tick&quot;) in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour. 
        This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA. 
@@ -1084,7 +1084,7 @@ svg {
 <section id="section-abstract">
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
 <p id="section-abstract-1">This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC) <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.
-A Merkle Tree CA commits a hash chain anchor into the certificate at issuance time.
+A Merkle Tree CA includes a hash chain anchor (the "target") in the certificate at issuance time.
 Periodically, the CA reveals hash chain values that serve as proof of non-revocation.
 The authenticating party embeds the current hash chain value (a "tick") in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 <p id="section-abstract-2">This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
@@ -1536,7 +1536,7 @@ h[i] = Hash(HashChainInput(h[i-1], i))  for i = 1, ..., chain_length
 Where HashChainInput is defined in <a href="#encoding" class="auto internal xref">Appendix A</a>.<a href="#section-3.2-2.2.3" class="pilcrow">¶</a></p>
 </li>
           <li id="section-3.2-2.3">
-            <p id="section-3.2-2.3.1">The anchor is <code>h[chain_length]</code>, the final value in the chain.<a href="#section-3.2-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-3.2-2.3.1">The anchor (target) is <code>h[chain_length]</code>, the final value in the chain.<a href="#section-3.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 <p id="section-3.2-3">The anchor is included in the certificate as an X.509 extension (see <a href="#assertion-integration" class="auto internal xref">Section 4</a>).<a href="#section-3.2-3" class="pilcrow">¶</a></p>
