@@ -90,7 +90,7 @@ informative:
 --- abstract
 
 This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC) {{I-D.ietf-plants-merkle-tree-certs}}.
-A Merkle Tree CA commits a hash chain anchor into the certificate at issuance time.
+A Merkle Tree CA includes a hash chain anchor (the "target") in the certificate at issuance time.
 Periodically, the CA reveals hash chain values that serve as proof of non-revocation.
 The authenticating party embeds the current hash chain value (a "tick") in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour.
 
@@ -211,7 +211,7 @@ At certificate issuance time, for each log entry, the CA generates a hash chain 
 
    Where HashChainInput is defined in {{encoding}}.
 
-3. The anchor is `h[chain_length]`, the final value in the chain.
+3. The anchor (target) is `h[chain_length]`, the final value in the chain.
 
 The anchor is included in the certificate as an X.509 extension (see {{assertion-integration}}).
 
