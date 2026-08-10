@@ -712,6 +712,11 @@ Authenticating parties must fetch a fresh tick at least once per revocation_peri
 If the CA's tick distribution infrastructure is unavailable for longer than one period, the certificate becomes unusable.
 This may be seen as undermining MTC's advantage of decoupling certificate validity from real-time CA availability.
 
+The revocation period is effectively the outage tolerance budget: a one-hour period means the authenticating party can tolerate at most one hour of tick distribution unavailability before its certificate becomes unusable.
+Shorter revocation periods provide faster revocation enforcement but leave less margin for infrastructure failures.
+Conversely, a one-day period provides 24 hours of buffer but delays revocation enforcement proportionally.
+Deployments must choose a revocation period that balances their revocation latency requirements against their realistic availability expectations for tick distribution infrastructure.
+
 This concern is real but bounded.
 First, the dependency is on a trivial HTTP GET returning 36 bytes — far less fragile than ACME issuance or OCSP responder availability.
 Second, the authenticating party has a full period (e.g., one hour) of buffer; brief outages are invisible to relying parties.
@@ -719,6 +724,12 @@ Third, CAs already operate high-availability infrastructure for issuance; tick d
 Additionally, relying parties can choose to accept ticks that are slightly stale (e.g., two or three periods old rather than only the current or immediately preceding period), according to local policy.
 This trades revocation latency for resilience: if a CA outage prevents the authenticating party from obtaining a fresh tick, relying parties with a more permissive staleness policy will continue to accept the certificate while the outage is resolved.
 The base verification procedure ({{verification}}, step 4) already allows the immediately preceding period; deployments with known availability concerns MAY extend this window further.
+
+As a further mitigation, authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs.
+If one CA's tick distribution infrastructure becomes unavailable, the authenticating party can immediately switch to presenting a certificate from a different CA whose ticks remain current.
+This multi-CA strategy eliminates the single point of failure: a tick distribution outage at one CA causes no service disruption as long as at least one other CA's infrastructure remains operational.
+Since MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest compared to the resilience benefit.
+
 Finally, the alternative (no in-band revocation) means the ecosystem depends entirely on external revocation systems whose availability the CA does not control.
 
 ## "Just Use Shorter Certificate Lifetimes"
