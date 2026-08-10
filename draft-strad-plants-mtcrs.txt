@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                              8 August 2026
-Expires: 9 February 2027
+Intended status: Experimental                             10 August 2026
+Expires: 11 February 2027
 
 
            Merkle Tree Certificate Revocation Status (MTCRS)
@@ -60,7 +60,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 9 February 2027.
+   This Internet-Draft will expire on 11 February 2027.
 
 Copyright Notice
 
@@ -768,7 +768,7 @@ B.1.  Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
        active certificates.
 
    3.  *Mandatory enforcement:* Because the tick is structurally part of
-       the certificate presentation, relying parties can hard- fail on
+       the certificate presentation, relying parties can hard-fail on
        its absence.  This avoids the soft-fail problem that plagued
        OCSP.
 
@@ -1239,7 +1239,7 @@ D.10.  "Verification Cost Grows Linearly with Certificate Age"
    On modern hardware, 1,128 SHA-256 operations take approximately 10-20
    microseconds — negligible compared to the TLS handshake's asymmetric
    cryptography (ECDHE key exchange, signature verification).  Even on
-   constrained IoT devices, SHA-256 is typically hardware- accelerated
+   constrained IoT devices, SHA-256 is typically hardware-accelerated
    and the computation completes in under a millisecond.  For
    comparison, verifying a single Ed25519 signature costs roughly the
    same as hundreds of SHA-256 operations.  If the linear cost is
