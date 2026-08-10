@@ -890,3 +890,4 @@ For the transition period, ecosystems have two options:
 {:numbered="false"}
 
 The hash chain revocation concept is based on Silvio Micali's foundational work on efficient certificate revocation {{MICALI}}.
+The name "MTCRS" is a nod to Micali's Certificate Revocation System (CRS); and coincidentally, "RS" also happens to be the initials of the author of this document.
