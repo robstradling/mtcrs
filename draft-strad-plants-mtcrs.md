@@ -627,6 +627,17 @@ This approach was rejected because:
 - **Unnecessary complexity:** Defining a new TLS extension type requires IANA registration and implementation changes in TLS stacks.
   Embedding in the MTCProof requires no TLS-layer changes beyond MTC support itself.
 
+## TLS status_request Extension
+
+The TLS `status_request` extension (defined for OCSP stapling) uses a `CertificateStatusType` enum that is designed to be extensible beyond OCSP.
+In TLS 1.2, a new status type could deliver the tick in a `CertificateStatus` message; in TLS 1.3, it could be carried per-certificate in the `CertificateEntry` extensions.
+
+This approach was rejected for the same fundamental reason as a generic TLS extension: it makes the tick delivery optional and strippable.
+The `status_request` mechanism is inherently opt-in — the client must request it, and the server can omit it without causing a hard failure.
+Reusing an optional delivery channel for a mandatory validity condition is semantically contradictory and reintroduces the soft-fail problem that this mechanism is designed to eliminate.
+
+Additionally, `status_request` carries `OCSPResponse` semantics (a signed assertion from a responder); repurposing it for a bare hash value that is self-authenticating against the certificate would be a poor semantic fit.
+
 ## Shorter Certificate Lifetimes
 
 The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
