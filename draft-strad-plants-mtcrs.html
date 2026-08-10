@@ -1300,13 +1300,16 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
                 <p id="section-toc.1-1.13.2.3.1"><a href="#appendix-C.3" class="auto internal xref">C.3</a>.  <a href="#name-tls-extension-separate-from" class="internal xref">TLS Extension (Separate from Certificate)</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.4">
-                <p id="section-toc.1-1.13.2.4.1"><a href="#appendix-C.4" class="auto internal xref">C.4</a>.  <a href="#name-shorter-certificate-lifetim" class="internal xref">Shorter Certificate Lifetimes</a></p>
+                <p id="section-toc.1-1.13.2.4.1"><a href="#appendix-C.4" class="auto internal xref">C.4</a>.  <a href="#name-tls-status_request-extensio" class="internal xref">TLS status_request Extension</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.5">
-                <p id="section-toc.1-1.13.2.5.1"><a href="#appendix-C.5" class="auto internal xref">C.5</a>.  <a href="#name-crlite-crlsets-external-rev" class="internal xref">CRLite / CRLSets / External Revocation</a></p>
+                <p id="section-toc.1-1.13.2.5.1"><a href="#appendix-C.5" class="auto internal xref">C.5</a>.  <a href="#name-shorter-certificate-lifetim" class="internal xref">Shorter Certificate Lifetimes</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.6">
-                <p id="section-toc.1-1.13.2.6.1"><a href="#appendix-C.6" class="auto internal xref">C.6</a>.  <a href="#name-per-certificate-signatures-" class="internal xref">Per-Certificate Signatures (OCSP-like)</a></p>
+                <p id="section-toc.1-1.13.2.6.1"><a href="#appendix-C.6" class="auto internal xref">C.6</a>.  <a href="#name-crlite-crlsets-external-rev" class="internal xref">CRLite / CRLSets / External Revocation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.7">
+                <p id="section-toc.1-1.13.2.7.1"><a href="#appendix-C.7" class="auto internal xref">C.7</a>.  <a href="#name-per-certificate-signatures-" class="internal xref">Per-Certificate Signatures (OCSP-like)</a></p>
 </li>
             </ul>
 </li>
@@ -2254,78 +2257,91 @@ Embedding in the MTCProof requires no TLS-layer changes beyond MTC support itsel
         </ul>
 </section>
 </div>
-<div id="shorter-certificate-lifetimes">
+<div id="tls-statusrequest-extension">
 <section id="appendix-C.4">
-        <h3 id="name-shorter-certificate-lifetim">
-<a href="#appendix-C.4" class="section-number selfRef">C.4. </a><a href="#name-shorter-certificate-lifetim" class="section-name selfRef">Shorter Certificate Lifetimes</a>
+        <h3 id="name-tls-status_request-extensio">
+<a href="#appendix-C.4" class="section-number selfRef">C.4. </a><a href="#name-tls-status_request-extensio" class="section-name selfRef">TLS status_request Extension</a>
         </h3>
-<p id="appendix-C.4-1">The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
-For example, 1-day certificates have at most 24-hour exposure after compromise.<a href="#appendix-C.4-1" class="pilcrow">¶</a></p>
-<p id="appendix-C.4-2">This approach has trade-offs that motivate longer lifetimes:<a href="#appendix-C.4-2" class="pilcrow">¶</a></p>
+<p id="appendix-C.4-1">The TLS <code>status_request</code> extension (defined for OCSP stapling) uses a <code>CertificateStatusType</code> enum that is designed to be extensible beyond OCSP.
+In TLS 1.2, a new status type could deliver the tick in a <code>CertificateStatus</code> message; in TLS 1.3, it could be carried per-certificate in the <code>CertificateEntry</code> extensions.<a href="#appendix-C.4-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.4-2">This approach was rejected for the same fundamental reason as a generic TLS extension: it makes the tick delivery optional and strippable.
+The <code>status_request</code> mechanism is inherently opt-in — the client must request it, and the server can omit it without causing a hard failure.
+Reusing an optional delivery channel for a mandatory validity condition is semantically contradictory and reintroduces the soft-fail problem that this mechanism is designed to eliminate.<a href="#appendix-C.4-2" class="pilcrow">¶</a></p>
+<p id="appendix-C.4-3">Additionally, <code>status_request</code> carries <code>OCSPResponse</code> semantics (a signed assertion from a responder); repurposing it for a bare hash value that is self-authenticating against the certificate would be a poor semantic fit.<a href="#appendix-C.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="shorter-certificate-lifetimes">
+<section id="appendix-C.5">
+        <h3 id="name-shorter-certificate-lifetim">
+<a href="#appendix-C.5" class="section-number selfRef">C.5. </a><a href="#name-shorter-certificate-lifetim" class="section-name selfRef">Shorter Certificate Lifetimes</a>
+        </h3>
+<p id="appendix-C.5-1">The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
+For example, 1-day certificates have at most 24-hour exposure after compromise.<a href="#appendix-C.5-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.5-2">This approach has trade-offs that motivate longer lifetimes:<a href="#appendix-C.5-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="appendix-C.4-3.1">
-            <p id="appendix-C.4-3.1.1"><strong>Issuance infrastructure load:</strong> Shorter lifetimes require more frequent issuance.
-With millions of subscribers, daily certificate issuance produces proportionally larger logs and more frequent Merkle Tree constructions.<a href="#appendix-C.4-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="appendix-C.5-3.1">
+            <p id="appendix-C.5-3.1.1"><strong>Issuance infrastructure load:</strong> Shorter lifetimes require more frequent issuance.
+With millions of subscribers, daily certificate issuance produces proportionally larger logs and more frequent Merkle Tree constructions.<a href="#appendix-C.5-3.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.4-3.2">
-            <p id="appendix-C.4-3.2.1"><strong>Availability risk:</strong> An authenticating party that cannot reach the CA for one day loses its certificate entirely.
-Longer lifetimes provide more buffer against CA outages.<a href="#appendix-C.4-3.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.5-3.2">
+            <p id="appendix-C.5-3.2.1"><strong>Availability risk:</strong> An authenticating party that cannot reach the CA for one day loses its certificate entirely.
+Longer lifetimes provide more buffer against CA outages.<a href="#appendix-C.5-3.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.4-3.3">
-            <p id="appendix-C.4-3.3.1"><strong>Trusted subtree state:</strong> The number of landmark subtrees relying parties must maintain grows with shorter lifetimes and more frequent landmark allocation, at the cost of increased CA operational complexity.<a href="#appendix-C.4-3.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.5-3.3">
+            <p id="appendix-C.5-3.3.1"><strong>Trusted subtree state:</strong> The number of landmark subtrees relying parties must maintain grows with shorter lifetimes and more frequent landmark allocation, at the cost of increased CA operational complexity.<a href="#appendix-C.5-3.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.4-3.4">
-            <p id="appendix-C.4-3.4.1"><strong>Deployment constraints:</strong> Root program policies such as <span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span> have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments.
-Not all deployments can support arbitrarily short lifetimes.<a href="#appendix-C.4-3.4.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.5-3.4">
+            <p id="appendix-C.5-3.4.1"><strong>Deployment constraints:</strong> Root program policies such as <span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span> have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments.
+Not all deployments can support arbitrarily short lifetimes.<a href="#appendix-C.5-3.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="appendix-C.4-4">Hash chain revocation provides the revocation latency benefits of short-lived certificates while retaining the operational advantages of longer lifetimes.<a href="#appendix-C.4-4" class="pilcrow">¶</a></p>
+<p id="appendix-C.5-4">Hash chain revocation provides the revocation latency benefits of short-lived certificates while retaining the operational advantages of longer lifetimes.<a href="#appendix-C.5-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="crlite-crlsets-external-revocation">
-<section id="appendix-C.5">
+<section id="appendix-C.6">
         <h3 id="name-crlite-crlsets-external-rev">
-<a href="#appendix-C.5" class="section-number selfRef">C.5. </a><a href="#name-crlite-crlsets-external-rev" class="section-name selfRef">CRLite / CRLSets / External Revocation</a>
+<a href="#appendix-C.6" class="section-number selfRef">C.6. </a><a href="#name-crlite-crlsets-external-rev" class="section-name selfRef">CRLite / CRLSets / External Revocation</a>
         </h3>
-<p id="appendix-C.5-1">External revocation systems like <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> and <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span> compress revocation information into compact data structures pushed to relying parties.
-The base MTC specification suggests using these as a complement.<a href="#appendix-C.5-1" class="pilcrow">¶</a></p>
-<p id="appendix-C.5-2">This approach has limitations when used as the sole revocation mechanism for MTC:<a href="#appendix-C.5-2" class="pilcrow">¶</a></p>
+<p id="appendix-C.6-1">External revocation systems like <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> and <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span> compress revocation information into compact data structures pushed to relying parties.
+The base MTC specification suggests using these as a complement.<a href="#appendix-C.6-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.6-2">This approach has limitations when used as the sole revocation mechanism for MTC:<a href="#appendix-C.6-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="appendix-C.5-3.1">
-            <p id="appendix-C.5-3.1.1"><strong>Push latency:</strong> These systems are updated on the order of hours to days, depending on the deployment.
-They do not provide a guaranteed upper bound on revocation latency.<a href="#appendix-C.5-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="appendix-C.6-3.1">
+            <p id="appendix-C.6-3.1.1"><strong>Push latency:</strong> These systems are updated on the order of hours to days, depending on the deployment.
+They do not provide a guaranteed upper bound on revocation latency.<a href="#appendix-C.6-3.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.5-3.2">
-            <p id="appendix-C.5-3.2.1"><strong>Relying party coverage:</strong> Not all relying parties subscribe to external revocation feeds.
-A mechanism that depends on the relying party having an up-to-date feed cannot provide universal revocation enforcement.<a href="#appendix-C.5-3.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.6-3.2">
+            <p id="appendix-C.6-3.2.1"><strong>Relying party coverage:</strong> Not all relying parties subscribe to external revocation feeds.
+A mechanism that depends on the relying party having an up-to-date feed cannot provide universal revocation enforcement.<a href="#appendix-C.6-3.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.5-3.3">
-            <p id="appendix-C.5-3.3.1"><strong>Separate trust path:</strong> External revocation requires the relying party to trust the feed provider (e.g., the browser vendor) in addition to the CA.
-Hash chain revocation uses only the existing CA trust relationship.<a href="#appendix-C.5-3.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.6-3.3">
+            <p id="appendix-C.6-3.3.1"><strong>Separate trust path:</strong> External revocation requires the relying party to trust the feed provider (e.g., the browser vendor) in addition to the CA.
+Hash chain revocation uses only the existing CA trust relationship.<a href="#appendix-C.6-3.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="appendix-C.5-4">These mechanisms remain valuable as defense-in-depth and as a fallback for the hash chain mechanism, as discussed in <a href="#security-considerations" class="auto internal xref">Section 8</a>.<a href="#appendix-C.5-4" class="pilcrow">¶</a></p>
+<p id="appendix-C.6-4">These mechanisms remain valuable as defense-in-depth and as a fallback for the hash chain mechanism, as discussed in <a href="#security-considerations" class="auto internal xref">Section 8</a>.<a href="#appendix-C.6-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="per-certificate-signatures-ocsp-like">
-<section id="appendix-C.6">
+<section id="appendix-C.7">
         <h3 id="name-per-certificate-signatures-">
-<a href="#appendix-C.6" class="section-number selfRef">C.6. </a><a href="#name-per-certificate-signatures-" class="section-name selfRef">Per-Certificate Signatures (OCSP-like)</a>
+<a href="#appendix-C.7" class="section-number selfRef">C.7. </a><a href="#name-per-certificate-signatures-" class="section-name selfRef">Per-Certificate Signatures (OCSP-like)</a>
         </h3>
-<p id="appendix-C.6-1">A CA could sign per-certificate non-revocation statements each period, analogous to OCSP responses.<a href="#appendix-C.6-1" class="pilcrow">¶</a></p>
-<p id="appendix-C.6-2">This approach was rejected because:<a href="#appendix-C.6-2" class="pilcrow">¶</a></p>
+<p id="appendix-C.7-1">A CA could sign per-certificate non-revocation statements each period, analogous to OCSP responses.<a href="#appendix-C.7-1" class="pilcrow">¶</a></p>
+<p id="appendix-C.7-2">This approach was rejected because:<a href="#appendix-C.7-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="appendix-C.6-3.1">
-            <p id="appendix-C.6-3.1.1"><strong>Signing load:</strong> A CA with millions of active certificates would need to produce millions of signatures per period.
-With post-quantum signature algorithms, this is computationally expensive.<a href="#appendix-C.6-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="appendix-C.7-3.1">
+            <p id="appendix-C.7-3.1.1"><strong>Signing load:</strong> A CA with millions of active certificates would need to produce millions of signatures per period.
+With post-quantum signature algorithms, this is computationally expensive.<a href="#appendix-C.7-3.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.6-3.2">
-            <p id="appendix-C.6-3.2.1"><strong>Response size:</strong> OCSP responses include a full signature (e.g., 3,309 bytes for ML-DSA-65).
-Hash chain ticks are 36 bytes.<a href="#appendix-C.6-3.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.7-3.2">
+            <p id="appendix-C.7-3.2.1"><strong>Response size:</strong> OCSP responses include a full signature (e.g., 3,309 bytes for ML-DSA-65).
+Hash chain ticks are 36 bytes.<a href="#appendix-C.7-3.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-C.6-3.3">
-            <p id="appendix-C.6-3.3.1"><strong>Complexity:</strong> OCSP requires its own responder infrastructure, certificate chain, and protocol.
-Hash chains require only a hash function.<a href="#appendix-C.6-3.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="appendix-C.7-3.3">
+            <p id="appendix-C.7-3.3.1"><strong>Complexity:</strong> OCSP requires its own responder infrastructure, certificate chain, and protocol.
+Hash chains require only a hash function.<a href="#appendix-C.7-3.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>

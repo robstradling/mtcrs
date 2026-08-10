@@ -121,9 +121,10 @@ Table of Contents
      C.1.  DNS-Based Tick Distribution
      C.2.  AIA-Based Tick URL Discovery
      C.3.  TLS Extension (Separate from Certificate)
-     C.4.  Shorter Certificate Lifetimes
-     C.5.  CRLite / CRLSets / External Revocation
-     C.6.  Per-Certificate Signatures (OCSP-like)
+     C.4.  TLS status_request Extension
+     C.5.  Shorter Certificate Lifetimes
+     C.6.  CRLite / CRLSets / External Revocation
+     C.7.  Per-Certificate Signatures (OCSP-like)
    Appendix D.  Anticipated Objections
      D.1.  "MTC Was Designed to Avoid Revocation Complexity"
      D.2.  "This Creates a New Availability Dependency"
@@ -943,7 +944,28 @@ C.3.  TLS Extension (Separate from Certificate)
       stacks.  Embedding in the MTCProof requires no TLS-layer changes
       beyond MTC support itself.
 
-C.4.  Shorter Certificate Lifetimes
+C.4.  TLS status_request Extension
+
+   The TLS status_request extension (defined for OCSP stapling) uses a
+   CertificateStatusType enum that is designed to be extensible beyond
+   OCSP.  In TLS 1.2, a new status type could deliver the tick in a
+   CertificateStatus message; in TLS 1.3, it could be carried per-
+   certificate in the CertificateEntry extensions.
+
+   This approach was rejected for the same fundamental reason as a
+   generic TLS extension: it makes the tick delivery optional and
+   strippable.  The status_request mechanism is inherently opt-in — the
+   client must request it, and the server can omit it without causing a
+   hard failure.  Reusing an optional delivery channel for a mandatory
+   validity condition is semantically contradictory and reintroduces the
+   soft-fail problem that this mechanism is designed to eliminate.
+
+   Additionally, status_request carries OCSPResponse semantics (a signed
+   assertion from a responder); repurposing it for a bare hash value
+   that is self-authenticating against the certificate would be a poor
+   semantic fit.
+
+C.5.  Shorter Certificate Lifetimes
 
    The simplest revocation strategy is to make certificates short-lived
    enough that revocation is unnecessary.  For example, 1-day
@@ -974,7 +996,7 @@ C.4.  Shorter Certificate Lifetimes
    short-lived certificates while retaining the operational advantages
    of longer lifetimes.
 
-C.5.  CRLite / CRLSets / External Revocation
+C.6.  CRLite / CRLSets / External Revocation
 
    External revocation systems like [CRLite] and [CRLSets] compress
    revocation information into compact data structures pushed to relying
@@ -1001,7 +1023,7 @@ C.5.  CRLite / CRLSets / External Revocation
    These mechanisms remain valuable as defense-in-depth and as a
    fallback for the hash chain mechanism, as discussed in Section 8.
 
-C.6.  Per-Certificate Signatures (OCSP-like)
+C.7.  Per-Certificate Signatures (OCSP-like)
 
    A CA could sign per-certificate non-revocation statements each
    period, analogous to OCSP responses.
