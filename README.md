@@ -4,16 +4,16 @@
 
 This is the working area for the individual Internet-Draft, "Hash Chain Revocation for Merkle Tree Certificates".
 
-* [Editor's Copy](https://robstradling.github.io/mtc-with-hash-chain-revocation/#go.draft-strad-plants-mtc-hash-chain-revocation.html)
-* [Datatracker Page](https://datatracker.ietf.org/doc/draft-strad-plants-mtc-hash-chain-revocation)
-* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-strad-plants-mtc-hash-chain-revocation)
-* [Compare Editor's Copy to Individual Draft](https://robstradling.github.io/mtc-with-hash-chain-revocation/#go.draft-strad-plants-mtc-hash-chain-revocation.diff)
+* [Editor's Copy](https://robstradling.github.io/mtcrs/#go.draft-strad-plants-mtcrs.html)
+* [Datatracker Page](https://datatracker.ietf.org/doc/draft-strad-plants-mtcrs)
+* [Individual Draft](https://datatracker.ietf.org/doc/html/draft-strad-plants-mtcrs)
+* [Compare Editor's Copy to Individual Draft](https://robstradling.github.io/mtcrs/#go.draft-strad-plants-mtcrs.diff)
 
 
 ## Contributing
 
 See the
-[guidelines for contributions](https://github.com/robstradling/mtc-with-hash-chain-revocation/blob//CONTRIBUTING.md).
+[guidelines for contributions](https://github.com/robstradling/mtcrs/blob/CONTRIBUTING.md).
 
 The contributing file also has tips on how to make contributions, if you
 don't already know how to do that.

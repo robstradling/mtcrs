@@ -1,4 +1,4 @@
 # License
 
 See the
-[guidelines for contributions](https://github.com/robstradling/mtc-with-hash-chain-revocation/blob//CONTRIBUTING.md).
+[guidelines for contributions](https://github.com/robstradling/mtcrs/blob/CONTRIBUTING.md).
