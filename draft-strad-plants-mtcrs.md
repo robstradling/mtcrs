@@ -84,6 +84,12 @@ informative:
       org: Chromium
     date: 2022-08
     target: https://www.chromium.org/Home/chromium-security/crlsets/
+  SHORTLIVED:
+    title: "How Meta uses short-lived certificates to protect TLS secrets"
+    author:
+      org: Engineering at Meta
+    date: 2023-08
+    target: https://engineering.fb.com/2023/08/07/security/short-lived-certificates-protect-tls-secrets/
 
 ...
 
@@ -165,6 +171,9 @@ For example:
 - A 1-day certificate without revocation: worst-case exposure is ~24 hours (compromise occurs immediately after issuance).
 
 - A 47-day certificate with 1-hour hash chain revocation: if the CA learns of the compromise within minutes (subscriber report, domain validation re-check, or external notification), worst-case exposure is ~2 hours.
+
+By substituting expensive asymmetric signatures with incredibly cheap symmetric hashing, this mechanism allows CAs to achieve the security benefit of an hourly expiration window without any of the architectural cost that comes with hourly re-issuance {{SHORTLIVED}}.
+Rather than re-signing and re-logging every certificate each hour, the CA reveals a single precomputed hash value per period, and the relying party verifies it with a single hash computation.
 
 The critical difference is that passive expiry provides no mechanism for the CA to act on new information.
 A hash chain tick is a *continuous assertion of non-revocation* — each tick is an active statement by the CA that, as of this period, it has not revoked the certificate.
@@ -353,15 +362,24 @@ The CA (or a mirror) exposes the following endpoint:
     GET {base_url}/.well-known/mtcrs/tick/{entry_hash}
 
 where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry, and {base_url} is derived from the CA's issuer_id.
-Specifically, the canonical tick distribution URL for a CA is constructed by interpreting the CA's TrustAnchorID as a DNS name and prepending `https://`:
+Specifically, the canonical tick distribution URL for a CA is constructed by interpreting the CA's TrustAnchorID as a DNS name and prepending either `http://` or `https://`:
 
-    base_url = "https://" || issuer_id
+    base_url = ( "http://" | "https://" ) || issuer_id
+
+Because each tick is self-authenticating (the relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree), the tick fetch does not require transport-layer integrity, and because the tick value is public, it does not require transport-layer confidentiality of the response body.
+CAs MAY therefore serve ticks over plain HTTP, which eliminates TLS handshake overhead and permits caching by any HTTP intermediary.
+An authenticating party deriving the URL from the issuer_id SHOULD use `http://` by default.
+The one property plain HTTP does not provide is confidentiality of the request itself: an on-path observer can see which {entry_hash} is being requested.
+Deployments that consider this metadata sensitive SHOULD use `https://` instead.
+
+To ensure interoperability with authenticating parties that derive either scheme, a CA that relies on the issuer_id-derived default (i.e., that does not advertise an alternative URL per {{acme-integration}}) MUST serve ticks at the `.well-known` path over both `http://` and `https://` on the issuer_id-derived origin, returning identical responses on each.
 
 The authenticating party computes {entry_hash} from the TBSCertificateLogEntry it already possesses (the same structure whose hash is committed as the leaf of the Merkle Tree).
 No additional metadata from the CA is required.
 
 For example, a CA with issuer_id "ca.example.com" would expose ticks at:
 
+    http://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
     https://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
 
 CAs MAY advertise alternative tick distribution URLs (e.g., CDN mirrors) via out-of-band configuration, but the `.well-known` path under the issuer_id-derived origin serves as the default discovery mechanism.
