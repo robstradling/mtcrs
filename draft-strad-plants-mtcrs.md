@@ -439,6 +439,10 @@ The authenticating party periodically fetches its current tick from the CA:
 If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
 After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 
+At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
+A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
+At this scale, edge caching (each tick is immutable within its period and cacheable for up to revocation_period seconds) and client-side jitter in refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
+
 # Security Considerations
 
 ## Hash Function Requirements
@@ -562,7 +566,7 @@ A one-hour revocation_period provides a good balance:
   Verification requires at most 1,128 hash computations, which takes microseconds on modern hardware.
 
 - **CA storage:** The CA must store one seed per active certificate.
-  With 32 bytes per seed, 10 million certificates require 320 MB.
+  With 32 bytes per seed, 1 billion certificates require 32 GB.
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 Deployments SHOULD choose the shortest period operationally feasible.
@@ -572,7 +576,7 @@ Deployments SHOULD choose the shortest period operationally feasible.
 A CA does not have to choose between the two naive extremes for managing each certificate's hash chain of length `chain_length` (denoted L below):
 
 - **Store the entire chain:** O(L) storage per certificate, but each revealed value is a free lookup.
-  For L = 2160 (a 90-day lifetime with a one-hour period), this is roughly 67.5 KiB per certificate, or about 6.9 TB across 100 million certificates.
+  For L = 2160 (a 90-day lifetime with a one-hour period), this is roughly 67.5 KiB per certificate, or about 69 TB across 1 billion certificates.
 
 - **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
   Over a certificate's lifetime this is O(L^2) hashing.
@@ -587,8 +591,8 @@ The scheduling guarantees:
     work     ~ (1/2) log2(L) hash evaluations per revealed value
 
 For L = 2160, this is approximately 11 to 12 stored values (~384 bytes) per certificate and about 6 hash evaluations per period.
-Across 100 million certificates that is roughly 38 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^5 hash evaluations per second in aggregate.
-This dominates a simple square-root checkpoint scheme (which would need ~150 GB and up to ~46 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).
+Across 1 billion certificates that is roughly 384 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
+This dominates a simple square-root checkpoint scheme (which would need ~1.5 TB and up to ~46 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).
 
 This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
 The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed ({{security-considerations}}).
@@ -739,7 +743,7 @@ A CA could sign per-certificate non-revocation statements each period, analogous
 
 This approach was rejected because:
 
-- **Signing load:** A CA with millions of active certificates would need to produce millions of signatures per period.
+- **Signing load:** A CA with a billion active certificates would need to produce a billion signatures per period.
   With post-quantum signature algorithms, this is computationally expensive.
 
 - **Response size:** OCSP responses include a full signature (e.g., 3,309 bytes for ML-DSA-65).
