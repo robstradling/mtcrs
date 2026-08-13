@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             10 August 2026
-Expires: 11 February 2027
+Intended status: Experimental                             13 August 2026
+Expires: 14 February 2027
 
 
            Merkle Tree Certificate Revocation Status (MTCRS)
@@ -60,7 +60,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 11 February 2027.
+   This Internet-Draft will expire on 14 February 2027.
 
 Copyright Notice
 
@@ -245,6 +245,14 @@ Table of Contents
       learns of the compromise within minutes (subscriber report, domain
       validation re-check, or external notification), worst-case
       exposure is ~2 hours.
+
+   By substituting expensive asymmetric signatures with incredibly cheap
+   symmetric hashing, this mechanism allows CAs to achieve the security
+   benefit of an hourly expiration window without any of the
+   architectural cost that comes with hourly re-issuance [SHORTLIVED].
+   Rather than re-signing and re-logging every certificate each hour,
+   the CA reveals a single precomputed hash value per period, and the
+   relying party verifies it with a single hash computation.
 
    The critical difference is that passive expiry provides no mechanism
    for the CA to act on new information.  A hash chain tick is a
@@ -500,9 +508,29 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    certificate's TBSCertificateLogEntry, and {base_url} is derived from
    the CA's issuer_id.  Specifically, the canonical tick distribution
    URL for a CA is constructed by interpreting the CA's TrustAnchorID as
-   a DNS name and prepending https://:
+   a DNS name and prepending either http:// or https://:
 
-   base_url = "https://" || issuer_id
+   base_url = ( "http://" | "https://" ) || issuer_id
+
+   Because each tick is self-authenticating (the relying party verifies
+   it by hashing it forward to the anchor committed in the Merkle Tree),
+   the tick fetch does not require transport-layer integrity, and
+   because the tick value is public, it does not require transport-layer
+   confidentiality of the response body.  CAs MAY therefore serve ticks
+   over plain HTTP, which eliminates TLS handshake overhead and permits
+   caching by any HTTP intermediary.  An authenticating party deriving
+   the URL from the issuer_id SHOULD use http:// by default.  The one
+   property plain HTTP does not provide is confidentiality of the
+   request itself: an on-path observer can see which {entry_hash} is
+   being requested.  Deployments that consider this metadata sensitive
+   SHOULD use https:// instead.
+
+   To ensure interoperability with authenticating parties that derive
+   either scheme, a CA that relies on the issuer_id-derived default
+   (i.e., that does not advertise an alternative URL per Section 7.2)
+   MUST serve ticks at the .well-known path over both http:// and
+   https:// on the issuer_id-derived origin, returning identical
+   responses on each.
 
    The authenticating party computes {entry_hash} from the
    TBSCertificateLogEntry it already possesses (the same structure whose
@@ -512,6 +540,7 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    For example, a CA with issuer_id "ca.example.com" would expose ticks
    at:
 
+   http://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
    https://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
 
    CAs MAY advertise alternative tick distribution URLs (e.g., CDN
@@ -715,6 +744,12 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    [RFC6962]  Laurie, B., Langley, A., and E. Kasper, "Certificate
               Transparency", RFC 6962, DOI 10.17487/RFC6962, June 2013,
               <https://www.rfc-editor.org/rfc/rfc6962>.
+
+   [SHORTLIVED]
+              Engineering at Meta, "How Meta uses short-lived
+              certificates to protect TLS secrets", August 2023,
+              <https://engineering.fb.com/2023/08/07/security/short-
+              lived-certificates-protect-tls-secrets/>.
 
 Appendix A.  Hash Chain Input Encoding
 
