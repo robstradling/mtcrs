@@ -1229,6 +1229,17 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4">
                 <p id="section-toc.1-1.7.2.4.1"><a href="#section-7.4" class="auto internal xref">7.4</a>.  <a href="#name-operational-model" class="internal xref">Operational Model</a></p>
 </li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.5">
+                <p id="section-toc.1-1.7.2.5.1"><a href="#section-7.5" class="auto internal xref">7.5</a>.  <a href="#name-distributing-tick-requests" class="internal xref">Distributing Tick Requests</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.5.2.1">
+                    <p id="section-toc.1-1.7.2.5.2.1.1"><a href="#section-7.5.1" class="auto internal xref">7.5.1</a>.  <a href="#name-client-side-deterministic-p" class="internal xref">Client-Side: Deterministic Per-Entry Offset</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.5.2.2">
+                    <p id="section-toc.1-1.7.2.5.2.2.1"><a href="#section-7.5.2" class="auto internal xref">7.5.2</a>.  <a href="#name-server-side-cache-freshness" class="internal xref">Server-Side: Cache Freshness and Retry-After</a></p>
+</li>
+                </ul>
+</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
@@ -1843,6 +1854,50 @@ The inclusion proof and cosignatures remain unchanged.<a href="#section-7.4-2.2.
         </ol>
 <p id="section-7.4-3">If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
 After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.<a href="#section-7.4-3" class="pilcrow">¶</a></p>
+<p id="section-7.4-4">At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
+A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
+At this scale, edge caching (each tick is immutable within its period and cacheable for up to revocation_period seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
+<a href="#load-distribution" class="auto internal xref">Section 7.5</a> describes recommended techniques.<a href="#section-7.4-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="load-distribution">
+<section id="section-7.5">
+        <h3 id="name-distributing-tick-requests">
+<a href="#section-7.5" class="section-number selfRef">7.5. </a><a href="#name-distributing-tick-requests" class="section-name selfRef">Distributing Tick Requests</a>
+        </h3>
+<p id="section-7.5-1">A relying party accepts a tick for either the current period or the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>).
+An authenticating party therefore has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
+Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.<a href="#section-7.5-1" class="pilcrow">¶</a></p>
+<div id="client-side-deterministic-per-entry-offset">
+<section id="section-7.5.1">
+          <h4 id="name-client-side-deterministic-p">
+<a href="#section-7.5.1" class="section-number selfRef">7.5.1. </a><a href="#name-client-side-deterministic-p" class="section-name selfRef">Client-Side: Deterministic Per-Entry Offset</a>
+          </h4>
+<p id="section-7.5.1-1">Rather than fetching at the start of each period, an authenticating party <span class="bcp14">SHOULD</span> fetch at a fixed offset into the period derived deterministically from its own entry_hash:<a href="#section-7.5.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.5.1-2">
+<pre>
+offset = INT32(entry_hash[0..3]) mod revocation_period
+</pre><a href="#section-7.5.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-7.5.1-3">where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and INT32 interprets its first four bytes as a big-endian unsigned integer.
+The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
+During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.<a href="#section-7.5.1-3" class="pilcrow">¶</a></p>
+<p id="section-7.5.1-4">Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
+This is preferable to independent random jitter, which can still cluster and which varies each period.<a href="#section-7.5.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="server-side-cache-freshness-and-retry-after">
+<section id="section-7.5.2">
+          <h4 id="name-server-side-cache-freshness">
+<a href="#section-7.5.2" class="section-number selfRef">7.5.2. </a><a href="#name-server-side-cache-freshness" class="section-name selfRef">Server-Side: Cache Freshness and Retry-After</a>
+          </h4>
+<p id="section-7.5.2-1">The CA (or an edge cache) <span class="bcp14">SHOULD</span> serve each tick with a Cache-Control max-age no longer than revocation_period seconds (<a href="#response-format" class="auto internal xref">Section 7.3</a>), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
+A CA <span class="bcp14">MAY</span> additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.<a href="#section-7.5.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.5.2-2">Under transient overload, the CA or edge <span class="bcp14">MAY</span> respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
+To avoid a synchronized second wave, the CA <span class="bcp14">SHOULD</span> randomize Retry-After values across clients rather than returning a single fixed value.
+Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.<a href="#section-7.5.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 </section>
@@ -2144,7 +2199,7 @@ Verification requires at most 1,128 hash computations, which takes microseconds 
 </li>
           <li class="normal" id="appendix-B.2-2.4">
             <p id="appendix-B.2-2.4.1"><strong>CA storage:</strong> The CA must store one seed per active certificate.
-With 32 bytes per seed, 10 million certificates require 320 MB.<a href="#appendix-B.2-2.4.1" class="pilcrow">¶</a></p>
+With 32 bytes per seed, 1 billion certificates require 32 GB.<a href="#appendix-B.2-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="appendix-B.2-3">A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
@@ -2160,7 +2215,7 @@ Deployments <span class="bcp14">SHOULD</span> choose the shortest period operati
 <ul class="normal">
 <li class="normal" id="appendix-B.3-2.1">
             <p id="appendix-B.3-2.1.1"><strong>Store the entire chain:</strong> O(L) storage per certificate, but each revealed value is a free lookup.
-For L = 2160 (a 90-day lifetime with a one-hour period), this is roughly 67.5 KiB per certificate, or about 6.9 TB across 100 million certificates.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
+For L = 2160 (a 90-day lifetime with a one-hour period), this is roughly 67.5 KiB per certificate, or about 69 TB across 1 billion certificates.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-B.3-2.2">
             <p id="appendix-B.3-2.2.1"><strong>Store only the seed:</strong> O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
@@ -2179,8 +2234,8 @@ work     ~ (1/2) log2(L) hash evaluations per revealed value
 </pre><a href="#appendix-B.3-4" class="pilcrow">¶</a>
 </div>
 <p id="appendix-B.3-5">For L = 2160, this is approximately 11 to 12 stored values (~384 bytes) per certificate and about 6 hash evaluations per period.
-Across 100 million certificates that is roughly 38 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^5 hash evaluations per second in aggregate.
-This dominates a simple square-root checkpoint scheme (which would need ~150 GB and up to ~46 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).<a href="#appendix-B.3-5" class="pilcrow">¶</a></p>
+Across 1 billion certificates that is roughly 384 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
+This dominates a simple square-root checkpoint scheme (which would need ~1.5 TB and up to ~46 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).<a href="#appendix-B.3-5" class="pilcrow">¶</a></p>
 <p id="appendix-B.3-6">This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure (<a href="#verification" class="auto internal xref">Section 6</a>) are unchanged.
 The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed (<a href="#security-considerations" class="auto internal xref">Section 8</a>).<a href="#appendix-B.3-6" class="pilcrow">¶</a></p>
 </section>
@@ -2390,7 +2445,7 @@ Hash chain revocation uses only the existing CA trust relationship.<a href="#app
 <p id="appendix-C.7-2">This approach was rejected because:<a href="#appendix-C.7-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="appendix-C.7-3.1">
-            <p id="appendix-C.7-3.1.1"><strong>Signing load:</strong> A CA with millions of active certificates would need to produce millions of signatures per period.
+            <p id="appendix-C.7-3.1.1"><strong>Signing load:</strong> A CA with a billion active certificates would need to produce a billion signatures per period.
 With post-quantum signature algorithms, this is computationally expensive.<a href="#appendix-C.7-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-C.7-3.2">

@@ -100,6 +100,9 @@ Table of Contents
      7.2.  ACME Integration
      7.3.  Response Format
      7.4.  Operational Model
+     7.5.  Distributing Tick Requests
+       7.5.1.  Client-Side: Deterministic Per-Entry Offset
+       7.5.2.  Server-Side: Cache Freshness and Retry-After
    8.  Security Considerations
      8.1.  Hash Function Requirements
      8.2.  Seed Confidentiality
@@ -611,6 +614,70 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    becomes unusable until a fresh tick is obtained or a new certificate
    is provisioned.
 
+   At large deployment scale, tick distribution is dominated by
+   aggregate request volume rather than per-request cost.  A CA serving
+   10^9 active certificates with a one-hour period sees on the order of
+   10^5 to 10^6 tick requests per second, and this load tends to
+   concentrate at period boundaries if authenticating parties refresh in
+   lockstep.  At this scale, edge caching (each tick is immutable within
+   its period and cacheable for up to revocation_period seconds) and
+   spreading of client refresh timing are required, not merely
+   recommended, to avoid a thundering-herd load on the origin.
+   Section 7.5 describes recommended techniques.
+
+7.5.  Distributing Tick Requests
+
+   A relying party accepts a tick for either the current period or the
+   immediately preceding period (Section 6).  An authenticating party
+   therefore has up to one full revocation_period of slack in which to
+   fetch each new tick and need not fetch at the period boundary.  Two
+   complementary mechanisms exploit this slack to prevent a period-
+   boundary thundering herd.
+
+7.5.1.  Client-Side: Deterministic Per-Entry Offset
+
+   Rather than fetching at the start of each period, an authenticating
+   party SHOULD fetch at a fixed offset into the period derived
+   deterministically from its own entry_hash:
+
+   offset = INT32(entry_hash[0..3]) mod revocation_period
+
+   where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the
+   TBSCertificateLogEntry and INT32 interprets its first four bytes as a
+   big-endian unsigned integer.  The authenticating party fetches the
+   current period's tick at (period_start + offset), where period_start
+   is the start time of that period.  During the first offset seconds of
+   the period it continues to serve the preceding period's tick, which
+   remains valid under the grace window, so any offset less than
+   revocation_period introduces no verification risk.
+
+   Because entry hashes are uniformly distributed, deriving the offset
+   this way spreads fetches uniformly across the period with no
+   coordination, shared state, or central scheduler, and the offset is
+   stable from period to period, which aids caching and diagnosis.  This
+   is preferable to independent random jitter, which can still cluster
+   and which varies each period.
+
+7.5.2.  Server-Side: Cache Freshness and Retry-After
+
+   The CA (or an edge cache) SHOULD serve each tick with a Cache-Control
+   max-age no longer than revocation_period seconds (Section 7.3), so
+   that a caching layer collapses many client requests for the same
+   entry into a single origin fetch per period.  A CA MAY additionally
+   apply a small per-response jitter to max-age so that cache entries
+   for different entries do not all expire simultaneously.
+
+   Under transient overload, the CA or edge MAY respond with HTTP status
+   code 429 (Too Many Requests) or 503 (Service Unavailable) together
+   with a Retry-After header indicating when the authenticating party
+   should retry.  To avoid a synchronized second wave, the CA SHOULD
+   randomize Retry-After values across clients rather than returning a
+   single fixed value.  Because the authenticating party retains its
+   previously fetched tick, which remains valid until the end of the
+   current period, backing off in response to Retry-After does not
+   interrupt service, provided a fresh tick is obtained before the
+   previous one expires.
+
 8.  Security Considerations
 
 8.1.  Hash Function Requirements
@@ -842,7 +909,7 @@ B.2.  Why One Hour (or One Day) Periods
       which takes microseconds on modern hardware.
 
    *  *CA storage:* The CA must store one seed per active certificate.
-      With 32 bytes per seed, 10 million certificates require 320 MB.
+      With 32 bytes per seed, 1 billion certificates require 32 GB.
 
    A one-day period is also viable, reducing operational frequency at
    the cost of up to 48-hour revocation latency.  Deployments SHOULD
@@ -857,7 +924,7 @@ B.3.  CA-Side Storage and Computation Trade-off
    *  *Store the entire chain:* O(L) storage per certificate, but each
       revealed value is a free lookup.  For L = 2160 (a 90-day lifetime
       with a one-hour period), this is roughly 67.5 KiB per certificate,
-      or about 6.9 TB across 100 million certificates.
+      or about 69 TB across 1 billion certificates.
 
    *  *Store only the seed:* O(1) storage per certificate, but
       recomputing the value revealed in period t costs up to L hash
@@ -882,11 +949,11 @@ B.3.  CA-Side Storage and Computation Trade-off
 
    For L = 2160, this is approximately 11 to 12 stored values (~384
    bytes) per certificate and about 6 hash evaluations per period.
-   Across 100 million certificates that is roughly 38 GB of state and,
-   if the traversal is advanced once per period and the resulting value
-   served to all requests in that period, on the order of 10^5 hash
+   Across 1 billion certificates that is roughly 384 GB of state and, if
+   the traversal is advanced once per period and the resulting value
+   served to all requests in that period, on the order of 10^6 hash
    evaluations per second in aggregate.  This dominates a simple square-
-   root checkpoint scheme (which would need ~150 GB and up to ~46 hashes
+   root checkpoint scheme (which would need ~1.5 TB and up to ~46 hashes
    per value) on both axes, and turns the seed-only extreme's O(L^2)
    lifetime cost into O(L log L).
 
@@ -1122,9 +1189,9 @@ C.7.  Per-Certificate Signatures (OCSP-like)
 
    This approach was rejected because:
 
-   *  *Signing load:* A CA with millions of active certificates would
-      need to produce millions of signatures per period.  With post-
-      quantum signature algorithms, this is computationally expensive.
+   *  *Signing load:* A CA with a billion active certificates would need
+      to produce a billion signatures per period.  With post-quantum
+      signature algorithms, this is computationally expensive.
 
    *  *Response size:* OCSP responses include a full signature (e.g.,
       3,309 bytes for ML-DSA-65).  Hash chain ticks are 36 bytes.
