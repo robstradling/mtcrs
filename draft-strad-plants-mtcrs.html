@@ -1283,7 +1283,10 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
                 <p id="section-toc.1-1.12.2.2.1"><a href="#appendix-B.2" class="auto internal xref">B.2</a>.  <a href="#name-why-one-hour-or-one-day-per" class="internal xref">Why One Hour (or One Day) Periods</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.3">
-                <p id="section-toc.1-1.12.2.3.1"><a href="#appendix-B.3" class="auto internal xref">B.3</a>.  <a href="#name-why-embed-the-tick-in-the-m" class="internal xref">Why Embed the Tick in the MTCProof</a></p>
+                <p id="section-toc.1-1.12.2.3.1"><a href="#appendix-B.3" class="auto internal xref">B.3</a>.  <a href="#name-ca-side-storage-and-computa" class="internal xref">CA-Side Storage and Computation Trade-off</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.4">
+                <p id="section-toc.1-1.12.2.4.1"><a href="#appendix-B.4" class="auto internal xref">B.4</a>.  <a href="#name-why-embed-the-tick-in-the-m" class="internal xref">Why Embed the Tick in the MTCProof</a></p>
 </li>
             </ul>
 </li>
@@ -1987,6 +1990,10 @@ Deployments with known clock skew issues <span class="bcp14">MAY</span> extend t
 <a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
         </h3>
 <dl class="references">
+<dt id="ALMOST-OPTIMAL">[ALMOST-OPTIMAL]</dt>
+        <dd>
+<span class="refAuthor">Coppersmith, D.</span> and <span class="refAuthor">M. Jakobsson</span>, <span class="refTitle">"Almost Optimal Hash Sequence Traversal"</span>, <time datetime="2002" class="refDate">2002</time>, <span>&lt;<a href="https://doi.org/10.1007/3-540-36504-4_8">https://doi.org/10.1007/3-540-36504-4_8</a>&gt;</span>. </dd>
+<dd class="break"></dd>
 <dt id="CHROME-MTC">[CHROME-MTC]</dt>
         <dd>
 <span class="refAuthor">Google Chrome</span>, <span class="refTitle">"Chrome MTC Policy"</span>, <time datetime="2025" class="refDate">2025</time>, <span>&lt;<a href="https://googlechrome.github.io/CertificateTransparency/mtc_policy.html">https://googlechrome.github.io/CertificateTransparency/mtc_policy.html</a>&gt;</span>. </dd>
@@ -1998,6 +2005,10 @@ Deployments with known clock skew issues <span class="bcp14">MAY</span> extend t
 <dt id="CRLSets">[CRLSets]</dt>
         <dd>
 <span class="refAuthor">Chromium</span>, <span class="refTitle">"CRLSets"</span>, <time datetime="2022-08" class="refDate">August 2022</time>, <span>&lt;<a href="https://www.chromium.org/Home/chromium-security/crlsets/">https://www.chromium.org/Home/chromium-security/crlsets/</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="FRACTAL">[FRACTAL]</dt>
+        <dd>
+<span class="refAuthor">Jakobsson, M.</span>, <span class="refTitle">"Fractal Hash Sequence Representation and Traversal"</span>, <time datetime="2002" class="refDate">2002</time>, <span>&lt;<a href="https://doi.org/10.1109/ISIT.2002.1023709">https://doi.org/10.1109/ISIT.2002.1023709</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="MICALI">[MICALI]</dt>
         <dd>
@@ -2140,33 +2151,67 @@ With 32 bytes per seed, 10 million certificates require 320 MB.<a href="#appendi
 Deployments <span class="bcp14">SHOULD</span> choose the shortest period operationally feasible.<a href="#appendix-B.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="why-embed-the-tick-in-the-mtcproof">
+<div id="storage-tradeoff">
 <section id="appendix-B.3">
-        <h3 id="name-why-embed-the-tick-in-the-m">
-<a href="#appendix-B.3" class="section-number selfRef">B.3. </a><a href="#name-why-embed-the-tick-in-the-m" class="section-name selfRef">Why Embed the Tick in the MTCProof</a>
+        <h3 id="name-ca-side-storage-and-computa">
+<a href="#appendix-B.3" class="section-number selfRef">B.3. </a><a href="#name-ca-side-storage-and-computa" class="section-name selfRef">CA-Side Storage and Computation Trade-off</a>
         </h3>
-<p id="appendix-B.3-1">The tick is embedded directly in the MTCProof (the certificate's signatureValue) rather than delivered via a separate channel because:<a href="#appendix-B.3-1" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="appendix-B.3-2">
-<li id="appendix-B.3-2.1">
-            <p id="appendix-B.3-2.1.1"><strong>Structurally inseparable:</strong> The tick is part of the certificate itself.
+<p id="appendix-B.3-1">A CA does not have to choose between the two naive extremes for managing each certificate's hash chain of length <code>chain_length</code> (denoted L below):<a href="#appendix-B.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-B.3-2.1">
+            <p id="appendix-B.3-2.1.1"><strong>Store the entire chain:</strong> O(L) storage per certificate, but each revealed value is a free lookup.
+For L = 2160 (a 90-day lifetime with a one-hour period), this is roughly 67.5 KiB per certificate, or about 6.9 TB across 100 million certificates.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="appendix-B.3-2.2">
+            <p id="appendix-B.3-2.2.1"><strong>Store only the seed:</strong> O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
+Over a certificate's lifetime this is O(L^2) hashing.<a href="#appendix-B.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="appendix-B.3-3">A CA <span class="bcp14">MAY</span> instead use <strong>fractal hash-chain traversal</strong> <span>[<a href="#FRACTAL" class="cite xref">FRACTAL</a>]</span> <span>[<a href="#ALMOST-OPTIMAL" class="cite xref">ALMOST-OPTIMAL</a>]</span> to obtain a logarithmic middle ground.
+The chain is revealed in reverse of the order in which it is computed (the CA computes <code>h[1..L]</code> forward from the secret seed <code>h[0]</code>, but reveals <code>h[L-1], h[L-2], ..., h[1]</code> over time), which is exactly the setting these algorithms address.
+Instead of the whole chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the chain.
+When the value for the current period is needed, a pebble is already there; between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
+The scheduling guarantees:<a href="#appendix-B.3-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="appendix-B.3-4">
+<pre>
+storage  ~ log2(L)      hash values per certificate
+work     ~ (1/2) log2(L) hash evaluations per revealed value
+</pre><a href="#appendix-B.3-4" class="pilcrow">¶</a>
+</div>
+<p id="appendix-B.3-5">For L = 2160, this is approximately 11 to 12 stored values (~384 bytes) per certificate and about 6 hash evaluations per period.
+Across 100 million certificates that is roughly 38 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^5 hash evaluations per second in aggregate.
+This dominates a simple square-root checkpoint scheme (which would need ~150 GB and up to ~46 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).<a href="#appendix-B.3-5" class="pilcrow">¶</a></p>
+<p id="appendix-B.3-6">This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure (<a href="#verification" class="auto internal xref">Section 6</a>) are unchanged.
+The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed (<a href="#security-considerations" class="auto internal xref">Section 8</a>).<a href="#appendix-B.3-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="why-embed-the-tick-in-the-mtcproof">
+<section id="appendix-B.4">
+        <h3 id="name-why-embed-the-tick-in-the-m">
+<a href="#appendix-B.4" class="section-number selfRef">B.4. </a><a href="#name-why-embed-the-tick-in-the-m" class="section-name selfRef">Why Embed the Tick in the MTCProof</a>
+        </h3>
+<p id="appendix-B.4-1">The tick is embedded directly in the MTCProof (the certificate's signatureValue) rather than delivered via a separate channel because:<a href="#appendix-B.4-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="appendix-B.4-2">
+<li id="appendix-B.4-2.1">
+            <p id="appendix-B.4-2.1.1"><strong>Structurally inseparable:</strong> The tick is part of the certificate itself.
 A relying party that parses the MTCProof will always encounter the status_tick field.
-There is no possibility of the tick being stripped or omitted in transit.<a href="#appendix-B.3-2.1.1" class="pilcrow">¶</a></p>
+There is no possibility of the tick being stripped or omitted in transit.<a href="#appendix-B.4-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="appendix-B.3-2.2">
-            <p id="appendix-B.3-2.2.1"><strong>No new protocol machinery:</strong> No TLS CertificateEntry extension or other signaling mechanism is needed.
-The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support.<a href="#appendix-B.3-2.2.1" class="pilcrow">¶</a></p>
+          <li id="appendix-B.4-2.2">
+            <p id="appendix-B.4-2.2.1"><strong>No new protocol machinery:</strong> No TLS CertificateEntry extension or other signaling mechanism is needed.
+The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support.<a href="#appendix-B.4-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="appendix-B.3-2.3">
-            <p id="appendix-B.3-2.3.1"><strong>Safe to update dynamically:</strong> The MTCProof is not committed to the Merkle Tree — only the TBSCertificateLogEntry is.
-The authenticating party can freely replace the signatureValue each period without invalidating the inclusion proof or cosignatures.<a href="#appendix-B.3-2.3.1" class="pilcrow">¶</a></p>
+          <li id="appendix-B.4-2.3">
+            <p id="appendix-B.4-2.3.1"><strong>Safe to update dynamically:</strong> The MTCProof is not committed to the Merkle Tree — only the TBSCertificateLogEntry is.
+The authenticating party can freely replace the signatureValue each period without invalidating the inclusion proof or cosignatures.<a href="#appendix-B.4-2.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="appendix-B.3-2.4">
-            <p id="appendix-B.3-2.4.1"><strong>No additional round-trips:</strong> The tick travels with the certificate in the same TLS message.
-No DNS lookups or side-channel fetches are needed by the relying party.<a href="#appendix-B.3-2.4.1" class="pilcrow">¶</a></p>
+          <li id="appendix-B.4-2.4">
+            <p id="appendix-B.4-2.4.1"><strong>No additional round-trips:</strong> The tick travels with the certificate in the same TLS message.
+No DNS lookups or side-channel fetches are needed by the relying party.<a href="#appendix-B.4-2.4.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="appendix-B.3-2.5">
-            <p id="appendix-B.3-2.5.1"><strong>Server must participate:</strong> The authenticating party is already responsible for maintaining its MTC certificate and refreshing it before expiry.
-Adding a lightweight hourly tick refresh is an incremental burden, not a new class of operational requirement.<a href="#appendix-B.3-2.5.1" class="pilcrow">¶</a></p>
+          <li id="appendix-B.4-2.5">
+            <p id="appendix-B.4-2.5.1"><strong>Server must participate:</strong> The authenticating party is already responsible for maintaining its MTC certificate and refreshing it before expiry.
+Adding a lightweight hourly tick refresh is an incremental burden, not a new class of operational requirement.<a href="#appendix-B.4-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
 </section>
