@@ -1190,6 +1190,9 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.5">
                 <p id="section-toc.1-1.3.2.5.1"><a href="#section-3.5" class="auto internal xref">3.5</a>.  <a href="#name-security-of-the-hash-chain" class="internal xref">Security of the Hash Chain</a></p>
 </li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.6">
+                <p id="section-toc.1-1.3.2.6.1"><a href="#section-3.6" class="auto internal xref">3.6</a>.  <a href="#name-rationale-for-using-the-tar" class="internal xref">Rationale for Using the Target as the Period 0 Tick</a></p>
+</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
@@ -1583,8 +1586,12 @@ period = floor((t - issuance_time) / revocation_period)
         </h3>
 <p id="section-3.4-1">For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value <code>h[chain_length - t]</code>.
 This value can be verified by hashing it t times and comparing with the anchor.<a href="#section-3.4-1" class="pilcrow">¶</a></p>
-<p id="section-3.4-2">To revoke a certificate, the CA stops revealing new values.
-Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed chain elements, which requires inverting the hash function.<a href="#section-3.4-2" class="pilcrow">¶</a></p>
+<p id="section-3.4-2">For period 0, <code>chain_length - t</code> equals <code>chain_length</code>, so the value revealed is the anchor <code>h[chain_length]</code> itself, which is already public (it is committed in the certificate; see <a href="#assertion-integration" class="auto internal xref">Section 4</a>).
+The period 0 tick therefore provides no cryptographic assurance of non-revocation, and any party can construct it.
+This is an intentional design choice; see <a href="#period-zero-rationale" class="auto internal xref">Section 3.6</a> for the rationale.<a href="#section-3.4-2" class="pilcrow">¶</a></p>
+<p id="section-3.4-3">To revoke a certificate, the CA stops revealing new values.
+Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed chain elements, which requires inverting the hash function.
+Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1; a certificate therefore cannot be revoked during period 0.<a href="#section-3.4-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="security-of-the-hash-chain">
@@ -1596,6 +1603,39 @@ Once the previous value expires (at the start of the next period), the certifica
 Given <code>h[i]</code>, it is computationally infeasible to compute <code>h[i-1]</code> (which would be needed to forge a future validity proof).
 The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.<a href="#section-3.5-1" class="pilcrow">¶</a></p>
 <p id="section-3.5-2">The domain separation in HashChainInput (<a href="#encoding" class="auto internal xref">Appendix A</a>) prevents values from being confused with other protocol elements or with hash chain values at different positions.<a href="#section-3.5-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="period-zero-rationale">
+<section id="section-3.6">
+        <h3 id="name-rationale-for-using-the-tar">
+<a href="#section-3.6" class="section-number selfRef">3.6. </a><a href="#name-rationale-for-using-the-tar" class="section-name selfRef">Rationale for Using the Target as the Period 0 Tick</a>
+        </h3>
+<p id="section-3.6-1">Revealing the anchor <code>h[chain_length]</code> as the period 0 tick means the mechanism does not enforce revocation during period 0.
+The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>), the public anchor remains acceptable throughout period 1.
+A certificate that the CA wishes to revoke from the moment of issuance thus becomes unusable at the start of period 2.
+This is the same worst-case bound of at most two revocation periods that applies to any revocation decision (<a href="#revocation-vs-expiry" class="auto internal xref">Section 1.2</a>); the only capability given up is the ability to revoke a certificate faster than that bound in the first moments after issuance.
+This trade-off is deliberate and has two advantages.<a href="#section-3.6-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-3.6-2">
+          <dt id="section-3.6-2.1">Operational grace period at issuance:</dt>
+          <dd style="margin-left: 1.5em" id="section-3.6-2.2">
+            <p id="section-3.6-2.2.1">The CA's tick distribution service (<a href="#distribution" class="auto internal xref">Section 7</a>) does not need to have computed and begun serving a certificate's first secret tick at the exact instant of issuance.
+It has until the start of period 1 -- one full revocation_period -- to make the certificate's chain available.
+This mirrors established practice for OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>, where a newly issued certificate's first status response is permitted to be briefly unavailable after issuance (the CA/Browser Forum Baseline Requirements, for example, allow up to 15 minutes).
+Revocation infrastructure need not be instantaneously ready for brand-new certificates.<a href="#section-3.6-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-3.6-2.3">Narrow, low-value window:</dt>
+          <dd style="margin-left: 1.5em" id="section-3.6-2.4">
+            <p id="section-3.6-2.4.1">The only capability lost is revoking a certificate within the first revocation_period after it was issued.
+A certificate that must be revoked within, for example, one hour of issuance is an unusual case, and the CA directly controls the relevant decision: if it already knows at issuance time that a certificate should not be trusted, it simply does not issue it.
+That an arbitrary party can present the public anchor as a period 0 tick confers no additional capability on an attacker, because presenting the certificate in a TLS handshake still requires possession of the corresponding private key.
+It means only that the CA's revocation signal does not take effect until period 1.<a href="#section-3.6-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-3.6-3">A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret chain element: compute the chain one element longer, use <code>h[chain_length + 1]</code> as the anchor, and hash the revealed value <code>period + 1</code> times (rather than <code>period</code> times) during verification.
+The period 0 tick is then the secret value <code>h[chain_length]</code>, which the CA can withhold.
+This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.<a href="#section-3.6-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
