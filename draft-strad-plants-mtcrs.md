@@ -412,7 +412,7 @@ If the `tickDistributionURL` field is absent from the ACME order, the authentica
 
 CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick distribution URL during certificate provisioning.
 
-## Response Format
+## Response Format {#response-format}
 
 The response body is the serialized HashChainTick structure: a 4-byte big-endian period followed by HASH_SIZE bytes of value (36 bytes total for SHA-256).
 The response Content-Type MUST be `application/octet-stream`.
@@ -441,7 +441,36 @@ After expiry, the certificate becomes unusable until a fresh tick is obtained or
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
-At this scale, edge caching (each tick is immutable within its period and cacheable for up to revocation_period seconds) and client-side jitter in refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
+At this scale, edge caching (each tick is immutable within its period and cacheable for up to revocation_period seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
+{{load-distribution}} describes recommended techniques.
+
+## Distributing Tick Requests {#load-distribution}
+
+A relying party accepts a tick for either the current period or the immediately preceding period ({{verification}}).
+An authenticating party therefore has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
+Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.
+
+### Client-Side: Deterministic Per-Entry Offset
+
+Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the period derived deterministically from its own entry_hash:
+
+    offset = INT32(entry_hash[0..3]) mod revocation_period
+
+where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and INT32 interprets its first four bytes as a big-endian unsigned integer.
+The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
+During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.
+
+Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
+This is preferable to independent random jitter, which can still cluster and which varies each period.
+
+### Server-Side: Cache Freshness and Retry-After
+
+The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than revocation_period seconds ({{response-format}}), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
+A CA MAY additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.
+
+Under transient overload, the CA or edge MAY respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
+To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
+Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
 
 # Security Considerations
 
