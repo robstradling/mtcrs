@@ -90,6 +90,19 @@ informative:
       org: Engineering at Meta
     date: 2023-08
     target: https://engineering.fb.com/2023/08/07/security/short-lived-certificates-protect-tls-secrets/
+  FRACTAL:
+    title: "Fractal Hash Sequence Representation and Traversal"
+    author:
+      - name: Markus Jakobsson
+    date: 2002
+    target: https://doi.org/10.1109/ISIT.2002.1023709
+  ALMOST-OPTIMAL:
+    title: "Almost Optimal Hash Sequence Traversal"
+    author:
+      - name: Don Coppersmith
+      - name: Markus Jakobsson
+    date: 2002
+    target: https://doi.org/10.1007/3-540-36504-4_8
 
 ...
 
@@ -553,6 +566,32 @@ A one-hour revocation_period provides a good balance:
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 Deployments SHOULD choose the shortest period operationally feasible.
+
+## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
+
+A CA does not have to choose between the two naive extremes for managing each certificate's hash chain of length `chain_length` (denoted L below):
+
+- **Store the entire chain:** O(L) storage per certificate, but each revealed value is a free lookup.
+  For L = 2160 (a 90-day lifetime with a one-hour period), this is roughly 67.5 KiB per certificate, or about 6.9 TB across 100 million certificates.
+
+- **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
+  Over a certificate's lifetime this is O(L^2) hashing.
+
+A CA MAY instead use **fractal hash-chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
+The chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
+Instead of the whole chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the chain.
+When the value for the current period is needed, a pebble is already there; between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
+The scheduling guarantees:
+
+    storage  ~ log2(L)      hash values per certificate
+    work     ~ (1/2) log2(L) hash evaluations per revealed value
+
+For L = 2160, this is approximately 11 to 12 stored values (~384 bytes) per certificate and about 6 hash evaluations per period.
+Across 100 million certificates that is roughly 38 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^5 hash evaluations per second in aggregate.
+This dominates a simple square-root checkpoint scheme (which would need ~150 GB and up to ~46 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).
+
+This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
+The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed ({{security-considerations}}).
 
 ## Why Embed the Tick in the MTCProof
 
