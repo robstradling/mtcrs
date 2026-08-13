@@ -250,8 +250,13 @@ The period number at any given time t is:
 For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[chain_length - t]`.
 This value can be verified by hashing it t times and comparing with the anchor.
 
+For period 0, `chain_length - t` equals `chain_length`, so the value revealed is the anchor `h[chain_length]` itself, which is already public (it is committed in the certificate; see {{assertion-integration}}).
+The period 0 tick therefore provides no cryptographic assurance of non-revocation, and any party can construct it.
+This is an intentional design choice; see {{period-zero-rationale}} for the rationale.
+
 To revoke a certificate, the CA stops revealing new values.
 Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed chain elements, which requires inverting the hash function.
+Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1; a certificate therefore cannot be revoked during period 0.
 
 ## Security of the Hash Chain
 
@@ -260,6 +265,30 @@ Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would 
 The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.
 
 The domain separation in HashChainInput ({{encoding}}) prevents values from being confused with other protocol elements or with hash chain values at different positions.
+
+## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
+
+Revealing the anchor `h[chain_length]` as the period 0 tick means the mechanism does not enforce revocation during period 0.
+The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period ({{verification}}), the public anchor remains acceptable throughout period 1.
+A certificate that the CA wishes to revoke from the moment of issuance thus becomes unusable at the start of period 2.
+This is the same worst-case bound of at most two revocation periods that applies to any revocation decision ({{revocation-vs-expiry}}); the only capability given up is the ability to revoke a certificate faster than that bound in the first moments after issuance.
+This trade-off is deliberate and has two advantages.
+
+Operational grace period at issuance:
+: The CA's tick distribution service ({{distribution}}) does not need to have computed and begun serving a certificate's first secret tick at the exact instant of issuance.
+  It has until the start of period 1 -- one full revocation_period -- to make the certificate's chain available.
+  This mirrors established practice for OCSP {{RFC6960}}, where a newly issued certificate's first status response is permitted to be briefly unavailable after issuance (the CA/Browser Forum Baseline Requirements, for example, allow up to 15 minutes).
+  Revocation infrastructure need not be instantaneously ready for brand-new certificates.
+
+Narrow, low-value window:
+: The only capability lost is revoking a certificate within the first revocation_period after it was issued.
+  A certificate that must be revoked within, for example, one hour of issuance is an unusual case, and the CA directly controls the relevant decision: if it already knows at issuance time that a certificate should not be trusted, it simply does not issue it.
+  That an arbitrary party can present the public anchor as a period 0 tick confers no additional capability on an attacker, because presenting the certificate in a TLS handshake still requires possession of the corresponding private key.
+  It means only that the CA's revocation signal does not take effect until period 1.
+
+A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret chain element: compute the chain one element longer, use `h[chain_length + 1]` as the anchor, and hash the revealed value `period + 1` times (rather than `period` times) during verification.
+The period 0 tick is then the secret value `h[chain_length]`, which the CA can withhold.
+This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.
 
 # Integration with MTC Log Entries {#assertion-integration}
 
