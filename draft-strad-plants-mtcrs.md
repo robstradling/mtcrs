@@ -683,7 +683,7 @@ The HashChainInput structure provides domain separation for hash chain computati
         TrustAnchorID issuer_id<1..2^8-1>;
         uint16 log_number;
         uint48 index;
-        opaque preimage[HASH_SIZE];
+        HashValue preimage;
     } HashChainInput;
 
 label:
