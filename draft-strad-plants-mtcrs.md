@@ -332,7 +332,7 @@ The tick is a HashChainTick:
 
     struct {
         uint32 period;
-        opaque value[HASH_SIZE];
+        HashValue value;
     } HashChainTick;
 
 period:
@@ -1183,7 +1183,7 @@ With this extensibility mechanism, the hash chain tick is carried as a proof ext
 
     struct {
         uint32 period;
-        opaque value[HASH_SIZE];
+        HashValue value;
     } HashChainTick;
 
 The HashChainTick is encoded as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized HashChainTick (4 + HASH_SIZE bytes).
