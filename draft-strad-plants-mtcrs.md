@@ -56,6 +56,7 @@ informative:
   RFC5297:
   RFC6960:
   RFC6962:
+  RFC7633:
   MICALI:
     title: "Efficient Certificate Revocation"
     author:
@@ -789,6 +790,51 @@ The tick is embedded directly in the MTCProof (the certificate's signatureValue)
 
 5. **Server must participate:** The authenticating party is already responsible for maintaining its MTC certificate and refreshing it before expiry.
    Adding a lightweight hourly tick refresh is an incremental burden, not a new class of operational requirement.
+
+## Comparison with OCSP Stapling {#ocsp-stapling-comparison}
+
+OCSP stapling delivers a CA-signed status response inside the TLS handshake, and is the closest existing analogue to this mechanism.
+It has nonetheless failed to become an enforceable revocation channel, for reasons this mechanism is specifically designed to avoid.
+
+### Why OCSP Stapling Is Not Enforceable
+
+OCSP stapling ({{RFC6960}}, carried via the TLS status_request extension) is optional and strippable: the client requests it, and the server -- or a network attacker -- can omit the stapled response with no signal that one was expected.
+A relying party therefore cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail (treat missing status as "not revoked") to avoid breaking legitimate connections.
+Soft-fail, in turn, provides almost no protection against an active attacker, who can simply suppress the response.
+This is a self-reinforcing loop: because enforcement is impossible, stapling yields little security benefit; because it yields little benefit, servers have weak incentive to deploy it; and because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.
+
+OCSP Must-Staple ({{RFC7633}}) was introduced to break this loop by letting a certificate commit to requiring a stapled response.
+It saw little adoption: enabling it risks self-inflicted outages if the responder or the server's stapling path fails, and the ecosystem never reached the coverage that would let relying parties depend on it.
+The stapled response remains a separate TLS signal with its own failure modes, layered on a CA-operated responder that must sign every response.
+
+### Why This Mechanism Is Enforceable
+
+The hash chain tick is not a separate, optional signal: it is carried inside the MTCProof, which is part of the certificate presentation itself ({{cert-format}}).
+A relying party that parses the certificate necessarily encounters the tick; there is no request step to omit, and nothing a middlebox or misconfigured server can strip while leaving a valid certificate.
+A relying party can therefore hard-fail on a missing or invalid tick from the outset -- precisely what stapling could never achieve.
+In effect this mechanism provides the property Must-Staple aimed at, a certificate that cannot be presented without current status, but makes it un-strippable by construction rather than by a policy flag, and does so with no per-response CA signature.
+
+### Why It Is More Readily Deployable
+
+Several differences lower the deployment barrier relative to stapling:
+
+- **No responder infrastructure and no per-response signatures.**
+  The CA reveals a precomputed hash value per period; there is no OCSP responder fleet, responder certificate, or per-check signing operation.
+  Ticks are static within a period, self-authenticating, and cacheable by any HTTP intermediary, so distribution is far more robust than a signing responder -- the very fragility that made Must-Staple risky to enable.
+
+- **No TLS-stack changes.**
+  The tick travels inside the existing certificate structure, so no status_request negotiation or CertificateStatus handling is required in TLS implementations beyond MTC support itself.
+  Stapling requires status_request support on both ends.
+
+- **A small, cacheable refresh instead of stapling machinery.**
+  A server refreshes a 36-byte value once per period ({{distribution}}), with no cryptographic operations, rather than fetching, validating, and stapling CA-signed OCSP responses with their own validity windows.
+
+- **Greenfield enforcement.**
+  MTC is new, so there is no legacy soft-fail install base to accommodate.
+  Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see {{objections}}), avoiding the transition that stapling never completed.
+
+The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
+{{objections}} discusses this availability dependency and its mitigations.
 
 # Alternatives Considered {#alternatives}
 
