@@ -215,12 +215,18 @@ Root program policies can leverage this by requiring both short revocation perio
 
 ## Parameters
 
-The hash chain mechanism introduces the following additional parameter to the Merkle Tree CA configuration:
+The hash chain mechanism introduces the following additional parameter:
 
 revocation_period:
 : A duration, in seconds, that determines the granularity of revocation.
-  This MUST evenly divide the CA's certificate lifetime.
+  This MUST evenly divide the certificate's lifetime.
   The number of periods in a certificate's lifetime is: `chain_length = lifetime / revocation_period`.
+
+revocation_period is a per-certificate value: it is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree ({{assertion-integration}}), rather than being a CA-wide configuration constant.
+This is deliberate.
+Because a relying party verifies offline and has no provisioning relationship with the CA, the only way it can obtain revocation_period without a new authenticated distribution channel is to read it from the certificate; carrying it in the tree-committed extension makes it both discoverable by the relying party and self-authenticating.
+It also lets a CA change revocation_period for newly issued certificates without redistributing anything or invalidating existing certificates, each of which keeps the value it was issued with.
+A CA MAY of course use the same revocation_period for every certificate it issues; the point is only that the value each verifier uses comes from the certificate, not from CA-wide configuration that verifiers cannot see.
 
 ## Chain Generation
 
@@ -320,8 +326,8 @@ The extension value contains the DER encoding of the following ASN.1 structure:
     }
 
 revocationPeriod:
-: The revocation period in seconds.
-  MUST match the CA's configured revocation_period.
+: The revocation period in seconds for this certificate ({{construction}}).
+  The relying party reads it from here; it is the value used to number periods and to compute the expected period during verification ({{verification}}).
 
 anchor:
 : The hash chain anchor value `h[chain_length]` (HASH_SIZE bytes).
