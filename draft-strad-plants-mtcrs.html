@@ -1745,7 +1745,7 @@ The tick is a HashChainTick:<a href="#section-5.1-1" class="pilcrow">¶</a></p>
 <pre>
 struct {
     uint32 period;
-    opaque value[HASH_SIZE];
+    HashValue value;
 } HashChainTick;
 </pre><a href="#section-5.1-2" class="pilcrow">¶</a>
 </div>
@@ -2454,7 +2454,7 @@ This is a trivial HTTP request for a 36-byte response.<a href="#appendix-B.2-2.2
 </li>
           <li class="normal" id="appendix-B.2-2.3">
             <p id="appendix-B.2-2.3.1"><strong>Chain length:</strong> For 47-day certificates, the chain length is 1,128.
-Verification requires at most 1,128 hash computations, which takes microseconds on modern hardware.<a href="#appendix-B.2-2.3.1" class="pilcrow">¶</a></p>
+Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.<a href="#appendix-B.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-B.2-2.4">
             <p id="appendix-B.2-2.4.1"><strong>CA storage:</strong> The CA must store one seed per active certificate.
@@ -2950,9 +2950,9 @@ The threat is real but not novel, and the mitigations (market pressure, monitori
         <h3 id="name-verification-cost-grows-lin">
 <a href="#appendix-D.10" class="section-number selfRef">D.10. </a><a href="#name-verification-cost-grows-lin" class="section-name selfRef">"Verification Cost Grows Linearly with Certificate Age"</a>
         </h3>
-<p id="appendix-D.10-1">A relying party verifying a tick near the end of a 47-day certificate's lifetime must compute up to 1,128 hashes.
+<p id="appendix-D.10-1">A relying party verifying a tick near the end of a 47-day certificate's lifetime must compute up to 1,127 hashes.
 This linear cost may be unacceptable for constrained devices.<a href="#appendix-D.10-1" class="pilcrow">¶</a></p>
-<p id="appendix-D.10-2">On modern hardware, 1,128 SHA-256 operations take approximately 10-20 microseconds — negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
+<p id="appendix-D.10-2">On modern hardware, 1,127 SHA-256 operations take approximately 10-20 microseconds — negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
 Even on constrained IoT devices, SHA-256 is typically hardware-accelerated and the computation completes in under a millisecond.
 For comparison, verifying a single Ed25519 signature costs roughly the same as hundreds of SHA-256 operations.
 If the linear cost is nonetheless a concern for a specific deployment, choosing a shorter certificate lifetime (reducing chain_length) or a longer revocation_period (also reducing chain_length) provides a direct mitigation.<a href="#appendix-D.10-2" class="pilcrow">¶</a></p>
@@ -3035,7 +3035,7 @@ Both are variable-length lists of tag-length-value structures, but they serve di
 <pre>
 struct {
     uint32 period;
-    opaque value[HASH_SIZE];
+    HashValue value;
 } HashChainTick;
 </pre><a href="#appendix-E.3-2" class="pilcrow">¶</a>
 </div>
