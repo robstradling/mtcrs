@@ -219,8 +219,10 @@ The hash chain mechanism introduces the following additional parameter:
 
 revocation_period:
 : A duration, in seconds, that determines the granularity of revocation.
-  This MUST evenly divide the certificate's lifetime.
-  The number of periods in a certificate's lifetime is: `chain_length = lifetime / revocation_period`.
+  This MUST be greater than zero and no greater than the certificate's lifetime.
+  The number of periods in a certificate's lifetime is `chain_length = ceil(lifetime / revocation_period)`.
+  revocation_period need not evenly divide the lifetime; if it does not, the final period is shorter than revocation_period, ending when the certificate expires.
+  This is harmless: the verifier computes the period from not_before ({{construction}}) and the base MTC validity check bounds the certificate at notAfter, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
 
 revocation_period is a per-certificate value: it is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree ({{assertion-integration}}), rather than being a CA-wide configuration constant.
 This is deliberate.
