@@ -688,6 +688,24 @@ Under transient overload, the CA or edge MAY respond with HTTP status code 429 (
 To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
 Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
 
+# Privacy Considerations
+
+The Privacy Considerations of {{I-D.ietf-plants-merkle-tree-certs}} (Section 11) apply to Merkle Tree Certificates that use this mechanism.
+This mechanism adds one network interaction -- the authenticating party's periodic tick fetch ({{distribution}}) -- and deliberately adds none on the relying-party side.
+
+No relying-party activity is exposed.
+The current tick is embedded in the certificate presentation and verified offline against the committed anchor, and relying parties MUST NOT fetch ticks ({{rp-no-fetch}}).
+Consequently the CA learns nothing about which certificates a relying party validates or which sites it visits.
+This is the central privacy difference from client-driven OCSP {{RFC6960}}, whose status fetches revealed relying-party browsing to the CA; that failure mode is avoided here by construction rather than by policy.
+
+The authenticating party's tick fetch, by contrast, exposes request metadata.
+An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which entry_hash -- or, with unguessable tick URLs, which tick_token ({{unguessable-urls}}) -- is being requested, and can thereby learn which certificate the authenticating party holds.
+For a public-facing server this reveals little, since the certificate it serves is itself public; the request identifies the authenticating party's own certificate, not any relying party.
+Two points nonetheless bear noting:
+
+- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}). Plain HTTP leaves the requested entry_hash or tick_token visible to on-path observers. A deployment that considers this metadata sensitive -- for example, one serving certificates that are not otherwise publicly enumerable -- SHOULD publish an https base URL instead.
+- Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the tick_token appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch. Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
+
 # Security Considerations
 
 ## Hash Function Requirements
