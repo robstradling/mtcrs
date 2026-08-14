@@ -113,8 +113,9 @@ Table of Contents
      8.2.  Seed Confidentiality
      8.3.  Denial of Service via Tick Withholding
      8.4.  Relying Parties Do Not Fetch Ticks
-     8.5.  Interaction with Base MTC Revocation
-     8.6.  Clock Skew
+     8.5.  Unauthenticated Proof Extensions
+     8.6.  Interaction with Base MTC Revocation
+     8.7.  Clock Skew
    9.  IANA Considerations
      9.1.  Certificate Extension
      9.2.  Access Descriptor
@@ -128,6 +129,10 @@ Table of Contents
      B.2.  Why One Hour (or One Day) Periods
      B.3.  CA-Side Storage and Computation Trade-off
      B.4.  Why Embed the Tick in the MTCProof
+     B.5.  Comparison with OCSP Stapling
+       B.5.1.  Why OCSP Stapling Is Not Enforceable
+       B.5.2.  Why This Mechanism Is Enforceable
+       B.5.3.  Why It Is More Readily Deployable
    Appendix C.  Alternatives Considered
      C.1.  DNS-Based Tick Distribution
      C.2.  AIA-Based Tick URL Discovery
@@ -152,6 +157,7 @@ Table of Contents
      E.2.  Proposed Amendment
      E.3.  Hash Chain Tick as a Proof Extension
      E.4.  Backward Compatibility
+     E.5.  Considerations for the proof_extensions Field
    Acknowledgments
    Author's Address
 
@@ -987,7 +993,19 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    possess the CA certificate but MUST NOT use its tick base URL to
    fetch tick status.
 
-8.5.  Interaction with Base MTC Revocation
+8.5.  Unauthenticated Proof Extensions
+
+   If the tick is carried in a proof_extensions field (Appendix E), note
+   that this field is not committed to the Merkle Tree and is covered by
+   no signature: it is mutable and can carry data that relying parties
+   ignore.  Hash chain revocation does not rely on its authenticity --
+   the tick is self-authenticating and its presence is mandated by the
+   committed id-pe-hashChainAnchor extension.  Appendix E.5 discusses
+   the general risks of this field (bloat, covert channels, and a
+   strippable soft-fail for other mechanisms) and the constraints
+   recommended for the base specification.
+
+8.6.  Interaction with Base MTC Revocation
 
    The hash chain mechanism complements rather than replaces the base
    MTC revoked ranges mechanism.  Revoked ranges provide a fallback for
@@ -1004,7 +1022,7 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    certificate is considered revoked if either mechanism indicates
    revocation.
 
-8.6.  Clock Skew
+8.7.  Clock Skew
 
    The grace period of accepting the current or immediately preceding
    period's tick (Section 6, step 4) provides tolerance for clock skew
@@ -1123,6 +1141,10 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    [RFC6962]  Laurie, B., Langley, A., and E. Kasper, "Certificate
               Transparency", RFC 6962, DOI 10.17487/RFC6962, June 2013,
               <https://www.rfc-editor.org/rfc/rfc6962>.
+
+   [RFC7633]  Hallam-Baker, P., "X.509v3 Transport Layer Security (TLS)
+              Feature Extension", RFC 7633, DOI 10.17487/RFC7633,
+              October 2015, <https://www.rfc-editor.org/rfc/rfc7633>.
 
    [SHORTLIVED]
               Engineering at Meta, "How Meta uses short-lived
@@ -1292,6 +1314,90 @@ B.4.  Why Embed the Tick in the MTCProof
        responsible for maintaining its MTC certificate and refreshing it
        before expiry.  Adding a lightweight hourly tick refresh is an
        incremental burden, not a new class of operational requirement.
+
+B.5.  Comparison with OCSP Stapling
+
+   OCSP stapling delivers a CA-signed status response inside the TLS
+   handshake, and is the closest existing analogue to this mechanism.
+   It has nonetheless failed to become an enforceable revocation
+   channel, for reasons this mechanism is specifically designed to
+   avoid.
+
+B.5.1.  Why OCSP Stapling Is Not Enforceable
+
+   OCSP stapling ([RFC6960], carried via the TLS status_request
+   extension) is optional and strippable: the client requests it, and
+   the server -- or a network attacker -- can omit the stapled response
+   with no signal that one was expected.  A relying party therefore
+   cannot distinguish a deliberately stripped response from a
+   temporarily unavailable responder, so it must soft-fail (treat
+   missing status as "not revoked") to avoid breaking legitimate
+   connections.  Soft-fail, in turn, provides almost no protection
+   against an active attacker, who can simply suppress the response.
+   This is a self-reinforcing loop: because enforcement is impossible,
+   stapling yields little security benefit; because it yields little
+   benefit, servers have weak incentive to deploy it; and because
+   deployment is incomplete, relying parties can never move from soft-
+   fail to hard-fail.
+
+   OCSP Must-Staple ([RFC7633]) was introduced to break this loop by
+   letting a certificate commit to requiring a stapled response.  It saw
+   little adoption: enabling it risks self-inflicted outages if the
+   responder or the server's stapling path fails, and the ecosystem
+   never reached the coverage that would let relying parties depend on
+   it.  The stapled response remains a separate TLS signal with its own
+   failure modes, layered on a CA-operated responder that must sign
+   every response.
+
+B.5.2.  Why This Mechanism Is Enforceable
+
+   The hash chain tick is not a separate, optional signal: it is carried
+   inside the MTCProof, which is part of the certificate presentation
+   itself (Section 5).  A relying party that parses the certificate
+   necessarily encounters the tick; there is no request step to omit,
+   and nothing a middlebox or misconfigured server can strip while
+   leaving a valid certificate.  A relying party can therefore hard-fail
+   on a missing or invalid tick from the outset -- precisely what
+   stapling could never achieve.  In effect this mechanism provides the
+   property Must-Staple aimed at, a certificate that cannot be presented
+   without current status, but makes it un-strippable by construction
+   rather than by a policy flag, and does so with no per-response CA
+   signature.
+
+B.5.3.  Why It Is More Readily Deployable
+
+   Several differences lower the deployment barrier relative to
+   stapling:
+
+   *  *No responder infrastructure and no per-response signatures.* The
+      CA reveals a precomputed hash value per period; there is no OCSP
+      responder fleet, responder certificate, or per-check signing
+      operation.  Ticks are static within a period, self-authenticating,
+      and cacheable by any HTTP intermediary, so distribution is far
+      more robust than a signing responder -- the very fragility that
+      made Must-Staple risky to enable.
+
+   *  *No TLS-stack changes.* The tick travels inside the existing
+      certificate structure, so no status_request negotiation or
+      CertificateStatus handling is required in TLS implementations
+      beyond MTC support itself.  Stapling requires status_request
+      support on both ends.
+
+   *  *A small, cacheable refresh instead of stapling machinery.* A
+      server refreshes a 36-byte value once per period (Section 7), with
+      no cryptographic operations, rather than fetching, validating, and
+      stapling CA-signed OCSP responses with their own validity windows.
+
+   *  *Greenfield enforcement.* MTC is new, so there is no legacy soft-
+      fail install base to accommodate.  Within an MTC ecosystem,
+      enforcement can be mandatory from day one (or made so by marking
+      the anchor extension critical; see Appendix D), avoiding the
+      transition that stapling never completed.
+
+   The counterweight is that a tick, unlike a soft-failed OCSP response,
+   is a hard dependency: a server that cannot refresh its tick within a
+   period becomes unusable until it does.  Appendix D discusses this
+   availability dependency and its mitigations.
 
 Appendix C.  Alternatives Considered
 
@@ -1883,6 +1989,65 @@ E.4.  Backward Compatibility
       implementations will parse it (ignoring unknown types), enabling
       incremental deployment of hash chain revocation with a non-
       critical X.509 extension.
+
+E.5.  Considerations for the proof_extensions Field
+
+   The proof_extensions field is, by design, an unauthenticated and
+   freely mutable region: it is not committed to the Merkle Tree, no
+   cosignature covers the MTCProof, and relying parties ignore
+   unrecognized types.  These properties are what let the hash chain
+   tick be updated each period, but as a general-purpose extension point
+   they also let an authenticating party, or any intermediary that
+   relays the certificate, add, alter, or strip proof extensions
+   undetectably, and insert arbitrary data that relying parties silently
+   ignore ("stuffing").  This does not affect hash chain revocation
+   itself -- the tick is self-authenticating and its presence is
+   mandated by the id-pe-hashChainAnchor extension, which is committed
+   to the tree, so stuffed or stripped data can neither forge nor
+   suppress a tick.  But if the base MTC specification adopts
+   proof_extensions as a general mechanism, the following constraints
+   SHOULD apply so that the field is not abused or misused:
+
+   Bounded size and count:  proof_extensions is transmitted in every
+      handshake, so an unbounded ignored field undercuts the compactness
+      that motivates MTC and creates a bloat and denial-of-service
+      surface.  The base specification SHOULD set a small maximum total
+      size and extension count, well below the 2^16-1 the length prefix
+      permits, and relying parties MAY reject certificates that exceed
+      it.
+
+   Strict, canonical encoding:  Proof extensions SHOULD appear in
+      ascending order by extension_type with no duplicate types, and
+      parsers SHOULD require the declared lengths to consume the field
+      exactly, with no trailing bytes.  This mirrors the ordering
+      discipline the base specification already applies to cosignatures
+      and limits ambiguity and abuse through many or malformed
+      extensions.
+
+   Registration:  MTCProofExtensionType values SHOULD be administered by
+      an IANA registry with a defined allocation policy and a delimited
+      private-use range, rather than left as an open channel.
+
+   Security-relevant extensions must be anchored:  Because unrecognized
+      or absent proof extensions are ignored, any future proof extension
+      carrying security-relevant data MUST make its presence mandatory
+      and self-authenticating through an element committed to the Merkle
+      Tree, as hash chain revocation does with the id-pe-hashChainAnchor
+      extension (Section 4).  Otherwise "ignore if unknown" becomes a
+      strippable soft-fail -- exactly the failure mode described in
+      Appendix B.5.
+
+   No transparency:  Unlike entry_extensions, proof_extensions are
+      neither logged nor committed to the tree, so monitors never
+      observe them.  Mechanisms that require transparency MUST use
+      entry_extensions instead; proof_extensions MUST NOT be treated as
+      a transparent or auditable channel.
+
+   Identity:  proof_extensions widen the malleability of the
+      signatureValue already noted in Section 12.6 of
+      [I-D.ietf-plants-merkle-tree-certs].  Applications that derive a
+      unique identifier from a certificate MUST derive it from the
+      TBSCertificate, never from the MTCProof.
 
 Acknowledgments
 

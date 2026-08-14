@@ -1275,10 +1275,13 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
                 <p id="section-toc.1-1.8.2.4.1"><a href="#section-8.4" class="auto internal xref">8.4</a>.  <a href="#name-relying-parties-do-not-fetc" class="internal xref">Relying Parties Do Not Fetch Ticks</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.5">
-                <p id="section-toc.1-1.8.2.5.1"><a href="#section-8.5" class="auto internal xref">8.5</a>.  <a href="#name-interaction-with-base-mtc-r" class="internal xref">Interaction with Base MTC Revocation</a></p>
+                <p id="section-toc.1-1.8.2.5.1"><a href="#section-8.5" class="auto internal xref">8.5</a>.  <a href="#name-unauthenticated-proof-exten" class="internal xref">Unauthenticated Proof Extensions</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.6">
-                <p id="section-toc.1-1.8.2.6.1"><a href="#section-8.6" class="auto internal xref">8.6</a>.  <a href="#name-clock-skew" class="internal xref">Clock Skew</a></p>
+                <p id="section-toc.1-1.8.2.6.1"><a href="#section-8.6" class="auto internal xref">8.6</a>.  <a href="#name-interaction-with-base-mtc-r" class="internal xref">Interaction with Base MTC Revocation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.7">
+                <p id="section-toc.1-1.8.2.7.1"><a href="#section-8.7" class="auto internal xref">8.7</a>.  <a href="#name-clock-skew" class="internal xref">Clock Skew</a></p>
 </li>
             </ul>
 </li>
@@ -1321,6 +1324,20 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.4">
                 <p id="section-toc.1-1.12.2.4.1"><a href="#appendix-B.4" class="auto internal xref">B.4</a>.  <a href="#name-why-embed-the-tick-in-the-m" class="internal xref">Why Embed the Tick in the MTCProof</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.5">
+                <p id="section-toc.1-1.12.2.5.1"><a href="#appendix-B.5" class="auto internal xref">B.5</a>.  <a href="#name-comparison-with-ocsp-stapli" class="internal xref">Comparison with OCSP Stapling</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.5.2.1">
+                    <p id="section-toc.1-1.12.2.5.2.1.1"><a href="#appendix-B.5.1" class="auto internal xref">B.5.1</a>.  <a href="#name-why-ocsp-stapling-is-not-en" class="internal xref">Why OCSP Stapling Is Not Enforceable</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.5.2.2">
+                    <p id="section-toc.1-1.12.2.5.2.2.1"><a href="#appendix-B.5.2" class="auto internal xref">B.5.2</a>.  <a href="#name-why-this-mechanism-is-enfor" class="internal xref">Why This Mechanism Is Enforceable</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.5.2.3">
+                    <p id="section-toc.1-1.12.2.5.2.3.1"><a href="#appendix-B.5.3" class="auto internal xref">B.5.3</a>.  <a href="#name-why-it-is-more-readily-depl" class="internal xref">Why It Is More Readily Deployable</a></p>
+</li>
+                </ul>
 </li>
             </ul>
 </li>
@@ -1399,6 +1416,9 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.4">
                 <p id="section-toc.1-1.15.2.4.1"><a href="#appendix-E.4" class="auto internal xref">E.4</a>.  <a href="#name-backward-compatibility" class="internal xref">Backward Compatibility</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.5">
+                <p id="section-toc.1-1.15.2.5.1"><a href="#appendix-E.5" class="auto internal xref">E.5</a>.  <a href="#name-considerations-for-the-proo" class="internal xref">Considerations for the proof_extensions Field</a></p>
 </li>
             </ul>
 </li>
@@ -2129,34 +2149,44 @@ A relying-party fetch would gain nothing over the embedded tick -- the authentic
 Relying parties possess the CA certificate but <span class="bcp14">MUST NOT</span> use its tick base URL to fetch tick status.<a href="#section-8.4-3" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="interaction-with-base-mtc-revocation">
+<div id="unauthenticated-proof-extensions">
 <section id="section-8.5">
-        <h3 id="name-interaction-with-base-mtc-r">
-<a href="#section-8.5" class="section-number selfRef">8.5. </a><a href="#name-interaction-with-base-mtc-r" class="section-name selfRef">Interaction with Base MTC Revocation</a>
+        <h3 id="name-unauthenticated-proof-exten">
+<a href="#section-8.5" class="section-number selfRef">8.5. </a><a href="#name-unauthenticated-proof-exten" class="section-name selfRef">Unauthenticated Proof Extensions</a>
         </h3>
-<p id="section-8.5-1">The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
-Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:<a href="#section-8.5-1" class="pilcrow">¶</a></p>
+<p id="section-8.5-1">If the tick is carried in a <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
+Hash chain revocation does not rely on its authenticity -- the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension.
+<a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a> discusses the general risks of this field (bloat, covert channels, and a strippable soft-fail for other mechanisms) and the constraints recommended for the base specification.<a href="#section-8.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="interaction-with-base-mtc-revocation">
+<section id="section-8.6">
+        <h3 id="name-interaction-with-base-mtc-r">
+<a href="#section-8.6" class="section-number selfRef">8.6. </a><a href="#name-interaction-with-base-mtc-r" class="section-name selfRef">Interaction with Base MTC Revocation</a>
+        </h3>
+<p id="section-8.6-1">The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
+Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:<a href="#section-8.6-1" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-8.5-2.1">
-            <p id="section-8.5-2.1.1">Compromise of the CA's hash chain seed storage<a href="#section-8.5-2.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-8.6-2.1">
+            <p id="section-8.6-2.1.1">Compromise of the CA's hash chain seed storage<a href="#section-8.6-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-8.5-2.2">
-            <p id="section-8.5-2.2.1">Bulk revocation of many certificates simultaneously<a href="#section-8.5-2.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-8.6-2.2">
+            <p id="section-8.6-2.2.1">Bulk revocation of many certificates simultaneously<a href="#section-8.6-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-8.5-2.3">
-            <p id="section-8.5-2.3.1">Relying parties that have not yet implemented hash chain verification<a href="#section-8.5-2.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-8.6-2.3">
+            <p id="section-8.6-2.3.1">Relying parties that have not yet implemented hash chain verification<a href="#section-8.6-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-8.5-3">Relying parties that support both mechanisms <span class="bcp14">SHOULD</span> check both: a certificate is considered revoked if either mechanism indicates revocation.<a href="#section-8.5-3" class="pilcrow">¶</a></p>
+<p id="section-8.6-3">Relying parties that support both mechanisms <span class="bcp14">SHOULD</span> check both: a certificate is considered revoked if either mechanism indicates revocation.<a href="#section-8.6-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="clock-skew">
-<section id="section-8.6">
+<section id="section-8.7">
         <h3 id="name-clock-skew">
-<a href="#section-8.6" class="section-number selfRef">8.6. </a><a href="#name-clock-skew" class="section-name selfRef">Clock Skew</a>
+<a href="#section-8.7" class="section-number selfRef">8.7. </a><a href="#name-clock-skew" class="section-name selfRef">Clock Skew</a>
         </h3>
-<p id="section-8.6-1">The grace period of accepting the current or immediately preceding period's tick (<a href="#verification" class="auto internal xref">Section 6</a>, step 4) provides tolerance for clock skew of up to one full revocation_period.
-Deployments with known clock skew issues <span class="bcp14">MAY</span> extend this to two preceding periods at the cost of slightly delayed revocation enforcement.<a href="#section-8.6-1" class="pilcrow">¶</a></p>
+<p id="section-8.7-1">The grace period of accepting the current or immediately preceding period's tick (<a href="#verification" class="auto internal xref">Section 6</a>, step 4) provides tolerance for clock skew of up to one full revocation_period.
+Deployments with known clock skew issues <span class="bcp14">MAY</span> extend this to two preceding periods at the cost of slightly delayed revocation enforcement.<a href="#section-8.7-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2304,6 +2334,10 @@ id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 <dt id="RFC6962">[RFC6962]</dt>
         <dd>
 <span class="refAuthor">Laurie, B.</span>, <span class="refAuthor">Langley, A.</span>, and <span class="refAuthor">E. Kasper</span>, <span class="refTitle">"Certificate Transparency"</span>, <span class="seriesInfo">RFC 6962</span>, <span class="seriesInfo">DOI 10.17487/RFC6962</span>, <time datetime="2013-06" class="refDate">June 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6962">https://www.rfc-editor.org/rfc/rfc6962</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7633">[RFC7633]</dt>
+        <dd>
+<span class="refAuthor">Hallam-Baker, P.</span>, <span class="refTitle">"X.509v3 Transport Layer Security (TLS) Feature Extension"</span>, <span class="seriesInfo">RFC 7633</span>, <span class="seriesInfo">DOI 10.17487/RFC7633</span>, <time datetime="2015-10" class="refDate">October 2015</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7633">https://www.rfc-editor.org/rfc/rfc7633</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="SHORTLIVED">[SHORTLIVED]</dt>
       <dd>
@@ -2497,6 +2531,71 @@ No DNS lookups or side-channel fetches are needed by the relying party.<a href="
 Adding a lightweight hourly tick refresh is an incremental burden, not a new class of operational requirement.<a href="#appendix-B.4-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
+</section>
+</div>
+<div id="ocsp-stapling-comparison">
+<section id="appendix-B.5">
+        <h3 id="name-comparison-with-ocsp-stapli">
+<a href="#appendix-B.5" class="section-number selfRef">B.5. </a><a href="#name-comparison-with-ocsp-stapli" class="section-name selfRef">Comparison with OCSP Stapling</a>
+        </h3>
+<p id="appendix-B.5-1">OCSP stapling delivers a CA-signed status response inside the TLS handshake, and is the closest existing analogue to this mechanism.
+It has nonetheless failed to become an enforceable revocation channel, for reasons this mechanism is specifically designed to avoid.<a href="#appendix-B.5-1" class="pilcrow">¶</a></p>
+<div id="why-ocsp-stapling-is-not-enforceable">
+<section id="appendix-B.5.1">
+          <h4 id="name-why-ocsp-stapling-is-not-en">
+<a href="#appendix-B.5.1" class="section-number selfRef">B.5.1. </a><a href="#name-why-ocsp-stapling-is-not-en" class="section-name selfRef">Why OCSP Stapling Is Not Enforceable</a>
+          </h4>
+<p id="appendix-B.5.1-1">OCSP stapling (<span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>, carried via the TLS status_request extension) is optional and strippable: the client requests it, and the server -- or a network attacker -- can omit the stapled response with no signal that one was expected.
+A relying party therefore cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail (treat missing status as "not revoked") to avoid breaking legitimate connections.
+Soft-fail, in turn, provides almost no protection against an active attacker, who can simply suppress the response.
+This is a self-reinforcing loop: because enforcement is impossible, stapling yields little security benefit; because it yields little benefit, servers have weak incentive to deploy it; and because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.<a href="#appendix-B.5.1-1" class="pilcrow">¶</a></p>
+<p id="appendix-B.5.1-2">OCSP Must-Staple (<span>[<a href="#RFC7633" class="cite xref">RFC7633</a>]</span>) was introduced to break this loop by letting a certificate commit to requiring a stapled response.
+It saw little adoption: enabling it risks self-inflicted outages if the responder or the server's stapling path fails, and the ecosystem never reached the coverage that would let relying parties depend on it.
+The stapled response remains a separate TLS signal with its own failure modes, layered on a CA-operated responder that must sign every response.<a href="#appendix-B.5.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="why-this-mechanism-is-enforceable">
+<section id="appendix-B.5.2">
+          <h4 id="name-why-this-mechanism-is-enfor">
+<a href="#appendix-B.5.2" class="section-number selfRef">B.5.2. </a><a href="#name-why-this-mechanism-is-enfor" class="section-name selfRef">Why This Mechanism Is Enforceable</a>
+          </h4>
+<p id="appendix-B.5.2-1">The hash chain tick is not a separate, optional signal: it is carried inside the MTCProof, which is part of the certificate presentation itself (<a href="#cert-format" class="auto internal xref">Section 5</a>).
+A relying party that parses the certificate necessarily encounters the tick; there is no request step to omit, and nothing a middlebox or misconfigured server can strip while leaving a valid certificate.
+A relying party can therefore hard-fail on a missing or invalid tick from the outset -- precisely what stapling could never achieve.
+In effect this mechanism provides the property Must-Staple aimed at, a certificate that cannot be presented without current status, but makes it un-strippable by construction rather than by a policy flag, and does so with no per-response CA signature.<a href="#appendix-B.5.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="why-it-is-more-readily-deployable">
+<section id="appendix-B.5.3">
+          <h4 id="name-why-it-is-more-readily-depl">
+<a href="#appendix-B.5.3" class="section-number selfRef">B.5.3. </a><a href="#name-why-it-is-more-readily-depl" class="section-name selfRef">Why It Is More Readily Deployable</a>
+          </h4>
+<p id="appendix-B.5.3-1">Several differences lower the deployment barrier relative to stapling:<a href="#appendix-B.5.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="appendix-B.5.3-2.1">
+              <p id="appendix-B.5.3-2.1.1"><strong>No responder infrastructure and no per-response signatures.</strong>
+The CA reveals a precomputed hash value per period; there is no OCSP responder fleet, responder certificate, or per-check signing operation.
+Ticks are static within a period, self-authenticating, and cacheable by any HTTP intermediary, so distribution is far more robust than a signing responder -- the very fragility that made Must-Staple risky to enable.<a href="#appendix-B.5.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="appendix-B.5.3-2.2">
+              <p id="appendix-B.5.3-2.2.1"><strong>No TLS-stack changes.</strong>
+The tick travels inside the existing certificate structure, so no status_request negotiation or CertificateStatus handling is required in TLS implementations beyond MTC support itself.
+Stapling requires status_request support on both ends.<a href="#appendix-B.5.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="appendix-B.5.3-2.3">
+              <p id="appendix-B.5.3-2.3.1"><strong>A small, cacheable refresh instead of stapling machinery.</strong>
+A server refreshes a 36-byte value once per period (<a href="#distribution" class="auto internal xref">Section 7</a>), with no cryptographic operations, rather than fetching, validating, and stapling CA-signed OCSP responses with their own validity windows.<a href="#appendix-B.5.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="appendix-B.5.3-2.4">
+              <p id="appendix-B.5.3-2.4.1"><strong>Greenfield enforcement.</strong>
+MTC is new, so there is no legacy soft-fail install base to accommodate.
+Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see <a href="#objections" class="auto internal xref">Appendix D</a>), avoiding the transition that stapling never completed.<a href="#appendix-B.5.3-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="appendix-B.5.3-3">The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
+<a href="#objections" class="auto internal xref">Appendix D</a> discusses this availability dependency and its mitigations.<a href="#appendix-B.5.3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 </section>
@@ -2960,6 +3059,54 @@ Implementations that predate the amendment will reject the certificate at the MT
             <p id="appendix-E.4-3.2.1"><strong>Deploy the base spec amendment first:</strong> Once the proof_extensions field is adopted into the base MTC specification, all conforming implementations will parse it (ignoring unknown types), enabling incremental deployment of hash chain revocation with a non-critical X.509 extension.<a href="#appendix-E.4-3.2.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
+</section>
+</div>
+<div id="proof-extensions-considerations">
+<section id="appendix-E.5">
+        <h3 id="name-considerations-for-the-proo">
+<a href="#appendix-E.5" class="section-number selfRef">E.5. </a><a href="#name-considerations-for-the-proo" class="section-name selfRef">Considerations for the proof_extensions Field</a>
+        </h3>
+<p id="appendix-E.5-1">The <code>proof_extensions</code> field is, by design, an unauthenticated and freely mutable region: it is not committed to the Merkle Tree, no cosignature covers the MTCProof, and relying parties ignore unrecognized types.
+These properties are what let the hash chain tick be updated each period, but as a general-purpose extension point they also let an authenticating party, or any intermediary that relays the certificate, add, alter, or strip proof extensions undetectably, and insert arbitrary data that relying parties silently ignore ("stuffing").
+This does not affect hash chain revocation itself -- the tick is self-authenticating and its presence is mandated by the id-pe-hashChainAnchor extension, which is committed to the tree, so stuffed or stripped data can neither forge nor suppress a tick.
+But if the base MTC specification adopts <code>proof_extensions</code> as a general mechanism, the following constraints <span class="bcp14">SHOULD</span> apply so that the field is not abused or misused:<a href="#appendix-E.5-1" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="appendix-E.5-2">
+          <dt id="appendix-E.5-2.1">Bounded size and count:</dt>
+          <dd style="margin-left: 1.5em" id="appendix-E.5-2.2">
+            <p id="appendix-E.5-2.2.1"><code>proof_extensions</code> is transmitted in every handshake, so an unbounded ignored field undercuts the compactness that motivates MTC and creates a bloat and denial-of-service surface.
+The base specification <span class="bcp14">SHOULD</span> set a small maximum total size and extension count, well below the 2^16-1 the length prefix permits, and relying parties <span class="bcp14">MAY</span> reject certificates that exceed it.<a href="#appendix-E.5-2.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="appendix-E.5-2.3">Strict, canonical encoding:</dt>
+          <dd style="margin-left: 1.5em" id="appendix-E.5-2.4">
+            <p id="appendix-E.5-2.4.1">Proof extensions <span class="bcp14">SHOULD</span> appear in ascending order by <code>extension_type</code> with no duplicate types, and parsers <span class="bcp14">SHOULD</span> require the declared lengths to consume the field exactly, with no trailing bytes.
+This mirrors the ordering discipline the base specification already applies to cosignatures and limits ambiguity and abuse through many or malformed extensions.<a href="#appendix-E.5-2.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="appendix-E.5-2.5">Registration:</dt>
+          <dd style="margin-left: 1.5em" id="appendix-E.5-2.6">
+            <p id="appendix-E.5-2.6.1"><code>MTCProofExtensionType</code> values <span class="bcp14">SHOULD</span> be administered by an IANA registry with a defined allocation policy and a delimited private-use range, rather than left as an open channel.<a href="#appendix-E.5-2.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="appendix-E.5-2.7">Security-relevant extensions must be anchored:</dt>
+          <dd style="margin-left: 1.5em" id="appendix-E.5-2.8">
+            <p id="appendix-E.5-2.8.1">Because unrecognized or absent proof extensions are ignored, any future proof extension carrying security-relevant data <span class="bcp14">MUST</span> make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension (<a href="#assertion-integration" class="auto internal xref">Section 4</a>).
+Otherwise "ignore if unknown" becomes a strippable soft-fail -- exactly the failure mode described in <a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix B.5</a>.<a href="#appendix-E.5-2.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="appendix-E.5-2.9">No transparency:</dt>
+          <dd style="margin-left: 1.5em" id="appendix-E.5-2.10">
+            <p id="appendix-E.5-2.10.1">Unlike <code>entry_extensions</code>, <code>proof_extensions</code> are neither logged nor committed to the tree, so monitors never observe them.
+Mechanisms that require transparency <span class="bcp14">MUST</span> use <code>entry_extensions</code> instead; <code>proof_extensions</code> <span class="bcp14">MUST NOT</span> be treated as a transparent or auditable channel.<a href="#appendix-E.5-2.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="appendix-E.5-2.11">Identity:</dt>
+          <dd style="margin-left: 1.5em" id="appendix-E.5-2.12">
+            <p id="appendix-E.5-2.12.1"><code>proof_extensions</code> widen the malleability of the signatureValue already noted in Section 12.6 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.
+Applications that derive a unique identifier from a certificate <span class="bcp14">MUST</span> derive it from the TBSCertificate, never from the MTCProof.<a href="#appendix-E.5-2.12.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
 </section>
 </div>
 </section>
