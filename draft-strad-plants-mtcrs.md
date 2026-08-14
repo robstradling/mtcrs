@@ -231,7 +231,7 @@ At certificate issuance time, for each log entry, the CA generates a hash chain 
 2. Compute the hash chain of length chain_length + 1:
 
        h[0] = seed
-       h[i] = Hash(HashChainInput(h[i-1], i))  for i = 1, ..., chain_length
+       h[i] = Hash(HashChainInput(h[i-1]))  for i = 1, ..., chain_length
 
    Where HashChainInput is defined in {{encoding}}.
 
@@ -266,7 +266,7 @@ The security of this mechanism relies on the preimage resistance of the hash fun
 Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would be needed to forge a future validity proof).
 The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.
 
-The domain separation in HashChainInput ({{encoding}}) prevents values from being confused with other protocol elements or with hash chain values at different positions.
+The label in HashChainInput ({{encoding}}) domain-separates chain values from other uses of the hash function in MTC, and the per-entry issuer_id, log_number, and index salt each certificate's chain into its own hash domain ({{encoding}}).
 
 ## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
 
@@ -412,8 +412,8 @@ When a relying party receives a Merkle Tree Certificate with the id-pe-hashChain
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
 
        v = tick.value
-       for i = chain_length - tick.period + 1 to chain_length:
-           v = Hash(HashChainInput(v, i))
+       for i = 1 to tick.period:
+           v = Hash(HashChainInput(v))
 
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
@@ -683,31 +683,28 @@ The HashChainInput structure provides domain separation for hash chain computati
         TrustAnchorID issuer_id<1..2^8-1>;
         uint16 log_number;
         uint48 index;
-        uint32 position;
         opaque preimage[HASH_SIZE];
     } HashChainInput;
 
 label:
-: A fixed ASCII string providing domain separation from other uses of the hash function in MTC.
+: A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
 
 issuer_id:
 : The CA's trust anchor ID.
-  Binds the chain to a specific CA.
 
 log_number:
 : The log number of the issuance log containing this entry.
-  Binds the chain to a specific log.
 
 index:
 : The entry's index within the issuance log.
-  Binds the chain to a specific entry.
-
-position:
-: The position in the chain (1 to chain_length).
-  Prevents values at different positions from being interchangeable.
 
 preimage:
 : The previous hash chain value being hashed.
+
+The issuer_id, log_number, and index fields together identify the log entry and act as a per-entry salt, placing each certificate's chain in a distinct hash domain.
+This salting is not load-bearing for the core guarantee: each chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific chain.
+Its contribution is defense in depth.
+It keeps chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of chains at once (the same rationale as salting).
 
 The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).
 
