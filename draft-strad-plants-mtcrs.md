@@ -353,6 +353,35 @@ With the default revocation_period, the committed data is a HashChainAnchorInfo 
 This is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
 The DEFAULT encoding of revocationPeriod keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
 
+## Alternative: Carrying the Anchor as a Merkle Tree Entry Extension {#anchor-entry-extension}
+
+This document carries the anchor in an X.509 certificate extension (id-pe-hashChainAnchor) placed in the extensions field of the TBSCertificateLogEntry, and thus also in the TBSCertificate.
+An alternative is to carry it as a MerkleTreeCertEntryExtension -- the entry-level extension point defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}} -- rather than as an X.509 extension.
+Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating; the choice is between two extension mechanisms, not between committed and uncommitted storage.
+
+In this alternative, a new MerkleTreeCertEntryExtensionType (for example, hash_chain_anchor) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
+The verifier reads the anchor and revocation_period from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
+
+This has a natural symmetry with the tick's encoding: the immutable, committed anchor lives in the committed entry extensions, while the mutable, per-period tick lives in the uncommitted trailing field or proof_extensions ({{cert-format}}).
+It is also more compact, because a MerkleTreeCertEntryExtension uses a short TLS type-and-length framing rather than an X.509 extension's OBJECT IDENTIFIER and DER wrapper.
+
+It has three costs, however:
+
+- **No criticality lever.**
+  Entry extensions have no critical marking, and relying parties ignore unrecognized ones (Section 12.5 of {{I-D.ietf-plants-merkle-tree-certs}}).
+  The transition strategy of marking the X.509 extension critical to force unaware relying parties to hard-fail ({{objections}}) is therefore unavailable; enforcement rests entirely on relying parties that implement this mechanism.
+
+- **Not visible to generic X.509 tooling.**
+  The anchor no longer appears in the TBSCertificate, so only MTC-aware software can observe that a certificate uses this mechanism.
+
+- **The log-signing infrastructure must be MTCRS-aware.**
+  Section 5.4 of {{I-D.ietf-plants-merkle-tree-certs}} forbids a CA cosigner from signing a subtree containing an entry with an extension_type it does not recognize.
+  A hash_chain_anchor entry extension therefore forces the CA's log and cosigner components to recognize it before they can sign any subtree containing an MTCRS certificate.
+  With the X.509 extension, the anchor rides inside the entry's tbs_cert_entry_data as ordinary certificate bytes, so that recognition gate (which concerns the entry type and extension_type, not X.509 extensions) never fires: the generic log and cosigner infrastructure remain MTCRS-agnostic, and only the issuance front-end and the tick distribution service ({{distribution}}) need be MTCRS-aware.
+
+Because of the last point in particular, this document uses the X.509 extension as the primary design: it lets this mechanism be layered onto an otherwise unmodified MTC log and cosigner deployment.
+A base specification that is willing to make its entry-extension registry and cosigner software aware of hash chain revocation MAY instead adopt the entry-extension encoding, gaining the compactness and the committed/uncommitted symmetry described above.
+
 # Certificate Presentation {#cert-format}
 
 ## Hash Chain Tick
