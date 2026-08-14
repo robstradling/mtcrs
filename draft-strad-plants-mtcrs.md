@@ -33,6 +33,7 @@ author:
 normative:
   RFC2119:
   RFC5280:
+  RFC5912:
   RFC8174:
   RFC8446:
   RFC8555:
@@ -742,6 +743,14 @@ Deployments with known clock-skew or availability concerns MAY widen the window:
 
 # IANA Considerations {#iana-considerations}
 
+## Module Identifier
+
+IANA is requested to register the following entry in the "SMI Security for PKIX Module Identifier" registry:
+
+| Decimal | Description       | Reference     |
+|---------|-------------------|---------------|
+| TBD     | id-mod-mtcrs-2026 | This document |
+
 ## Certificate Extension
 
 IANA is requested to register the following entry in the "SMI Security for PKIX Certificate Extension" registry:
@@ -796,6 +805,54 @@ This document requests that, in that event, the value hash_chain_tick be allocat
 When the RECOMMENDED trailing status_tick encoding ({{tick-trailing-field}}) is used instead, no such registry or code point is required.
 
 --- back
+
+# ASN.1 Module {#asn1-module}
+
+This appendix provides an ASN.1 module for the structures this document defines, following the conventions of {{RFC5912}}.
+
+    MTCRS-2026
+      { iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) mechanisms(5) pkix(7) id-mod(0)
+        id-mod-mtcrs-2026(TBD) }
+
+    DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+    IMPORTS
+      EXTENSION
+      FROM PKIX-CommonTypes-2009 -- in [RFC5912]
+        { iso(1) identified-organization(3) dod(6) internet(1)
+          security(5) mechanisms(5) pkix(7) id-mod(0)
+          id-mod-pkixCommon-02(57) } ;
+
+    -- PKIX arcs
+
+    id-pkix OBJECT IDENTIFIER ::=
+      { iso(1) identified-organization(3) dod(6) internet(1)
+        security(5) mechanisms(5) pkix(7) }
+
+    id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }
+    id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+
+    -- Hash chain anchor certificate extension
+
+    ext-hashChainAnchor EXTENSION ::= {
+      SYNTAX HashChainAnchorInfo
+      IDENTIFIED BY id-pe-hashChainAnchor
+      CRITICALITY { TRUE | FALSE } }
+
+    id-pe-hashChainAnchor OBJECT IDENTIFIER ::= { id-pe TBD }
+
+    HashChainAnchorInfo ::= SEQUENCE {
+      revocationPeriod  INTEGER (1..MAX) DEFAULT 3600,
+      anchor            OCTET STRING }
+
+    -- Tick distribution Subject Information Access method
+
+    id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
+
+    END
+
+The id-mod-mtcrs-2026, id-pe-hashChainAnchor, and id-ad-mtcrsTicks arcs contain TBD values to be replaced with the OIDs assigned by IANA ({{iana-considerations}}).
 
 # Hash Chain Input Encoding {#encoding}
 
