@@ -242,13 +242,14 @@ The anchor is included in the certificate as an X.509 extension (see {{assertion
 ## Period Numbering
 
 Periods are numbered starting from 0.
-Period 0 begins at the certificate's issuance time and each subsequent period begins revocation_period seconds later.
+Period 0 begins at the certificate's notBefore time and each subsequent period begins revocation_period seconds later.
 The period number at any given time t is:
 
-    period = floor((t - issuance_time) / revocation_period)
+    period = floor((t - not_before) / revocation_period)
 
-issuance_time is the notBefore time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
-The CA MUST number periods from this same value, so that the CA and every verifier compute identical period boundaries.
+not_before is the notBefore time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
+It anchors the period schedule to a value that both the CA and every verifier can read from the certificate; it is not necessarily the exact instant of issuance, since a CA may set notBefore earlier than it actually issued the certificate to allow for clock skew.
+The CA MUST number periods from notBefore, so that the CA and every verifier compute identical period boundaries.
 
 ## Revealing Values
 
@@ -405,7 +406,7 @@ All of them are obtained from the certificate and the trust anchor being validat
 - **issuer_id:** the TrustAnchorID of the trust anchor against which the certificate is being validated (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}).
 - **log_number and index:** recovered from the certificate's serial number, which the base specification defines as `serial = (log_number << 48) | index` (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}); the verifier takes index as the low 48 bits and log_number as the remaining high bits.
 - **revocation_period and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension.
-- **issuance_time:** the notBefore time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
+- **not_before:** the notBefore time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
 
 Using these inputs, the verifier performs the following steps:
 
@@ -417,7 +418,7 @@ Using these inputs, the verifier performs the following steps:
 
 3. Compute the expected period from the current time:
 
-       expected_period = floor((current_time - issuance_time) / revocation_period)
+       expected_period = floor((current_time - not_before) / revocation_period)
 
 4. Check that `tick.period` is equal to expected_period or expected_period - 1.
    If not, reject the certificate with a certificate_expired error.
