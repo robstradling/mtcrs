@@ -890,6 +890,57 @@ It keeps chains distinct even if a seed-generation fault were to repeat a seed a
 
 The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).
 
+# Test Vectors {#test-vectors}
+
+This appendix gives a worked example that pins down the exact HashChainInput byte layout ({{encoding}}) and hashing order.
+All values are hexadecimal, and the hash function is SHA-256 (HASH_SIZE = 32).
+
+The example uses:
+
+- issuer_id: TrustAnchorID 32473.1, whose binary representation is 81fd5901; as a <1..2^8-1> vector it encodes with its length prefix as 04 81fd5901.
+- log_number = 1
+- index = 42
+- chain_length = 5
+- seed h\[0\] = the 32 bytes 00 01 ... 1f (a fixed value for this example; a real CA uses a cryptographically random, secret seed)
+
+The fixed fields of HashChainInput therefore encode as:
+
+    label       4d544352530a00        ("MTCRS\n\0")
+    issuer_id   0481fd5901
+    log_number  0001
+    index       00000000002a
+
+Each step computes h\[i\] = SHA-256(HashChainInput(h\[i-1\])), where HashChainInput(preimage) is the concatenation label || issuer_id || log_number || index || preimage.
+For example, HashChainInput(h\[0\]) is the following 52 bytes:
+
+    4d544352530a000481fd5901000100000000002a000102030405060708090a0b
+    0c0d0e0f101112131415161718191a1b1c1d1e1f
+
+The resulting chain is:
+
+    h[0]  000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+    h[1]  a99c801b389eed84c31eb04c970d2fbe63608bbd8911d54e63eb7f18adcf286a
+    h[2]  8721e95cbd26d1f2789c859d89858ca1c37193f0772aa171da6f02b71acb51cd
+    h[3]  4dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697c9d21ec4
+    h[4]  b8c0f6b6aac2f65177c9c2481e50b1070cfd31a348f27f94d5318ecfea385aca
+    h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+
+The anchor committed in the certificate is h\[chain_length\] = h\[5\].
+
+For period t = 2, the CA reveals h\[chain_length - t\] = h\[3\].
+The HashChainTick is { period = 2, value = h\[3\] }, which serializes (a 4-byte big-endian period followed by the 32-byte value; {{response-format}}) as the following 36 bytes:
+
+    000000024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697
+    c9d21ec4
+
+To verify, a relying party hashes tick.value forward tick.period (2) times ({{verification}}):
+
+    v0 = h[3] = 4dab657f...c9d21ec4
+    v1 = SHA-256(HashChainInput(v0)) = b8c0f6b6...ea385aca  (= h[4])
+    v2 = SHA-256(HashChainInput(v1)) = f855b713...5bdeb234  (= h[5])
+
+v2 equals the anchor h\[5\], so verification succeeds.
+
 # Design Rationale {#rationale}
 
 This section provides rationale for the choices made in this document.
