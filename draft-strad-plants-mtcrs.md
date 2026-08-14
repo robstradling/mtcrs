@@ -53,6 +53,7 @@ normative:
     target: https://datatracker.ietf.org/doc/draft-ietf-plants-merkle-tree-certs/
 
 informative:
+  RFC5297:
   RFC6960:
   RFC6962:
   MICALI:
@@ -488,6 +489,46 @@ If the `tickBaseURL` field is absent from the ACME order, the authenticating par
 
 CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL during certificate provisioning.
 
+## Unguessable Tick URLs {#unguessable-urls}
+
+The tick fetch path described above is `.well-known/mtcrs/tick/{entry_hash}`, and {entry_hash} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
+Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
+A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, MAY replace the derivable path component with an unguessable per-certificate capability token:
+
+    {tick_base_url}/.well-known/mtcrs/tick/{tick_token}
+
+tick_token:
+: A high-entropy (at least 128-bit) value that does not appear anywhere in the certificate.
+  Because the token is absent from the certificate, a relying party cannot construct the URL, while the authenticating party is given it at provisioning time (see below).
+
+The CA MAY generate the token by either of the following methods:
+
+- **Random, with server-side state.**
+  The CA generates a random token per certificate and maps it to the corresponding hash chain.
+  This adds one indexed lookup to the CA's existing per-certificate state.
+
+- **Deterministic, stateless (RECOMMENDED).**
+  The CA derives the token by applying a deterministic authenticated encryption scheme (for example, AES-SIV {{RFC5297}}) keyed by a CA-held secret to the entry identifier:
+
+      tick_token = key_id || DAE(K_ca, entry_hash)
+
+  The CA recovers entry_hash by decrypting the token, so no additional per-certificate state is required.
+  The token is unguessable without K_ca and is stable for the certificate's lifetime, which preserves caching.
+  The key_id prefix identifies K_ca so that it can be rotated; the CA retains superseded keys for decryption during an overlap window, and because MTC certificates are renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}), rotated tokens propagate through renewal, as for base-URL migration ({{discovery}}).
+
+When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
+For ACME, the order object carries the full URL in a `tickURL` field in place of `tickBaseURL` ({{acme-integration}}).
+The CA-certificate SIA ({{discovery}}) conveys only the per-CA base URL and so cannot by itself locate a token-addressed tick; it remains useful only as ancillary information.
+
+This hardening preserves the properties of the base HTTP interface.
+Each token addresses a value that is immutable within a period, so per-period caching and CDN distribution ({{load-distribution}}) are unchanged.
+The token is an addressing capability, not a confidentiality secret: the tick it locates is public and self-authenticating, so the fetch still requires no transport-layer integrity or confidentiality and MAY be served over plain HTTP.
+
+The token is a bearer capability, and this hardening is defense in depth rather than a hard security boundary.
+An authenticating party could disclose the token, and an on-path observer of a plain-HTTP fetch can see it; but possession of the token grants only the ability to fetch a public, self-authenticating non-revocation value (or to observe its absence).
+It does not permit forging ticks, which requires the secret chain values ({{security-considerations}}), nor use of the certificate, which requires the corresponding private key.
+Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status ({{rp-no-fetch}}).
+
 ## Response Format {#response-format}
 
 The response body is the serialized HashChainTick structure: a 4-byte big-endian period followed by HASH_SIZE bytes of value (36 bytes total for SHA-256).
@@ -577,7 +618,8 @@ A relying party therefore has no need to contact the CA, and MUST NOT fetch tick
 
 This is a privacy and availability protection, not a secrecy one.
 The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/tick/{entry_hash}` with {entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
-The design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+A CA that wishes to remove this derivability entirely MAY use the optional per-certificate capability-token hardening in {{unguessable-urls}}, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick -- the authenticating party already presents the current value -- while reintroducing the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{RFC6960}} problematic.
 
 The CA certificate SIA access method ({{discovery}}) exists to convey the base URL to authenticating-party tooling.
