@@ -349,22 +349,13 @@ A relying party SHOULD accept ticks for the current period or the immediately pr
 
 This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
 Both are amendments to the base MTCProof structure and differ in generality.
-The proof-extension encoding ({{tick-proof-extension}}) is RECOMMENDED: it asks the base MTC specification to adopt the reusable, extensible MTCProof structure in {{mtcproof-extensibility}}.
-The trailing-field encoding ({{tick-trailing-field}}) is a narrower alternative amendment that appends the tick directly, for a base specification that prefers not to introduce a general extensibility point.
+The trailing-field encoding ({{tick-trailing-field}}) is RECOMMENDED: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
+The proof-extension encoding ({{tick-proof-extension}}) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point ({{mtcproof-extensibility}}); as a general "ignore if unknown" channel it carries the abuse surface discussed in {{proof-extensions-considerations}}, which for a single 36-byte use is not otherwise justified.
 Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded (see {{objections}}).
 
-### Preferred Encoding: Proof Extension {#tick-proof-extension}
+### Preferred Encoding: Trailing status_tick Field {#tick-trailing-field}
 
-In the RECOMMENDED encoding, the MTCProof carries a trailing, length-prefixed `proof_extensions` field, and the HashChainTick travels as one of its entries.
-This requires the base MTC specification to adopt the extensible MTCProof structure defined in {{mtcproof-extensibility}}.
-With that amendment in place, unaware parsers can skip the tick and the id-pe-hashChainAnchor extension can remain non-critical, enabling incremental deployment.
-
-The HashChainTick is encoded as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized HashChainTick (4 + HASH_SIZE bytes), as described in {{mtcproof-extensibility}}.
-When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one hash_chain_tick proof extension.
-
-### Alternative Encoding: Trailing status_tick Field {#tick-trailing-field}
-
-As a narrower alternative to the general-purpose proof_extensions field, the base MTC specification could instead be amended to append the HashChainTick directly to the MTCProof as a trailing status_tick field:
+In the RECOMMENDED encoding, the base MTC specification is amended to append the HashChainTick directly to the MTCProof as a fixed-size trailing status_tick field:
 
     struct {
         MerkleTreeCertEntryExtension extensions<0..2^16-1>;
@@ -375,16 +366,23 @@ As a narrower alternative to the general-purpose proof_extensions field, the bas
         HashChainTick status_tick;
     } MTCProof;
 
-Under this amendment, the status_tick field is present whenever the id-pe-hashChainAnchor extension is present, and the "extra data" check in Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} is amended to account for the trailing status_tick field (just as it would be amended for proof_extensions under the preferred encoding).
+The status_tick field is present whenever the id-pe-hashChainAnchor extension is present, and the "extra data" check in Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} is amended to account for the trailing status_tick field.
+A relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.
 
-Like the preferred encoding, this is a change to the base MTCProof structure, and a relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.
-The two options differ in generality rather than compatibility:
+This is the minimal change to the base MTCProof structure.
+Because the appended field is fixed-size and, for a conforming relying party, fully verified against the committed anchor ({{verification}}), it adds no variable-length "ignore if unknown" region and hence no general stuffing or covert-channel surface (contrast {{tick-proof-extension}} and {{proof-extensions-considerations}}).
+Its only cost is that carrying a second proof-level mechanism in future would require a further base-specification change.
 
-- The proof_extensions encoding adds a reusable, length-prefixed extensibility point that can also carry future proof-level mechanisms (for example, key transparency signals or policy assertions), at the cost of a small always-present length prefix.
+### Alternative Encoding: Proof Extension {#tick-proof-extension}
 
-- The trailing status_tick encoding is slightly simpler, adding no extensibility point and no length prefix, but it is specific to this mechanism and would require a further base-specification change to carry anything else.
+Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the `proof_extensions` structure defined in {{mtcproof-extensibility}} and carry the HashChainTick as one of its entries.
 
-This document RECOMMENDS the proof_extensions encoding for its generality, and offers the trailing status_tick field as a simpler alternative amendment for a base specification that prefers not to introduce a general extensibility point.
+The HashChainTick is then encoded as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized HashChainTick (4 + HASH_SIZE bytes), as described in {{mtcproof-extensibility}}.
+When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one hash_chain_tick proof extension.
+
+This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
+Those benefits come at a cost: as a general, unauthenticated, "ignore if unknown" channel it introduces the abuse surface -- bloat, covert channels, and a strippable soft-fail for any misuse -- discussed in {{proof-extensions-considerations}}.
+This document treats that surface as unjustified for a single 36-byte use, and therefore recommends the trailing field ({{tick-trailing-field}}) unless a concrete need for general extensibility exists.
 
 ## Use in TLS {#tls-use}
 
@@ -401,7 +399,7 @@ When a relying party receives a Merkle Tree Certificate with the id-pe-hashChain
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
 
-2. Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the hash_chain_tick proof extension ({{tick-proof-extension}}) or, if the proof-extension amendment was not adopted, the trailing status_tick field ({{tick-trailing-field}}).
+2. Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the trailing status_tick field ({{tick-trailing-field}}) or, if the general proof_extensions amendment was adopted instead, the hash_chain_tick proof extension ({{tick-proof-extension}}).
    If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.
 
 3. Compute the expected period from the current time:
@@ -470,6 +468,7 @@ A CA MUST make the tick base URL available through at least one of the following
   The base URL MAY additionally be published in the CA's certificate representation (Section 5.5 of {{I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent record that an authenticating party (or its tooling) can read once.
   When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
+  This mechanism carries only the base URL, so it does not apply when unguessable tick URLs ({{unguessable-urls}}) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA SHOULD NOT be published.
 
 Keeping the base URL out of the certificate is deliberate, but it is not a secrecy measure: as {{rp-no-fetch}} explains, the URL is derivable by anyone holding the certificate, so a relying party could construct it regardless.
 The point is not to hide the URL but to avoid standardizing or advertising a per-certificate fetch affordance to relying parties in a field they routinely parse.
@@ -519,7 +518,8 @@ The CA MAY generate the token by either of the following methods:
 
 When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
 For ACME, the order object carries the full URL in a `tickURL` field in place of `tickBaseURL` ({{acme-integration}}).
-The CA-certificate SIA ({{discovery}}) conveys only the per-CA base URL and so cannot by itself locate a token-addressed tick; it remains useful only as ancillary information.
+The CA-certificate SIA ({{discovery}}) conveys only the per-CA base URL, which cannot locate a token-addressed tick, and only the provisioning channel carries the token.
+The SIA therefore provides no operational value when unguessable tick URLs are used, and a CA that uses them SHOULD NOT publish the id-ad-mtcrsTicks access method.
 
 This hardening preserves the properties of the base HTTP interface.
 Each token addresses a value that is immutable within a period, so per-period caching and CDN distribution ({{load-distribution}}) are unchanged.
@@ -628,7 +628,8 @@ Relying parties possess the CA certificate but MUST NOT use its tick base URL to
 
 ## Unauthenticated Proof Extensions
 
-If the tick is carried in a `proof_extensions` field ({{mtcproof-extensibility}}), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
+The RECOMMENDED trailing status_tick encoding ({{tick-trailing-field}}) appends a fixed-size, fully verified value and so adds no general "ignore if unknown" region.
+If the base specification instead adopts the alternative proof_extensions encoding ({{mtcproof-extensibility}}), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
 Hash chain revocation does not rely on its authenticity -- the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension.
 {{proof-extensions-considerations}} discusses the general risks of this field (bloat, covert channels, and a strippable soft-fail for other mechanisms) and the constraints recommended for the base specification.
 
@@ -1075,7 +1076,7 @@ An unaware relying party will ignore the non-critical id-pe-hashChainAnchor exte
 
 This means that, in practice, deploying this mechanism requires one of the following:
 
-1. **Amendment to the base MTC specification:** The MTCProof structure is extended with a trailing extensions field (see {{mtcproof-extensibility}}) that existing parsers can safely skip.
+1. **Amendment to the base MTC specification:** The MTCProof structure is amended so that conforming parsers accept the tick -- either by appending the fixed status_tick field ({{tick-trailing-field}}) or by adding the general proof_extensions field (see {{mtcproof-extensibility}}).
    This is the preferred approach and is proposed by this document.
 
 2. **Critical extension only:** The id-pe-hashChainAnchor extension is marked critical, so unaware implementations reject at the X.509 extension stage (before reaching MTCProof parsing).
@@ -1085,9 +1086,9 @@ This means that, in practice, deploying this mechanism requires one of the follo
    Early implementations can adopt the extended MTCProof structure from the start.
 
 Both encodings this document describes ({{cert-format}}) take option 1: each amends the base MTC specification so that conforming parsers accept the tick.
-The RECOMMENDED proof-extension encoding ({{tick-proof-extension}}) adds a general, reusable extensibility point, while the alternative trailing status_tick encoding ({{tick-trailing-field}}) is a narrower amendment specific to this mechanism.
+The RECOMMENDED trailing status_tick encoding ({{tick-trailing-field}}) is the minimal such amendment; the proof-extension encoding ({{tick-proof-extension}}) is the alternative for a base specification that also wants a general, reusable extensibility point, at the cost of the abuse surface in {{proof-extensions-considerations}}.
 Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.
-See {{mtcproof-extensibility}} for the proposed MTCProof amendment.
+See {{mtcproof-extensibility}} for the proof_extensions amendment.
 
 ## "Hourly Tick Refresh Adds Operational Burden to Servers"
 
@@ -1122,7 +1123,9 @@ If the linear cost is nonetheless a concern for a specific deployment, choosing 
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
-This document proposes that the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} amend the MTCProof structure to include a trailing proof-level extensions field, enabling future mechanisms (including hash chain revocation) to attach additional data to the certificate presentation without breaking existing parsers.
+The RECOMMENDED way to carry the tick is the fixed trailing status_tick field ({{tick-trailing-field}}), which needs no general extensibility mechanism.
+This section describes an alternative: a general, reusable proof-level extensions field that the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} MAY adopt if it wants future mechanisms (beyond hash chain revocation) to attach data to the certificate presentation without a further structural change each time.
+It is not required for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
 
 ## Motivation
 
@@ -1142,7 +1145,7 @@ This means no trailing data can be added without breaking all existing parsers.
 The existing `extensions` field in MTCProof carries the log entry's MerkleTreeCertEntryExtension values, which are committed to the Merkle Tree.
 These cannot carry dynamic, per-period data like hash chain ticks because the Merkle Tree inclusion proof would fail.
 
-A proof-level extensions field — not committed to the tree and freely updatable by the authenticating party — would allow the MTCProof to carry revocation ticks and potentially other future mechanisms (e.g., key transparency signals, policy assertions) without requiring a new version of the base specification for each.
+A proof-level extensions field — not committed to the tree and freely updatable by the authenticating party — would allow the MTCProof to carry revocation ticks and potentially other future self-authenticating proof-level values without requiring a new version of the base specification for each.
 
 ## Proposed Amendment
 
