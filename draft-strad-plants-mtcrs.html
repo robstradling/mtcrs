@@ -1564,16 +1564,28 @@ appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶<
         <h3 id="name-parameters">
 <a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-parameters" class="section-name selfRef">Parameters</a>
         </h3>
-<p id="section-3.1-1">The hash chain mechanism introduces the following additional parameter to the Merkle Tree CA configuration:<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1-1">The hash chain mechanism introduces the following additional parameter:<a href="#section-3.1-1" class="pilcrow">¶</a></p>
 <span class="break"></span><dl class="dlParallel" id="section-3.1-2">
           <dt id="section-3.1-2.1">revocation_period:</dt>
           <dd style="margin-left: 1.5em" id="section-3.1-2.2">
             <p id="section-3.1-2.2.1">A duration, in seconds, that determines the granularity of revocation.
-This <span class="bcp14">MUST</span> evenly divide the CA's certificate lifetime.
-The number of periods in a certificate's lifetime is: <code>chain_length = lifetime / revocation_period</code>.<a href="#section-3.1-2.2.1" class="pilcrow">¶</a></p>
+This <span class="bcp14">MUST</span> be greater than zero.
+The <span class="bcp14">RECOMMENDED</span> and default value is 3600 (one hour); <a href="#assertion-integration" class="auto internal xref">Section 4</a> specifies how this default is encoded so that a certificate using it carries no revocation_period bytes.
+The number of periods in a certificate's lifetime is <code>chain_length = ceil(lifetime / revocation_period)</code>.
+revocation_period need not evenly divide the lifetime; if it does not, the final period is shorter than revocation_period, ending when the certificate expires.
+This is harmless: the verifier computes the period from not_before (<a href="#construction" class="auto internal xref">Section 3</a>) and the base MTC validity check bounds the certificate at notAfter, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.<a href="#section-3.1-2.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
+<p id="section-3.1-3">The certificate's validity period <span class="bcp14">MUST</span> be longer than revocation_period.
+A certificate whose validity period is not longer than revocation_period would have <code>chain_length = 1</code>: its only tick is the public period-0 anchor, which enforces nothing (revocation is only enforceable from period 1 onwards; see <a href="#period-zero-rationale" class="auto internal xref">Section 3.6</a>).
+A CA <span class="bcp14">MUST NOT</span> include the id-pe-hashChainAnchor extension, and <span class="bcp14">MUST NOT</span> use this mechanism, for such a certificate.
+Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 (<a href="#period-zero-rationale" class="auto internal xref">Section 3.6</a>), deployments <span class="bcp14">SHOULD</span> choose a validity period substantially longer than twice revocation_period so that revocation is effective for most of the certificate's life.<a href="#section-3.1-3" class="pilcrow">¶</a></p>
+<p id="section-3.1-4">revocation_period is a per-certificate value: it is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree (<a href="#assertion-integration" class="auto internal xref">Section 4</a>), rather than being a CA-wide configuration constant.
+This is deliberate.
+Because a relying party verifies offline and has no provisioning relationship with the CA, the only way it can obtain revocation_period without a new authenticated distribution channel is to read it from the certificate; carrying it in the tree-committed extension makes it both discoverable by the relying party and self-authenticating.
+It also lets a CA change revocation_period for newly issued certificates without redistributing anything or invalidating existing certificates, each of which keeps the value it was issued with.
+A CA <span class="bcp14">MAY</span> of course use the same revocation_period for every certificate it issues; the point is only that the value each verifier uses comes from the certificate, not from CA-wide configuration that verifiers cannot see.<a href="#section-3.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="chain-generation">
@@ -1610,13 +1622,20 @@ Where HashChainInput is defined in <a href="#encoding" class="auto internal xref
 <a href="#section-3.3" class="section-number selfRef">3.3. </a><a href="#name-period-numbering" class="section-name selfRef">Period Numbering</a>
         </h3>
 <p id="section-3.3-1">Periods are numbered starting from 0.
-Period 0 begins at the certificate's issuance time and each subsequent period begins revocation_period seconds later.
+Period 0 begins at the certificate's notBefore time and each subsequent period begins revocation_period seconds later.
 The period number at any given time t is:<a href="#section-3.3-1" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-3.3-2">
 <pre>
-period = floor((t - issuance_time) / revocation_period)
+period = floor((t - not_before) / revocation_period)
 </pre><a href="#section-3.3-2" class="pilcrow">¶</a>
 </div>
+<p id="section-3.3-3">not_before is the notBefore time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
+It anchors the period schedule to a value that both the CA and every verifier read from the certificate, so they compute identical period boundaries regardless of their wall-clock differences; it is not necessarily the exact instant of issuance.
+The CA <span class="bcp14">MUST</span> number periods from notBefore and <span class="bcp14">MUST NOT</span> begin revealing ticks before period 0 starts at notBefore.<a href="#section-3.3-3" class="pilcrow">¶</a></p>
+<p id="section-3.3-4">A CA commonly sets notBefore slightly earlier than the actual instant of issuance (backdating) to tolerate relying-party clock skew.
+This is harmless here: it merely places the certificate a little way into period 0 when it is first presented (or, if notBefore is backdated by more than one revocation_period, into a later period).
+Setting notBefore later than issuance (forward-dating) is different: there is no period earlier than 0, and for any time t earlier than notBefore the quantity (t - not_before) is negative.
+Such a certificate is simply not yet valid; a verifier <span class="bcp14">MUST</span> reject it through the base MTC validity check before computing any period, and <span class="bcp14">MUST NOT</span> evaluate the period expression with unsigned arithmetic, which would underflow for such times and could yield a spuriously large period.<a href="#section-3.3-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="revealing-values">
@@ -1703,7 +1722,7 @@ id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
 <div class="alignLeft art-text artwork" id="section-4.1-4">
 <pre>
 HashChainAnchorInfo ::= SEQUENCE {
-    revocationPeriod  INTEGER,
+    revocationPeriod  INTEGER DEFAULT 3600,
     anchor            OCTET STRING
 }
 </pre><a href="#section-4.1-4" class="pilcrow">¶</a>
@@ -1711,8 +1730,9 @@ HashChainAnchorInfo ::= SEQUENCE {
 <span class="break"></span><dl class="dlParallel" id="section-4.1-5">
           <dt id="section-4.1-5.1">revocationPeriod:</dt>
           <dd style="margin-left: 1.5em" id="section-4.1-5.2">
-            <p id="section-4.1-5.2.1">The revocation period in seconds.
-<span class="bcp14">MUST</span> match the CA's configured revocation_period.<a href="#section-4.1-5.2.1" class="pilcrow">¶</a></p>
+            <p id="section-4.1-5.2.1">The revocation period in seconds for this certificate (<a href="#construction" class="auto internal xref">Section 3</a>), with a default of 3600 (one hour).
+Under DER, a certificate using the default value <span class="bcp14">MUST</span> omit this field (X.690, Section 11.5), so the common one-hour case adds no per-entry bytes; a relying party that finds the field absent <span class="bcp14">MUST</span> use the default of 3600.
+The relying party reads this value (or the default) from here; it is used to number periods and to compute the expected period during verification (<a href="#verification" class="auto internal xref">Section 6</a>).<a href="#section-4.1-5.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-4.1-5.3">anchor:</dt>
@@ -1724,7 +1744,8 @@ HashChainAnchorInfo ::= SEQUENCE {
 <p id="section-4.1-6">The id-pe-hashChainAnchor extension <span class="bcp14">SHOULD</span> be marked non-critical, so that relying parties that do not implement this mechanism can still process the certificate.
 However, relying parties that do implement this mechanism <span class="bcp14">MUST</span> enforce hash chain verification as described in <a href="#verification" class="auto internal xref">Section 6</a> when the extension is present.
 An MTC ecosystem in which all relying parties are expected to support hash chain revocation <span class="bcp14">MAY</span> mark the extension critical, causing implementations that do not recognize it to reject the certificate.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
-<p id="section-4.1-7">The extension <span class="bcp14">MUST</span> appear at most once in a certificate.<a href="#section-4.1-7" class="pilcrow">¶</a></p>
+<p id="section-4.1-7">The extension <span class="bcp14">MUST</span> appear at most once in a certificate.
+The extension <span class="bcp14">MUST NOT</span> be present in a certificate whose validity period is not longer than revocation_period (<a href="#construction" class="auto internal xref">Section 3</a>); such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.<a href="#section-4.1-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1828,44 +1849,61 @@ If the tick is absent, malformed, or fails verification, the relying party <span
       <h2 id="name-verification">
 <a href="#section-6" class="section-number selfRef">6. </a><a href="#name-verification" class="section-name selfRef">Verification</a>
       </h2>
-<p id="section-6-1">When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs the following steps in addition to the base MTC verification procedure:<a href="#section-6-1" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-6-2">
-<li id="section-6-2.1">
-          <p id="section-6-2.1.1">Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
-If not present, skip hash chain verification (the certificate does not use this mechanism).<a href="#section-6-2.1.1" class="pilcrow">¶</a></p>
+<p id="section-6-1">When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs hash chain verification in addition to the base MTC verification procedure.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">The verifier first assembles the inputs to HashChainInput (<a href="#encoding" class="auto internal xref">Appendix A</a>) and to the period computation (<a href="#construction" class="auto internal xref">Section 3</a>).
+All of them are obtained from the certificate and the trust anchor being validated against; no data from the CA's tick distribution service (<a href="#distribution" class="auto internal xref">Section 7</a>) is needed, and the verifier <span class="bcp14">MUST NOT</span> fetch anything (<a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a>):<a href="#section-6-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6-3.1">
+          <p id="section-6-3.1.1"><strong>issuer_id:</strong> the TrustAnchorID of the trust anchor against which the certificate is being validated (Section 5.1 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).<a href="#section-6-3.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-6-2.2">
-          <p id="section-6-2.2.1">Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the trailing status_tick field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) or, if the general proof_extensions amendment was adopted instead, the hash_chain_tick proof extension (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.2</a>).
-If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.<a href="#section-6-2.2.1" class="pilcrow">¶</a></p>
+        <li class="normal" id="section-6-3.2">
+          <p id="section-6-3.2.1"><strong>log_number and index:</strong> recovered from the certificate's serial number, which the base specification defines as <code>serial = (log_number &lt;&lt; 48) | index</code> (Section 6.2 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>); the verifier takes index as the low 48 bits and log_number as the remaining high bits.<a href="#section-6-3.2.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-6-2.3">
-          <p id="section-6-2.3.1">Compute the expected period from the current time:<a href="#section-6-2.3.1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-6-2.3.2">
+        <li class="normal" id="section-6-3.3">
+          <p id="section-6-3.3.1"><strong>revocation_period and anchor:</strong> read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension; if revocationPeriod is absent, use its default of 3600 (<a href="#assertion-integration" class="auto internal xref">Section 4</a>).<a href="#section-6-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-6-3.4">
+          <p id="section-6-3.4.1"><strong>not_before:</strong> the notBefore time of the certificate's validity period (<a href="#construction" class="auto internal xref">Section 3</a>), which is the same value the CA used to number periods.<a href="#section-6-3.4.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<p id="section-6-4">Using these inputs, the verifier performs the following steps:<a href="#section-6-4" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-6-5">
+<li id="section-6-5.1">
+          <p id="section-6-5.1.1">Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
+If not present, skip hash chain verification (the certificate does not use this mechanism).<a href="#section-6-5.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-5.2">
+          <p id="section-6-5.2.1">Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the trailing status_tick field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) or, if the general proof_extensions amendment was adopted instead, the hash_chain_tick proof extension (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.2</a>).
+If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.<a href="#section-6-5.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-6-5.3">
+          <p id="section-6-5.3.1">Compute the expected period from the current time:<a href="#section-6-5.3.1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6-5.3.2">
 <pre>
-expected_period = floor((current_time - issuance_time) / revocation_period)
-</pre><a href="#section-6-2.3.2" class="pilcrow">¶</a>
+expected_period = floor((current_time - not_before) / revocation_period)
+</pre><a href="#section-6-5.3.2" class="pilcrow">¶</a>
 </div>
 </li>
-        <li id="section-6-2.4">
-          <p id="section-6-2.4.1">Check that <code>tick.period</code> is equal to expected_period or expected_period - 1.
-If not, reject the certificate with a certificate_expired error.<a href="#section-6-2.4.1" class="pilcrow">¶</a></p>
+        <li id="section-6-5.4">
+          <p id="section-6-5.4.1">Check that <code>tick.period</code> is equal to expected_period or expected_period - 1.
+If not, reject the certificate with a certificate_expired error.<a href="#section-6-5.4.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-6-2.5">
-          <p id="section-6-2.5.1">Starting from <code>tick.value</code>, iteratively hash <code>tick.period</code> times:<a href="#section-6-2.5.1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-6-2.5.2">
+        <li id="section-6-5.5">
+          <p id="section-6-5.5.1">Starting from <code>tick.value</code>, iteratively hash <code>tick.period</code> times:<a href="#section-6-5.5.1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-6-5.5.2">
 <pre>
 v = tick.value
 for i = 1 to tick.period:
     v = Hash(HashChainInput(v))
-</pre><a href="#section-6-2.5.2" class="pilcrow">¶</a>
+</pre><a href="#section-6-5.5.2" class="pilcrow">¶</a>
 </div>
 </li>
-        <li id="section-6-2.6">
-          <p id="section-6-2.6.1">Compare the result with anchor from the HashChainAnchorInfo.
-If they do not match, reject the certificate with a bad_certificate error.<a href="#section-6-2.6.1" class="pilcrow">¶</a></p>
+        <li id="section-6-5.6">
+          <p id="section-6-5.6.1">Compare the result with anchor from the HashChainAnchorInfo.
+If they do not match, reject the certificate with a bad_certificate error.<a href="#section-6-5.6.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
-<p id="section-6-3">If all steps succeed, the hash chain verification passes, confirming that the CA has not revoked this certificate as of the indicated period.<a href="#section-6-3" class="pilcrow">¶</a></p>
+<p id="section-6-6">If all steps succeed, the hash chain verification passes, confirming that the CA has not revoked this certificate as of the indicated period.<a href="#section-6-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="distribution">
@@ -1887,7 +1925,8 @@ Given a tick base URL for the CA (see <a href="#discovery" class="auto internal 
 GET {tick_base_url}/.well-known/mtcrs/tick/{entry_hash}
 </pre><a href="#section-7.1-2" class="pilcrow">¶</a>
 </div>
-<p id="section-7.1-3">where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry.
+<p id="section-7.1-3">where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry, computed over exactly the same octets that the base specification commits to the Merkle Tree for that entry (the tbs_cert_entry_data byte string defined by <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>, i.e. the encoded contents of the entry with no enclosing tag or length prefix), so that the CA and the authenticating party derive an identical value.
+entry_hash is always computed with SHA-256, even for a CA whose Merkle Tree uses a different hash function: it is only a stable identifier for the tick URL, not a tree leaf hash.
 The authenticating party computes {entry_hash} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.<a href="#section-7.1-3" class="pilcrow">¶</a></p>
 <p id="section-7.1-4">The tick base URL is not derived from the CA's identifier.
 A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier (Section 5.1 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) rather than a hostname, so it cannot be turned into an origin.

@@ -316,12 +316,50 @@ Table of Contents
 3.1.  Parameters
 
    The hash chain mechanism introduces the following additional
-   parameter to the Merkle Tree CA configuration:
+   parameter:
 
    revocation_period:  A duration, in seconds, that determines the
-      granularity of revocation.  This MUST evenly divide the CA's
-      certificate lifetime.  The number of periods in a certificate's
-      lifetime is: chain_length = lifetime / revocation_period.
+      granularity of revocation.  This MUST be greater than zero.  The
+      RECOMMENDED and default value is 3600 (one hour); Section 4
+      specifies how this default is encoded so that a certificate using
+      it carries no revocation_period bytes.  The number of periods in a
+      certificate's lifetime is chain_length = ceil(lifetime /
+      revocation_period). revocation_period need not evenly divide the
+      lifetime; if it does not, the final period is shorter than
+      revocation_period, ending when the certificate expires.  This is
+      harmless: the verifier computes the period from not_before
+      (Section 3) and the base MTC validity check bounds the certificate
+      at notAfter, so the truncated final period needs no special
+      handling, and its shorter span only means revocation during it
+      takes effect faster.
+
+   The certificate's validity period MUST be longer than
+   revocation_period.  A certificate whose validity period is not longer
+   than revocation_period would have chain_length = 1: its only tick is
+   the public period-0 anchor, which enforces nothing (revocation is
+   only enforceable from period 1 onwards; see Section 3.6).  A CA MUST
+   NOT include the id-pe-hashChainAnchor extension, and MUST NOT use
+   this mechanism, for such a certificate.  Because the period-0 grace
+   defers enforcement of a just-issued certificate to the start of
+   period 2 (Section 3.6), deployments SHOULD choose a validity period
+   substantially longer than twice revocation_period so that revocation
+   is effective for most of the certificate's life.
+
+   revocation_period is a per-certificate value: it is carried in the
+   certificate itself, in the HashChainAnchorInfo committed to the
+   Merkle Tree (Section 4), rather than being a CA-wide configuration
+   constant.  This is deliberate.  Because a relying party verifies
+   offline and has no provisioning relationship with the CA, the only
+   way it can obtain revocation_period without a new authenticated
+   distribution channel is to read it from the certificate; carrying it
+   in the tree-committed extension makes it both discoverable by the
+   relying party and self-authenticating.  It also lets a CA change
+   revocation_period for newly issued certificates without
+   redistributing anything or invalidating existing certificates, each
+   of which keeps the value it was issued with.  A CA MAY of course use
+   the same revocation_period for every certificate it issues; the point
+   is only that the value each verifier uses comes from the certificate,
+   not from CA-wide configuration that verifiers cannot see.
 
 3.2.  Chain Generation
 
@@ -347,11 +385,33 @@ Table of Contents
 3.3.  Period Numbering
 
    Periods are numbered starting from 0.  Period 0 begins at the
-   certificate's issuance time and each subsequent period begins
+   certificate's notBefore time and each subsequent period begins
    revocation_period seconds later.  The period number at any given time
    t is:
 
-   period = floor((t - issuance_time) / revocation_period)
+   period = floor((t - not_before) / revocation_period)
+
+   not_before is the notBefore time of the certificate's validity
+   period, expressed in the same units as t (seconds since the Unix
+   epoch).  It anchors the period schedule to a value that both the CA
+   and every verifier read from the certificate, so they compute
+   identical period boundaries regardless of their wall-clock
+   differences; it is not necessarily the exact instant of issuance.
+   The CA MUST number periods from notBefore and MUST NOT begin
+   revealing ticks before period 0 starts at notBefore.
+
+   A CA commonly sets notBefore slightly earlier than the actual instant
+   of issuance (backdating) to tolerate relying-party clock skew.  This
+   is harmless here: it merely places the certificate a little way into
+   period 0 when it is first presented (or, if notBefore is backdated by
+   more than one revocation_period, into a later period).  Setting
+   notBefore later than issuance (forward-dating) is different: there is
+   no period earlier than 0, and for any time t earlier than notBefore
+   the quantity (t - not_before) is negative.  Such a certificate is
+   simply not yet valid; a verifier MUST reject it through the base MTC
+   validity check before computing any period, and MUST NOT evaluate the
+   period expression with unsigned arithmetic, which would underflow for
+   such times and could yield a spuriously large period.
 
 3.4.  Revealing Values
 
@@ -457,12 +517,18 @@ Table of Contents
    structure:
 
    HashChainAnchorInfo ::= SEQUENCE {
-       revocationPeriod  INTEGER,
+       revocationPeriod  INTEGER DEFAULT 3600,
        anchor            OCTET STRING
    }
 
-   revocationPeriod:  The revocation period in seconds.  MUST match the
-      CA's configured revocation_period.
+   revocationPeriod:  The revocation period in seconds for this
+      certificate (Section 3), with a default of 3600 (one hour).  Under
+      DER, a certificate using the default value MUST omit this field
+      (X.690, Section 11.5), so the common one-hour case adds no per-
+      entry bytes; a relying party that finds the field absent MUST use
+      the default of 3600.  The relying party reads this value (or the
+      default) from here; it is used to number periods and to compute
+      the expected period during verification (Section 6).
 
    anchor:  The hash chain anchor value h[chain_length] (HASH_SIZE
       bytes).
@@ -476,7 +542,11 @@ Table of Contents
    mark the extension critical, causing implementations that do not
    recognize it to reject the certificate.
 
-   The extension MUST appear at most once in a certificate.
+   The extension MUST appear at most once in a certificate.  The
+   extension MUST NOT be present in a certificate whose validity period
+   is not longer than revocation_period (Section 3); such a certificate
+   cannot advance beyond period 0, so the mechanism would enforce
+   nothing.
 
 5.  Certificate Presentation
 
@@ -596,8 +666,35 @@ Table of Contents
 6.  Verification
 
    When a relying party receives a Merkle Tree Certificate with the id-
-   pe-hashChainAnchor extension, it performs the following steps in
-   addition to the base MTC verification procedure:
+   pe-hashChainAnchor extension, it performs hash chain verification in
+   addition to the base MTC verification procedure.
+
+   The verifier first assembles the inputs to HashChainInput
+   (Appendix A) and to the period computation (Section 3).  All of them
+   are obtained from the certificate and the trust anchor being
+   validated against; no data from the CA's tick distribution service
+   (Section 7) is needed, and the verifier MUST NOT fetch anything
+   (Section 8.4):
+
+   *  *issuer_id:* the TrustAnchorID of the trust anchor against which
+      the certificate is being validated (Section 5.1 of
+      [I-D.ietf-plants-merkle-tree-certs]).
+
+   *  *log_number and index:* recovered from the certificate's serial
+      number, which the base specification defines as serial =
+      (log_number << 48) | index (Section 6.2 of
+      [I-D.ietf-plants-merkle-tree-certs]); the verifier takes index as
+      the low 48 bits and log_number as the remaining high bits.
+
+   *  *revocation_period and anchor:* read from the HashChainAnchorInfo
+      carried in the id-pe-hashChainAnchor extension; if
+      revocationPeriod is absent, use its default of 3600 (Section 4).
+
+   *  *not_before:* the notBefore time of the certificate's validity
+      period (Section 3), which is the same value the CA used to number
+      periods.
+
+   Using these inputs, the verifier performs the following steps:
 
 1.  Extract the HashChainAnchorInfo from the certificate's id-pe-
     hashChainAnchor extension.  If not present, skip hash chain
@@ -614,7 +711,7 @@ Table of Contents
 
 3.  Compute the expected period from the current time:
 
-expected_period = floor((current_time - issuance_time) / revocation_period)
+expected_period = floor((current_time - not_before) / revocation_period)
 
 4.  Check that tick.period is equal to expected_period or
     expected_period - 1.  If not, reject the certificate with a
@@ -649,10 +746,17 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    GET {tick_base_url}/.well-known/mtcrs/tick/{entry_hash}
 
    where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the
-   certificate's TBSCertificateLogEntry.  The authenticating party
-   computes {entry_hash} from the TBSCertificateLogEntry it already
-   possesses; no additional per-request metadata from the CA is
-   required.
+   certificate's TBSCertificateLogEntry, computed over exactly the same
+   octets that the base specification commits to the Merkle Tree for
+   that entry (the tbs_cert_entry_data byte string defined by
+   [I-D.ietf-plants-merkle-tree-certs], i.e. the encoded contents of the
+   entry with no enclosing tag or length prefix), so that the CA and the
+   authenticating party derive an identical value. entry_hash is always
+   computed with SHA-256, even for a CA whose Merkle Tree uses a
+   different hash function: it is only a stable identifier for the tick
+   URL, not a tree leaf hash.  The authenticating party computes
+   {entry_hash} from the TBSCertificateLogEntry it already possesses; no
+   additional per-request metadata from the CA is required.
 
    The tick base URL is not derived from the CA's identifier.  A Merkle
    Tree CA is identified by a TrustAnchorID, which is a relative object
