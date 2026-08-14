@@ -572,9 +572,9 @@ Two complementary mechanisms exploit this slack to prevent a period-boundary thu
 
 Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the period derived deterministically from its own entry_hash:
 
-    offset = INT32(entry_hash[0..3]) mod revocation_period
+    offset = UINT32(entry_hash[0..3]) mod revocation_period
 
-where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and INT32 interprets its first four bytes as a big-endian unsigned integer.
+where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and UINT32 interprets its first four bytes as a big-endian unsigned integer.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
 During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.
 
