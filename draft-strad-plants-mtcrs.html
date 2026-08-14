@@ -1785,7 +1785,7 @@ struct {
 <p id="section-5.1-4">The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the signatureValue with a fresh tick while reusing the same inclusion proof and signatures.<a href="#section-5.1-4" class="pilcrow">¶</a></p>
 <p id="section-5.1-5">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick with a period value that is current at the time of the TLS handshake.
-A relying party <span class="bcp14">SHOULD</span> accept ticks for the current period or the immediately preceding period, to allow for clock skew and caching.<a href="#section-5.1-5" class="pilcrow">¶</a></p>
+A relying party <span class="bcp14">SHOULD</span> accept ticks for the current period, the immediately preceding period, or the immediately following period, to allow for clock skew and caching (<a href="#clock-skew" class="auto internal xref">Section 8.7</a>).<a href="#section-5.1-5" class="pilcrow">¶</a></p>
 <p id="section-5.1-6">This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
 Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) is <span class="bcp14">RECOMMENDED</span>: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
@@ -1885,7 +1885,7 @@ expected_period = floor((current_time - not_before) / revocation_period)
 </div>
 </li>
         <li id="section-6-5.4">
-          <p id="section-6-5.4.1">Check that <code>tick.period</code> is equal to expected_period or expected_period - 1.
+          <p id="section-6-5.4.1">Check that <code>tick.period</code> is equal to expected_period, expected_period - 1, or expected_period + 1 (<a href="#clock-skew" class="auto internal xref">Section 8.7</a>).
 If not, reject the certificate with a certificate_expired error.<a href="#section-6-5.4.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-6-5.5">
@@ -2096,8 +2096,7 @@ At this scale, edge caching (each tick is immutable within its period and cachea
         <h3 id="name-distributing-tick-requests">
 <a href="#section-7.7" class="section-number selfRef">7.7. </a><a href="#name-distributing-tick-requests" class="section-name selfRef">Distributing Tick Requests</a>
         </h3>
-<p id="section-7.7-1">A relying party accepts a tick for either the current period or the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>).
-An authenticating party therefore has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
+<p id="section-7.7-1">Because a relying party also accepts a tick for the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>), an authenticating party has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
 Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.<a href="#section-7.7-1" class="pilcrow">¶</a></p>
 <div id="client-side-deterministic-per-entry-offset">
 <section id="section-7.7.1">
@@ -2221,8 +2220,12 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
         <h3 id="name-clock-skew">
 <a href="#section-8.7" class="section-number selfRef">8.7. </a><a href="#name-clock-skew" class="section-name selfRef">Clock Skew</a>
         </h3>
-<p id="section-8.7-1">The grace period of accepting the current or immediately preceding period's tick (<a href="#verification" class="auto internal xref">Section 6</a>, step 4) provides tolerance for clock skew of up to one full revocation_period.
-Deployments with known clock skew issues <span class="bcp14">MAY</span> extend this to two preceding periods at the cost of slightly delayed revocation enforcement.<a href="#section-8.7-1" class="pilcrow">¶</a></p>
+<p id="section-8.7-1">Verification step 4 accepts a tick whose period is the verifier's expected_period, the immediately preceding period (expected_period - 1), or the immediately following period (expected_period + 1).
+This tolerates a verifier clock that is behind or ahead of the authenticating party's by up to one full revocation_period in either direction, and also an authenticating party that is still serving the previous period's tick for caching or staggered refresh (<a href="#load-distribution" class="auto internal xref">Section 7.7</a>).<a href="#section-8.7-1" class="pilcrow">¶</a></p>
+<p id="section-8.7-2">The two directions are not equivalent in cost.
+Accepting the immediately following period -- what a verifier whose clock is behind will see -- costs nothing in revocation terms: that tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; <a href="#security-considerations" class="auto internal xref">Section 8</a>).
+Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one revocation_period old, which is the intended one-period grace.<a href="#section-8.7-2" class="pilcrow">¶</a></p>
+<p id="section-8.7-3">Deployments with known clock-skew or availability concerns <span class="bcp14">MAY</span> widen the window: accepting further preceding periods tolerates a tick-distribution outage (<a href="#objections" class="auto internal xref">Appendix D</a>) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.<a href="#section-8.7-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
