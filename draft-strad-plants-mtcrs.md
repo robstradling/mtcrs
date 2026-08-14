@@ -427,47 +427,67 @@ This document defines an HTTP interface for this purpose.
 
 ## HTTP Interface
 
-The CA (or a mirror) exposes the following endpoint:
+The CA (or a mirror) serves ticks over HTTP.
+Given a tick base URL for the CA (see {{discovery}}), the tick for a particular certificate is fetched from:
 
-    GET {base_url}/.well-known/mtcrs/tick/{entry_hash}
+    GET {tick_base_url}/.well-known/mtcrs/tick/{entry_hash}
 
-where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry, and {base_url} is derived from the CA's issuer_id.
-Specifically, the canonical tick distribution URL for a CA is constructed by interpreting the CA's TrustAnchorID as a DNS name and prepending either `http://` or `https://`:
+where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry.
+The authenticating party computes {entry_hash} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
 
-    base_url = ( "http://" | "https://" ) || issuer_id
+The tick base URL is not derived from the CA's identifier.
+A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
+The base URL is instead conveyed to the authenticating party out of band, as described in {{discovery}}.
 
+The scheme (`http://` or `https://`) is whatever the CA specifies as part of the base URL.
 Because each tick is self-authenticating (the relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree), the tick fetch does not require transport-layer integrity, and because the tick value is public, it does not require transport-layer confidentiality of the response body.
-CAs MAY therefore serve ticks over plain HTTP, which eliminates TLS handshake overhead and permits caching by any HTTP intermediary.
-An authenticating party deriving the URL from the issuer_id SHOULD use `http://` by default.
+CAs MAY therefore publish an `http://` base URL, which eliminates TLS handshake overhead and permits caching by any HTTP intermediary.
 The one property plain HTTP does not provide is confidentiality of the request itself: an on-path observer can see which {entry_hash} is being requested.
-Deployments that consider this metadata sensitive SHOULD use `https://` instead.
+CAs whose deployments consider this metadata sensitive SHOULD publish an `https://` base URL instead.
 
-To ensure interoperability with authenticating parties that derive either scheme, a CA that relies on the issuer_id-derived default (i.e., that does not advertise an alternative URL per {{acme-integration}}) MUST serve ticks at the `.well-known` path over both `http://` and `https://` on the issuer_id-derived origin, returning identical responses on each.
+For example, if a CA's tick base URL is `http://mtcrs.ca.example`, ticks are served at:
 
-The authenticating party computes {entry_hash} from the TBSCertificateLogEntry it already possesses (the same structure whose hash is committed as the leaf of the Merkle Tree).
-No additional metadata from the CA is required.
+    http://mtcrs.ca.example/.well-known/mtcrs/tick/a1b2c3...f0
 
-For example, a CA with issuer_id "ca.example.com" would expose ticks at:
+The base URL is an origin (scheme, host, and optional port); the `.well-known/mtcrs/tick/{entry_hash}` path is rooted at that origin.
+A CA MAY point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.
 
-    http://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
-    https://ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0
+## Discovering the Tick Base URL {#discovery}
 
-CAs MAY advertise alternative tick distribution URLs (e.g., CDN mirrors) via out-of-band configuration, but the `.well-known` path under the issuer_id-derived origin serves as the default discovery mechanism.
+Because the CA's TrustAnchorID is an identifier and not a locator, the tick base URL MUST be conveyed to the authenticating party out of band.
+This is not a gap: the authenticating party already obtains its certificate through a provisioning channel that involves a real CA endpoint (for example, an ACME directory), so that channel is the natural carrier for the base URL, and no locator need be derived from the certificate.
+
+A CA MUST make the tick base URL available through at least one of the following mechanisms, and an authenticating party MUST support at least the provisioning-channel mechanism appropriate to how it obtains certificates:
+
+- **Provisioning channel (primary).**
+  The base URL is delivered when the certificate is provisioned.
+  {{acme-integration}} defines this for ACME.
+  CAs using other issuance protocols MUST provide an equivalent mechanism; the details are out of scope for this document.
+
+- **CA certificate SIA (optional).**
+  The base URL MAY additionally be published in the CA's certificate representation (Section 5.5 of {{I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
+  This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent record that an authenticating party (or its tooling) can read once.
+  When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
+
+Keeping the base URL out of the certificate is deliberate, not merely an optimization.
+Relying parties verify a tick offline, against the anchor already committed in the Merkle Tree ({{verification}}); they never fetch ticks.
+Placing a fetchable tick URL where relying parties could see it (for example, in an AIA extension; see {{alternatives}}) would invite exactly the client-side fetch this mechanism is designed to avoid, reintroducing the privacy leak (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{RFC6960}} problematic.
+Only the authenticating party fetches ticks, so only it is given the base URL.
+
+Because MTC certificates are renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
 
 ## ACME Integration {#acme-integration}
 
-When the CA issues certificates via ACME, it SHOULD include the tick distribution URL in the ACME order object as a new field:
+When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the ACME order object as a new field:
 
-    "tickDistributionURL": "https://cdn.ca.example.com/.well-known/mtcrs/tick/a1b2c3...f0"
+    "tickBaseURL": "https://mtcrs.cdn.ca.example"
 
-The `tickDistributionURL` field contains the full URL from which the authenticating party fetches its current HashChainTick.
-If present, the authenticating party MUST use this URL instead of deriving one from the issuer_id.
+The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/tick/{entry_hash}` ({{distribution}}).
+A single value covers all of the CA's certificates and lets the CA direct authenticating parties to a CDN, regional mirror, or any origin, without adding bytes to the certificate or log entry.
 
-This mechanism allows the CA to direct authenticating parties to CDN endpoints, regional mirrors, or infrastructure that does not match the `.well-known` derivation, without adding bytes to the certificate or log entry.
+If the `tickBaseURL` field is absent from the ACME order, the authenticating party obtains the base URL through another mechanism in {{discovery}} (for example, the CA certificate SIA).
 
-If the `tickDistributionURL` field is absent from the ACME order, the authenticating party derives the tick URL from the issuer_id as described above.
-
-CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick distribution URL during certificate provisioning.
+CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL during certificate provisioning.
 
 ## Response Format {#response-format}
 
@@ -567,7 +587,7 @@ Relying parties that support both mechanisms SHOULD check both: a certificate is
 The grace period of accepting the current or immediately preceding period's tick ({{verification}}, step 4) provides tolerance for clock skew of up to one full revocation_period.
 Deployments with known clock skew issues MAY extend this to two preceding periods at the cost of slightly delayed revocation enforcement.
 
-# IANA Considerations
+# IANA Considerations {#iana-considerations}
 
 ## Certificate Extension
 
@@ -576,6 +596,19 @@ IANA is requested to register the following entry in the "SMI Security for PKIX 
 | Decimal | Description          | Reference     |
 |---------|----------------------|---------------|
 | TBD     | id-pe-hashChainAnchor | This document |
+
+## Access Descriptor
+
+IANA is requested to register the following entry in the "SMI Security for PKIX Access Descriptor" registry:
+
+| Decimal | Description      | Reference     |
+|---------|------------------|---------------|
+| TBD     | id-ad-mtcrsTicks | This document |
+
+The id-ad-mtcrsTicks access method is used as a Subject Information Access access method ({{RFC5280}}) in a Merkle Tree CA certificate (Section 5.5 of {{I-D.ietf-plants-merkle-tree-certs}}).
+Its accessLocation is a uniformResourceIdentifier giving the CA's tick base URL ({{discovery}}).
+
+    id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 
 --- back
 
@@ -748,15 +781,15 @@ This approach was rejected because:
   A ~50-80 byte URL in every log entry increases tree size and inclusion proof transmission costs, conflicting with MTC's goal of compactness.
 
 - **Immutable once issued:** If the CA migrates its tick distribution infrastructure, all existing certificates still contain the old URL.
-  Deriving the URL from the issuer_id allows the CA to update DNS routing without certificate reissuance.
+  Delivering the URL out of band ({{discovery}}) lets the CA migrate its tick infrastructure without certificate reissuance.
 
-- **Only the authenticating party needs it:** Relying parties never contact the tick endpoint.
-  Adding per-certificate bytes visible to all parties to convey a URL used by only one party is wasteful.
+- **Only the authenticating party needs it, and only it should fetch:** Relying parties never contact the tick endpoint; they verify the embedded tick offline against the committed anchor.
+  Exposing a fetchable URL to relying parties in the certificate is not merely wasteful -- it would encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids ({{discovery}}).
 
-- **Redundant given existing CA relationship:** The authenticating party obtained the certificate from the CA (e.g., via ACME) and can receive the tick URL at that point, or derive it from the issuer_id at zero per-certificate cost.
+- **Redundant given existing CA relationship:** The authenticating party obtained the certificate from the CA (e.g., via ACME) and can receive the tick base URL through that same channel at zero per-certificate cost ({{discovery}}).
 
-The `.well-known` derivation from issuer_id ({{distribution}}) provides a zero-overhead default.
-CAs that require non-default URLs can communicate them out-of-band during certificate provisioning.
+Out-of-band delivery of the base URL at provisioning ({{discovery}}) conveys it at zero per-certificate cost.
+CAs MAY additionally publish the base URL in the CA certificate SIA ({{discovery}}) for a protocol-independent record.
 
 ## TLS Extension (Separate from Certificate)
 
