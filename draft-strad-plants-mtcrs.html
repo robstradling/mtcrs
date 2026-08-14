@@ -1238,19 +1238,22 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
                 <p id="section-toc.1-1.7.2.3.1"><a href="#section-7.3" class="auto internal xref">7.3</a>.  <a href="#name-acme-integration" class="internal xref">ACME Integration</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4">
-                <p id="section-toc.1-1.7.2.4.1"><a href="#section-7.4" class="auto internal xref">7.4</a>.  <a href="#name-response-format" class="internal xref">Response Format</a></p>
+                <p id="section-toc.1-1.7.2.4.1"><a href="#section-7.4" class="auto internal xref">7.4</a>.  <a href="#name-unguessable-tick-urls" class="internal xref">Unguessable Tick URLs</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.5">
-                <p id="section-toc.1-1.7.2.5.1"><a href="#section-7.5" class="auto internal xref">7.5</a>.  <a href="#name-operational-model" class="internal xref">Operational Model</a></p>
+                <p id="section-toc.1-1.7.2.5.1"><a href="#section-7.5" class="auto internal xref">7.5</a>.  <a href="#name-response-format" class="internal xref">Response Format</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.6">
-                <p id="section-toc.1-1.7.2.6.1"><a href="#section-7.6" class="auto internal xref">7.6</a>.  <a href="#name-distributing-tick-requests" class="internal xref">Distributing Tick Requests</a></p>
-<ul class="compact toc ulBare ulEmpty">
-<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.6.2.1">
-                    <p id="section-toc.1-1.7.2.6.2.1.1"><a href="#section-7.6.1" class="auto internal xref">7.6.1</a>.  <a href="#name-client-side-deterministic-p" class="internal xref">Client-Side: Deterministic Per-Entry Offset</a></p>
+                <p id="section-toc.1-1.7.2.6.1"><a href="#section-7.6" class="auto internal xref">7.6</a>.  <a href="#name-operational-model" class="internal xref">Operational Model</a></p>
 </li>
-                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.6.2.2">
-                    <p id="section-toc.1-1.7.2.6.2.2.1"><a href="#section-7.6.2" class="auto internal xref">7.6.2</a>.  <a href="#name-server-side-cache-freshness" class="internal xref">Server-Side: Cache Freshness and Retry-After</a></p>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.7">
+                <p id="section-toc.1-1.7.2.7.1"><a href="#section-7.7" class="auto internal xref">7.7</a>.  <a href="#name-distributing-tick-requests" class="internal xref">Distributing Tick Requests</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.7.2.1">
+                    <p id="section-toc.1-1.7.2.7.2.1.1"><a href="#section-7.7.1" class="auto internal xref">7.7.1</a>.  <a href="#name-client-side-deterministic-p" class="internal xref">Client-Side: Deterministic Per-Entry Offset</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.7.2.2">
+                    <p id="section-toc.1-1.7.2.7.2.2.1"><a href="#section-7.7.2" class="auto internal xref">7.7.2</a>.  <a href="#name-server-side-cache-freshness" class="internal xref">Server-Side: Cache Freshness and Retry-After</a></p>
 </li>
                 </ul>
 </li>
@@ -1935,86 +1938,140 @@ A single value covers all of the CA's certificates and lets the CA direct authen
 <p id="section-7.3-5">CAs using issuance protocols other than ACME <span class="bcp14">SHOULD</span> provide an equivalent mechanism for communicating the tick base URL during certificate provisioning.<a href="#section-7.3-5" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="response-format">
+<div id="unguessable-urls">
 <section id="section-7.4">
-        <h3 id="name-response-format">
-<a href="#section-7.4" class="section-number selfRef">7.4. </a><a href="#name-response-format" class="section-name selfRef">Response Format</a>
+        <h3 id="name-unguessable-tick-urls">
+<a href="#section-7.4" class="section-number selfRef">7.4. </a><a href="#name-unguessable-tick-urls" class="section-name selfRef">Unguessable Tick URLs</a>
         </h3>
-<p id="section-7.4-1">The response body is the serialized HashChainTick structure: a 4-byte big-endian period followed by HASH_SIZE bytes of value (36 bytes total for SHA-256).
-The response Content-Type <span class="bcp14">MUST</span> be <code>application/octet-stream</code>.<a href="#section-7.4-1" class="pilcrow">¶</a></p>
-<p id="section-7.4-2">A successful response <span class="bcp14">MUST</span> use HTTP status code 200.
-If the certificate has been revoked (no tick will be issued), the CA <span class="bcp14">MUST</span> respond with HTTP status code 404.<a href="#section-7.4-2" class="pilcrow">¶</a></p>
-<p id="section-7.4-3">The CA <span class="bcp14">SHOULD</span> set HTTP cache headers with a max-age no longer than revocation_period seconds.
-For example:<a href="#section-7.4-3" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-7.4-4">
+<p id="section-7.4-1">The tick fetch path described above is <code>.well-known/mtcrs/tick/{entry_hash}</code>, and {entry_hash} is derivable from the certificate by anyone who holds it, including a relying party (<a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a>).
+Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
+A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, <span class="bcp14">MAY</span> replace the derivable path component with an unguessable per-certificate capability token:<a href="#section-7.4-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.4-2">
+<pre>
+{tick_base_url}/.well-known/mtcrs/tick/{tick_token}
+</pre><a href="#section-7.4-2" class="pilcrow">¶</a>
+</div>
+<span class="break"></span><dl class="dlParallel" id="section-7.4-3">
+          <dt id="section-7.4-3.1">tick_token:</dt>
+          <dd style="margin-left: 1.5em" id="section-7.4-3.2">
+            <p id="section-7.4-3.2.1">A high-entropy (at least 128-bit) value that does not appear anywhere in the certificate.
+Because the token is absent from the certificate, a relying party cannot construct the URL, while the authenticating party is given it at provisioning time (see below).<a href="#section-7.4-3.2.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-7.4-4">The CA <span class="bcp14">MAY</span> generate the token by either of the following methods:<a href="#section-7.4-4" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-7.4-5.1">
+            <p id="section-7.4-5.1.1"><strong>Random, with server-side state.</strong>
+The CA generates a random token per certificate and maps it to the corresponding hash chain.
+This adds one indexed lookup to the CA's existing per-certificate state.<a href="#section-7.4-5.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-7.4-5.2">
+            <p id="section-7.4-5.2.1"><strong>Deterministic, stateless (<span class="bcp14">RECOMMENDED</span>).</strong>
+The CA derives the token by applying a deterministic authenticated encryption scheme (for example, AES-SIV <span>[<a href="#RFC5297" class="cite xref">RFC5297</a>]</span>) keyed by a CA-held secret to the entry identifier:<a href="#section-7.4-5.2.1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.4-5.2.2">
+<pre>
+tick_token = key_id || DAE(K_ca, entry_hash)
+</pre><a href="#section-7.4-5.2.2" class="pilcrow">¶</a>
+</div>
+<p id="section-7.4-5.2.3">
+The CA recovers entry_hash by decrypting the token, so no additional per-certificate state is required.
+The token is unguessable without K_ca and is stable for the certificate's lifetime, which preserves caching.
+The key_id prefix identifies K_ca so that it can be rotated; the CA retains superseded keys for decryption during an overlap window, and because MTC certificates are renewed frequently (Section 10.4 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>), rotated tokens propagate through renewal, as for base-URL migration (<a href="#discovery" class="auto internal xref">Section 7.2</a>).<a href="#section-7.4-5.2.3" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-7.4-6">When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
+For ACME, the order object carries the full URL in a <code>tickURL</code> field in place of <code>tickBaseURL</code> (<a href="#acme-integration" class="auto internal xref">Section 7.3</a>).
+The CA-certificate SIA (<a href="#discovery" class="auto internal xref">Section 7.2</a>) conveys only the per-CA base URL and so cannot by itself locate a token-addressed tick; it remains useful only as ancillary information.<a href="#section-7.4-6" class="pilcrow">¶</a></p>
+<p id="section-7.4-7">This hardening preserves the properties of the base HTTP interface.
+Each token addresses a value that is immutable within a period, so per-period caching and CDN distribution (<a href="#load-distribution" class="auto internal xref">Section 7.7</a>) are unchanged.
+The token is an addressing capability, not a confidentiality secret: the tick it locates is public and self-authenticating, so the fetch still requires no transport-layer integrity or confidentiality and <span class="bcp14">MAY</span> be served over plain HTTP.<a href="#section-7.4-7" class="pilcrow">¶</a></p>
+<p id="section-7.4-8">The token is a bearer capability, and this hardening is defense in depth rather than a hard security boundary.
+An authenticating party could disclose the token, and an on-path observer of a plain-HTTP fetch can see it; but possession of the token grants only the ability to fetch a public, self-authenticating non-revocation value (or to observe its absence).
+It does not permit forging ticks, which requires the secret chain values (<a href="#security-considerations" class="auto internal xref">Section 8</a>), nor use of the certificate, which requires the corresponding private key.
+Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status (<a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a>).<a href="#section-7.4-8" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="response-format">
+<section id="section-7.5">
+        <h3 id="name-response-format">
+<a href="#section-7.5" class="section-number selfRef">7.5. </a><a href="#name-response-format" class="section-name selfRef">Response Format</a>
+        </h3>
+<p id="section-7.5-1">The response body is the serialized HashChainTick structure: a 4-byte big-endian period followed by HASH_SIZE bytes of value (36 bytes total for SHA-256).
+The response Content-Type <span class="bcp14">MUST</span> be <code>application/octet-stream</code>.<a href="#section-7.5-1" class="pilcrow">¶</a></p>
+<p id="section-7.5-2">A successful response <span class="bcp14">MUST</span> use HTTP status code 200.
+If the certificate has been revoked (no tick will be issued), the CA <span class="bcp14">MUST</span> respond with HTTP status code 404.<a href="#section-7.5-2" class="pilcrow">¶</a></p>
+<p id="section-7.5-3">The CA <span class="bcp14">SHOULD</span> set HTTP cache headers with a max-age no longer than revocation_period seconds.
+For example:<a href="#section-7.5-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.5-4">
 <pre>
 Cache-Control: public, max-age=3600
-</pre><a href="#section-7.4-4" class="pilcrow">¶</a>
+</pre><a href="#section-7.5-4" class="pilcrow">¶</a>
 </div>
 </section>
 </div>
 <div id="operational-model">
-<section id="section-7.5">
+<section id="section-7.6">
         <h3 id="name-operational-model">
-<a href="#section-7.5" class="section-number selfRef">7.5. </a><a href="#name-operational-model" class="section-name selfRef">Operational Model</a>
+<a href="#section-7.6" class="section-number selfRef">7.6. </a><a href="#name-operational-model" class="section-name selfRef">Operational Model</a>
         </h3>
-<p id="section-7.5-1">The authenticating party periodically fetches its current tick from the CA:<a href="#section-7.5-1" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-7.5-2">
-<li id="section-7.5-2.1">
-            <p id="section-7.5-2.1.1">At least once per revocation_period, the authenticating party fetches its updated HashChainTick.<a href="#section-7.5-2.1.1" class="pilcrow">¶</a></p>
+<p id="section-7.6-1">The authenticating party periodically fetches its current tick from the CA:<a href="#section-7.6-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-7.6-2">
+<li id="section-7.6-2.1">
+            <p id="section-7.6-2.1.1">At least once per revocation_period, the authenticating party fetches its updated HashChainTick.<a href="#section-7.6-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-7.5-2.2">
-            <p id="section-7.5-2.2.1">The authenticating party updates the HashChainTick carried in its certificate's MTCProof (signatureValue) with the newly fetched value.
-The inclusion proof and cosignatures remain unchanged.<a href="#section-7.5-2.2.1" class="pilcrow">¶</a></p>
+          <li id="section-7.6-2.2">
+            <p id="section-7.6-2.2.1">The authenticating party updates the HashChainTick carried in its certificate's MTCProof (signatureValue) with the newly fetched value.
+The inclusion proof and cosignatures remain unchanged.<a href="#section-7.6-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li id="section-7.5-2.3">
-            <p id="section-7.5-2.3.1">During TLS handshakes, the authenticating party presents the certificate with the current tick.<a href="#section-7.5-2.3.1" class="pilcrow">¶</a></p>
+          <li id="section-7.6-2.3">
+            <p id="section-7.6-2.3.1">During TLS handshakes, the authenticating party presents the certificate with the current tick.<a href="#section-7.6-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ol>
-<p id="section-7.5-3">If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
-After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.<a href="#section-7.5-3" class="pilcrow">¶</a></p>
-<p id="section-7.5-4">At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
+<p id="section-7.6-3">If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
+After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.<a href="#section-7.6-3" class="pilcrow">¶</a></p>
+<p id="section-7.6-4">At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
 At this scale, edge caching (each tick is immutable within its period and cacheable for up to revocation_period seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
-<a href="#load-distribution" class="auto internal xref">Section 7.6</a> describes recommended techniques.<a href="#section-7.5-4" class="pilcrow">¶</a></p>
+<a href="#load-distribution" class="auto internal xref">Section 7.7</a> describes recommended techniques.<a href="#section-7.6-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="load-distribution">
-<section id="section-7.6">
+<section id="section-7.7">
         <h3 id="name-distributing-tick-requests">
-<a href="#section-7.6" class="section-number selfRef">7.6. </a><a href="#name-distributing-tick-requests" class="section-name selfRef">Distributing Tick Requests</a>
+<a href="#section-7.7" class="section-number selfRef">7.7. </a><a href="#name-distributing-tick-requests" class="section-name selfRef">Distributing Tick Requests</a>
         </h3>
-<p id="section-7.6-1">A relying party accepts a tick for either the current period or the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>).
+<p id="section-7.7-1">A relying party accepts a tick for either the current period or the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>).
 An authenticating party therefore has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
-Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.<a href="#section-7.6-1" class="pilcrow">¶</a></p>
+Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.<a href="#section-7.7-1" class="pilcrow">¶</a></p>
 <div id="client-side-deterministic-per-entry-offset">
-<section id="section-7.6.1">
+<section id="section-7.7.1">
           <h4 id="name-client-side-deterministic-p">
-<a href="#section-7.6.1" class="section-number selfRef">7.6.1. </a><a href="#name-client-side-deterministic-p" class="section-name selfRef">Client-Side: Deterministic Per-Entry Offset</a>
+<a href="#section-7.7.1" class="section-number selfRef">7.7.1. </a><a href="#name-client-side-deterministic-p" class="section-name selfRef">Client-Side: Deterministic Per-Entry Offset</a>
           </h4>
-<p id="section-7.6.1-1">Rather than fetching at the start of each period, an authenticating party <span class="bcp14">SHOULD</span> fetch at a fixed offset into the period derived deterministically from its own entry_hash:<a href="#section-7.6.1-1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-7.6.1-2">
+<p id="section-7.7.1-1">Rather than fetching at the start of each period, an authenticating party <span class="bcp14">SHOULD</span> fetch at a fixed offset into the period derived deterministically from its own entry_hash:<a href="#section-7.7.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-7.7.1-2">
 <pre>
 offset = INT32(entry_hash[0..3]) mod revocation_period
-</pre><a href="#section-7.6.1-2" class="pilcrow">¶</a>
+</pre><a href="#section-7.7.1-2" class="pilcrow">¶</a>
 </div>
-<p id="section-7.6.1-3">where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and INT32 interprets its first four bytes as a big-endian unsigned integer.
+<p id="section-7.7.1-3">where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and INT32 interprets its first four bytes as a big-endian unsigned integer.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
-During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.<a href="#section-7.6.1-3" class="pilcrow">¶</a></p>
-<p id="section-7.6.1-4">Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
-This is preferable to independent random jitter, which can still cluster and which varies each period.<a href="#section-7.6.1-4" class="pilcrow">¶</a></p>
+During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.<a href="#section-7.7.1-3" class="pilcrow">¶</a></p>
+<p id="section-7.7.1-4">Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
+This is preferable to independent random jitter, which can still cluster and which varies each period.<a href="#section-7.7.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="server-side-cache-freshness-and-retry-after">
-<section id="section-7.6.2">
+<section id="section-7.7.2">
           <h4 id="name-server-side-cache-freshness">
-<a href="#section-7.6.2" class="section-number selfRef">7.6.2. </a><a href="#name-server-side-cache-freshness" class="section-name selfRef">Server-Side: Cache Freshness and Retry-After</a>
+<a href="#section-7.7.2" class="section-number selfRef">7.7.2. </a><a href="#name-server-side-cache-freshness" class="section-name selfRef">Server-Side: Cache Freshness and Retry-After</a>
           </h4>
-<p id="section-7.6.2-1">The CA (or an edge cache) <span class="bcp14">SHOULD</span> serve each tick with a Cache-Control max-age no longer than revocation_period seconds (<a href="#response-format" class="auto internal xref">Section 7.4</a>), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
-A CA <span class="bcp14">MAY</span> additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.<a href="#section-7.6.2-1" class="pilcrow">¶</a></p>
-<p id="section-7.6.2-2">Under transient overload, the CA or edge <span class="bcp14">MAY</span> respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
+<p id="section-7.7.2-1">The CA (or an edge cache) <span class="bcp14">SHOULD</span> serve each tick with a Cache-Control max-age no longer than revocation_period seconds (<a href="#response-format" class="auto internal xref">Section 7.5</a>), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
+A CA <span class="bcp14">MAY</span> additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.<a href="#section-7.7.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.7.2-2">Under transient overload, the CA or edge <span class="bcp14">MAY</span> respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
 To avoid a synchronized second wave, the CA <span class="bcp14">SHOULD</span> randomize Retry-After values across clients rather than returning a single fixed value.
-Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.<a href="#section-7.6.2-2" class="pilcrow">¶</a></p>
+Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.<a href="#section-7.7.2-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2065,7 +2122,8 @@ This is analogous to a CA refusing to issue OCSP responses and is mitigated by t
 A relying party therefore has no need to contact the CA, and <span class="bcp14">MUST NOT</span> fetch ticks or otherwise use the tick distribution endpoint as an online revocation responder.<a href="#section-8.4-1" class="pilcrow">¶</a></p>
 <p id="section-8.4-2">This is a privacy and availability protection, not a secrecy one.
 The tick distribution URL is not secret: the fetch path is <code>.well-known/mtcrs/tick/{entry_hash}</code> with {entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA (<a href="#discovery" class="auto internal xref">Section 7.2</a>) is used, available to relying parties as well.
-The design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+A CA that wishes to remove this derivability entirely <span class="bcp14">MAY</span> use the optional per-certificate capability-token hardening in <a href="#unguessable-urls" class="auto internal xref">Section 7.4</a>, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick -- the authenticating party already presents the current value -- while reintroducing the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span> problematic.<a href="#section-8.4-2" class="pilcrow">¶</a></p>
 <p id="section-8.4-3">The CA certificate SIA access method (<a href="#discovery" class="auto internal xref">Section 7.2</a>) exists to convey the base URL to authenticating-party tooling.
 Relying parties possess the CA certificate but <span class="bcp14">MUST NOT</span> use its tick base URL to fetch tick status.<a href="#section-8.4-3" class="pilcrow">¶</a></p>
@@ -2234,6 +2292,10 @@ id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 <dt id="MICALI">[MICALI]</dt>
         <dd>
 <span class="refAuthor">Micali, S.</span>, <span class="refTitle">"Efficient Certificate Revocation"</span>, <time datetime="1996" class="refDate">1996</time>, <span>&lt;<a href="https://dl.acm.org/doi/10.5555/889659">https://dl.acm.org/doi/10.5555/889659</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5297">[RFC5297]</dt>
+        <dd>
+<span class="refAuthor">Harkins, D.</span>, <span class="refTitle">"Synthetic Initialization Vector (SIV) Authenticated Encryption Using the Advanced Encryption Standard (AES)"</span>, <span class="seriesInfo">RFC 5297</span>, <span class="seriesInfo">DOI 10.17487/RFC5297</span>, <time datetime="2008-10" class="refDate">October 2008</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc5297">https://www.rfc-editor.org/rfc/rfc5297</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC6960">[RFC6960]</dt>
         <dd>
