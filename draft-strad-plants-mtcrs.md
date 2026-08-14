@@ -247,6 +247,9 @@ The period number at any given time t is:
 
     period = floor((t - issuance_time) / revocation_period)
 
+issuance_time is the notBefore time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
+The CA MUST number periods from this same value, so that the CA and every verifier compute identical period boundaries.
+
 ## Revealing Values
 
 For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[chain_length - t]`.
@@ -394,7 +397,17 @@ If the tick is absent, malformed, or fails verification, the relying party MUST 
 
 # Verification {#verification}
 
-When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs the following steps in addition to the base MTC verification procedure:
+When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs hash chain verification in addition to the base MTC verification procedure.
+
+The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to the period computation ({{construction}}).
+All of them are obtained from the certificate and the trust anchor being validated against; no data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
+
+- **issuer_id:** the TrustAnchorID of the trust anchor against which the certificate is being validated (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}).
+- **log_number and index:** recovered from the certificate's serial number, which the base specification defines as `serial = (log_number << 48) | index` (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}); the verifier takes index as the low 48 bits and log_number as the remaining high bits.
+- **revocation_period and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension.
+- **issuance_time:** the notBefore time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
+
+Using these inputs, the verifier performs the following steps:
 
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
@@ -432,7 +445,8 @@ Given a tick base URL for the CA (see {{discovery}}), the tick for a particular 
 
     GET {tick_base_url}/.well-known/mtcrs/tick/{entry_hash}
 
-where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry.
+where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry, computed over exactly the same octets that the base specification commits to the Merkle Tree for that entry (the tbs_cert_entry_data byte string defined by {{I-D.ietf-plants-merkle-tree-certs}}, i.e. the encoded contents of the entry with no enclosing tag or length prefix), so that the CA and the authenticating party derive an identical value.
+entry_hash is always computed with SHA-256, even for a CA whose Merkle Tree uses a different hash function: it is only a stable identifier for the tick URL, not a tree leaf hash.
 The authenticating party computes {entry_hash} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
 
 The tick base URL is not derived from the CA's identifier.
