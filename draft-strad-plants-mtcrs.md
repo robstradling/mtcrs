@@ -348,6 +348,11 @@ An MTC ecosystem in which all relying parties are expected to support hash chain
 The extension MUST appear at most once in a certificate.
 The extension MUST NOT be present in a certificate whose validity period is not longer than revocation_period ({{construction}}); such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.
 
+Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
+With the default revocation_period, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing -- on the order of 40 to 50 bytes per entry.
+This is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
+The DEFAULT encoding of revocationPeriod keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
+
 # Certificate Presentation {#cert-format}
 
 ## Hash Chain Tick
