@@ -744,7 +744,7 @@ A one-hour revocation_period provides a good balance:
   This is a trivial HTTP request for a 36-byte response.
 
 - **Chain length:** For 47-day certificates, the chain length is 1,128.
-  Verification requires at most 1,128 hash computations, which takes microseconds on modern hardware.
+  Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
 
 - **CA storage:** The CA must store one seed per active certificate.
   With 32 bytes per seed, 1 billion certificates require 32 GB.
@@ -1113,10 +1113,10 @@ The threat is real but not novel, and the mitigations (market pressure, monitori
 
 ## "Verification Cost Grows Linearly with Certificate Age"
 
-A relying party verifying a tick near the end of a 47-day certificate's lifetime must compute up to 1,128 hashes.
+A relying party verifying a tick near the end of a 47-day certificate's lifetime must compute up to 1,127 hashes.
 This linear cost may be unacceptable for constrained devices.
 
-On modern hardware, 1,128 SHA-256 operations take approximately 10-20 microseconds — negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
+On modern hardware, 1,127 SHA-256 operations take approximately 10-20 microseconds — negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
 Even on constrained IoT devices, SHA-256 is typically hardware-accelerated and the computation completes in under a millisecond.
 For comparison, verifying a single Ed25519 signature costs roughly the same as hundreds of SHA-256 operations.
 If the linear cost is nonetheless a concern for a specific deployment, choosing a shorter certificate lifetime (reducing chain_length) or a longer revocation_period (also reducing chain_length) provides a direct mitigation.
