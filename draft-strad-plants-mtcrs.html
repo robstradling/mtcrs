@@ -1269,10 +1269,13 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
                 <p id="section-toc.1-1.8.2.3.1"><a href="#section-8.3" class="auto internal xref">8.3</a>.  <a href="#name-denial-of-service-via-tick-" class="internal xref">Denial of Service via Tick Withholding</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.4">
-                <p id="section-toc.1-1.8.2.4.1"><a href="#section-8.4" class="auto internal xref">8.4</a>.  <a href="#name-interaction-with-base-mtc-r" class="internal xref">Interaction with Base MTC Revocation</a></p>
+                <p id="section-toc.1-1.8.2.4.1"><a href="#section-8.4" class="auto internal xref">8.4</a>.  <a href="#name-relying-parties-do-not-fetc" class="internal xref">Relying Parties Do Not Fetch Ticks</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.5">
-                <p id="section-toc.1-1.8.2.5.1"><a href="#section-8.5" class="auto internal xref">8.5</a>.  <a href="#name-clock-skew" class="internal xref">Clock Skew</a></p>
+                <p id="section-toc.1-1.8.2.5.1"><a href="#section-8.5" class="auto internal xref">8.5</a>.  <a href="#name-interaction-with-base-mtc-r" class="internal xref">Interaction with Base MTC Revocation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.6">
+                <p id="section-toc.1-1.8.2.6.1"><a href="#section-8.6" class="auto internal xref">8.6</a>.  <a href="#name-clock-skew" class="internal xref">Clock Skew</a></p>
 </li>
             </ul>
 </li>
@@ -1909,10 +1912,9 @@ This carries a single per-CA URL on a single object, adds no per-log-entry bytes
 When both mechanisms are present and disagree, the provisioning-channel value takes precedence.<a href="#section-7.2-3.2.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-7.2-4">Keeping the base URL out of the certificate is deliberate, not merely an optimization.
-Relying parties verify a tick offline, against the anchor already committed in the Merkle Tree (<a href="#verification" class="auto internal xref">Section 6</a>); they never fetch ticks.
-Placing a fetchable tick URL where relying parties could see it (for example, in an AIA extension; see <a href="#alternatives" class="auto internal xref">Appendix C</a>) would invite exactly the client-side fetch this mechanism is designed to avoid, reintroducing the privacy leak (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span> problematic.
-Only the authenticating party fetches ticks, so only it is given the base URL.<a href="#section-7.2-4" class="pilcrow">¶</a></p>
+<p id="section-7.2-4">Keeping the base URL out of the certificate is deliberate, but it is not a secrecy measure: as <a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a> explains, the URL is derivable by anyone holding the certificate, so a relying party could construct it regardless.
+The point is not to hide the URL but to avoid standardizing or advertising a per-certificate fetch affordance to relying parties in a field they routinely parse.
+Relying parties verify the embedded tick offline against the committed anchor (<a href="#verification" class="auto internal xref">Section 6</a>) and <span class="bcp14">MUST NOT</span> fetch ticks (<a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a>); only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents.<a href="#section-7.2-4" class="pilcrow">¶</a></p>
 <p id="section-7.2-5">Because MTC certificates are renewed frequently (Section 10.4 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.<a href="#section-7.2-5" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -2054,34 +2056,49 @@ This is analogous to a CA refusing to issue OCSP responses and is mitigated by t
 <p id="section-8.3-2">Additionally, since ticks are small (36 bytes), they can be efficiently distributed via CDN, reducing the attack surface for tick withholding.<a href="#section-8.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="interaction-with-base-mtc-revocation">
+<div id="rp-no-fetch">
 <section id="section-8.4">
-        <h3 id="name-interaction-with-base-mtc-r">
-<a href="#section-8.4" class="section-number selfRef">8.4. </a><a href="#name-interaction-with-base-mtc-r" class="section-name selfRef">Interaction with Base MTC Revocation</a>
+        <h3 id="name-relying-parties-do-not-fetc">
+<a href="#section-8.4" class="section-number selfRef">8.4. </a><a href="#name-relying-parties-do-not-fetc" class="section-name selfRef">Relying Parties Do Not Fetch Ticks</a>
         </h3>
-<p id="section-8.4-1">The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
-Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:<a href="#section-8.4-1" class="pilcrow">¶</a></p>
+<p id="section-8.4-1">The current tick is embedded in the MTCProof presented during the handshake and is verified offline against the anchor committed in the Merkle Tree (<a href="#verification" class="auto internal xref">Section 6</a>).
+A relying party therefore has no need to contact the CA, and <span class="bcp14">MUST NOT</span> fetch ticks or otherwise use the tick distribution endpoint as an online revocation responder.<a href="#section-8.4-1" class="pilcrow">¶</a></p>
+<p id="section-8.4-2">This is a privacy and availability protection, not a secrecy one.
+The tick distribution URL is not secret: the fetch path is <code>.well-known/mtcrs/tick/{entry_hash}</code> with {entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA (<a href="#discovery" class="auto internal xref">Section 7.2</a>) is used, available to relying parties as well.
+The design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+A relying-party fetch would gain nothing over the embedded tick -- the authenticating party already presents the current value -- while reintroducing the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span> problematic.<a href="#section-8.4-2" class="pilcrow">¶</a></p>
+<p id="section-8.4-3">The CA certificate SIA access method (<a href="#discovery" class="auto internal xref">Section 7.2</a>) exists to convey the base URL to authenticating-party tooling.
+Relying parties possess the CA certificate but <span class="bcp14">MUST NOT</span> use its tick base URL to fetch tick status.<a href="#section-8.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="interaction-with-base-mtc-revocation">
+<section id="section-8.5">
+        <h3 id="name-interaction-with-base-mtc-r">
+<a href="#section-8.5" class="section-number selfRef">8.5. </a><a href="#name-interaction-with-base-mtc-r" class="section-name selfRef">Interaction with Base MTC Revocation</a>
+        </h3>
+<p id="section-8.5-1">The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
+Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:<a href="#section-8.5-1" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-8.4-2.1">
-            <p id="section-8.4-2.1.1">Compromise of the CA's hash chain seed storage<a href="#section-8.4-2.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-8.5-2.1">
+            <p id="section-8.5-2.1.1">Compromise of the CA's hash chain seed storage<a href="#section-8.5-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-8.4-2.2">
-            <p id="section-8.4-2.2.1">Bulk revocation of many certificates simultaneously<a href="#section-8.4-2.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-8.5-2.2">
+            <p id="section-8.5-2.2.1">Bulk revocation of many certificates simultaneously<a href="#section-8.5-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-8.4-2.3">
-            <p id="section-8.4-2.3.1">Relying parties that have not yet implemented hash chain verification<a href="#section-8.4-2.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-8.5-2.3">
+            <p id="section-8.5-2.3.1">Relying parties that have not yet implemented hash chain verification<a href="#section-8.5-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-8.4-3">Relying parties that support both mechanisms <span class="bcp14">SHOULD</span> check both: a certificate is considered revoked if either mechanism indicates revocation.<a href="#section-8.4-3" class="pilcrow">¶</a></p>
+<p id="section-8.5-3">Relying parties that support both mechanisms <span class="bcp14">SHOULD</span> check both: a certificate is considered revoked if either mechanism indicates revocation.<a href="#section-8.5-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="clock-skew">
-<section id="section-8.5">
+<section id="section-8.6">
         <h3 id="name-clock-skew">
-<a href="#section-8.5" class="section-number selfRef">8.5. </a><a href="#name-clock-skew" class="section-name selfRef">Clock Skew</a>
+<a href="#section-8.6" class="section-number selfRef">8.6. </a><a href="#name-clock-skew" class="section-name selfRef">Clock Skew</a>
         </h3>
-<p id="section-8.5-1">The grace period of accepting the current or immediately preceding period's tick (<a href="#verification" class="auto internal xref">Section 6</a>, step 4) provides tolerance for clock skew of up to one full revocation_period.
-Deployments with known clock skew issues <span class="bcp14">MAY</span> extend this to two preceding periods at the cost of slightly delayed revocation enforcement.<a href="#section-8.5-1" class="pilcrow">¶</a></p>
+<p id="section-8.6-1">The grace period of accepting the current or immediately preceding period's tick (<a href="#verification" class="auto internal xref">Section 6</a>, step 4) provides tolerance for clock skew of up to one full revocation_period.
+Deployments with known clock skew issues <span class="bcp14">MAY</span> extend this to two preceding periods at the cost of slightly delayed revocation enforcement.<a href="#section-8.6-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2484,8 +2501,8 @@ A ~50-80 byte URL in every log entry increases tree size and inclusion proof tra
 Delivering the URL out of band (<a href="#discovery" class="auto internal xref">Section 7.2</a>) lets the CA migrate its tick infrastructure without certificate reissuance.<a href="#appendix-C.2-3.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-C.2-3.3">
-            <p id="appendix-C.2-3.3.1"><strong>Only the authenticating party needs it, and only it should fetch:</strong> Relying parties never contact the tick endpoint; they verify the embedded tick offline against the committed anchor.
-Exposing a fetchable URL to relying parties in the certificate is not merely wasteful -- it would encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids (<a href="#discovery" class="auto internal xref">Section 7.2</a>).<a href="#appendix-C.2-3.3.1" class="pilcrow">¶</a></p>
+            <p id="appendix-C.2-3.3.1"><strong>Only the authenticating party needs it, and only it should fetch:</strong> Relying parties verify the embedded tick offline against the committed anchor and <span class="bcp14">MUST NOT</span> fetch ticks (<a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a>).
+Putting a per-certificate URL in the certificate would not make fetching infeasible -- the URL is derivable regardless (<a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a>) -- but placing it in a field relying parties routinely parse would standardize and encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids.<a href="#appendix-C.2-3.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-C.2-3.4">
             <p id="appendix-C.2-3.4.1"><strong>Redundant given existing CA relationship:</strong> The authenticating party obtained the certificate from the CA (e.g., via ACME) and can receive the tick base URL through that same channel at zero per-certificate cost (<a href="#discovery" class="auto internal xref">Section 7.2</a>).<a href="#appendix-C.2-3.4.1" class="pilcrow">¶</a></p>

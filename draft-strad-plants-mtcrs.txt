@@ -111,8 +111,9 @@ Table of Contents
      8.1.  Hash Function Requirements
      8.2.  Seed Confidentiality
      8.3.  Denial of Service via Tick Withholding
-     8.4.  Interaction with Base MTC Revocation
-     8.5.  Clock Skew
+     8.4.  Relying Parties Do Not Fetch Ticks
+     8.5.  Interaction with Base MTC Revocation
+     8.6.  Clock Skew
    9.  IANA Considerations
      9.1.  Certificate Extension
      9.2.  Access Descriptor
@@ -708,16 +709,16 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
       can read once.  When both mechanisms are present and disagree, the
       provisioning-channel value takes precedence.
 
-   Keeping the base URL out of the certificate is deliberate, not merely
-   an optimization.  Relying parties verify a tick offline, against the
-   anchor already committed in the Merkle Tree (Section 6); they never
-   fetch ticks.  Placing a fetchable tick URL where relying parties
-   could see it (for example, in an AIA extension; see Appendix C) would
-   invite exactly the client-side fetch this mechanism is designed to
-   avoid, reintroducing the privacy leak (the CA learning which sites a
-   relying party visits), the added latency, and the soft-fail behaviour
-   that made client-driven OCSP [RFC6960] problematic.  Only the
-   authenticating party fetches ticks, so only it is given the base URL.
+   Keeping the base URL out of the certificate is deliberate, but it is
+   not a secrecy measure: as Section 8.4 explains, the URL is derivable
+   by anyone holding the certificate, so a relying party could construct
+   it regardless.  The point is not to hide the URL but to avoid
+   standardizing or advertising a per-certificate fetch affordance to
+   relying parties in a field they routinely parse.  Relying parties
+   verify the embedded tick offline against the committed anchor
+   (Section 6) and MUST NOT fetch ticks (Section 8.4); only the
+   authenticating party is given the base URL through provisioning,
+   because only it needs to refresh the value it presents.
 
    Because MTC certificates are renewed frequently (Section 10.4 of
    [I-D.ietf-plants-merkle-tree-certs] recommends renewal at about 75%
@@ -882,7 +883,35 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    efficiently distributed via CDN, reducing the attack surface for tick
    withholding.
 
-8.4.  Interaction with Base MTC Revocation
+8.4.  Relying Parties Do Not Fetch Ticks
+
+   The current tick is embedded in the MTCProof presented during the
+   handshake and is verified offline against the anchor committed in the
+   Merkle Tree (Section 6).  A relying party therefore has no need to
+   contact the CA, and MUST NOT fetch ticks or otherwise use the tick
+   distribution endpoint as an online revocation responder.
+
+   This is a privacy and availability protection, not a secrecy one.
+   The tick distribution URL is not secret: the fetch path is .well-
+   known/mtcrs/tick/{entry_hash} with {entry_hash} computable by anyone
+   holding the certificate, and the origin is low-entropy and, when the
+   CA certificate SIA (Section 7.2) is used, available to relying
+   parties as well.  The design does not, and cannot, technically
+   prevent a relying party from constructing the URL and fetching; it
+   declines to standardize or advertise such a fetch as an affordance to
+   relying parties.  A relying-party fetch would gain nothing over the
+   embedded tick -- the authenticating party already presents the
+   current value -- while reintroducing the CA-visibility of relying-
+   party activity (the CA learning which sites a relying party visits),
+   the added latency, and the soft-fail behaviour that made client-
+   driven OCSP [RFC6960] problematic.
+
+   The CA certificate SIA access method (Section 7.2) exists to convey
+   the base URL to authenticating-party tooling.  Relying parties
+   possess the CA certificate but MUST NOT use its tick base URL to
+   fetch tick status.
+
+8.5.  Interaction with Base MTC Revocation
 
    The hash chain mechanism complements rather than replaces the base
    MTC revoked ranges mechanism.  Revoked ranges provide a fallback for
@@ -899,7 +928,7 @@ expected_period = floor((current_time - issuance_time) / revocation_period)
    certificate is considered revoked if either mechanism indicates
    revocation.
 
-8.5.  Clock Skew
+8.6.  Clock Skew
 
    The grace period of accepting the current or immediately preceding
    period's tick (Section 6, step 4) provides tolerance for clock skew
@@ -1260,12 +1289,14 @@ C.2.  AIA-Based Tick URL Discovery
       migrate its tick infrastructure without certificate reissuance.
 
    *  *Only the authenticating party needs it, and only it should
-      fetch:* Relying parties never contact the tick endpoint; they
-      verify the embedded tick offline against the committed anchor.
-      Exposing a fetchable URL to relying parties in the certificate is
-      not merely wasteful -- it would encourage client-side tick
+      fetch:* Relying parties verify the embedded tick offline against
+      the committed anchor and MUST NOT fetch ticks (Section 8.4).
+      Putting a per-certificate URL in the certificate would not make
+      fetching infeasible -- the URL is derivable regardless
+      (Section 8.4) -- but placing it in a field relying parties
+      routinely parse would standardize and encourage client-side tick
       fetching, reintroducing the OCSP-style privacy leak, latency, and
-      soft-fail problems this mechanism avoids (Section 7.2).
+      soft-fail problems this mechanism avoids.
 
    *  *Redundant given existing CA relationship:* The authenticating
       party obtained the certificate from the CA (e.g., via ACME) and
