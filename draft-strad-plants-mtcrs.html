@@ -1591,7 +1591,7 @@ The number of periods in a certificate's lifetime is: <code>chain_length = lifet
 <div class="alignLeft art-text artwork" id="section-3.2-2.2.2">
 <pre>
 h[0] = seed
-h[i] = Hash(HashChainInput(h[i-1], i))  for i = 1, ..., chain_length
+h[i] = Hash(HashChainInput(h[i-1]))  for i = 1, ..., chain_length
 </pre><a href="#section-3.2-2.2.2" class="pilcrow">¶</a>
 </div>
 <p id="section-3.2-2.2.3">
@@ -1642,7 +1642,7 @@ Because period 0's value is the public anchor, the earliest period for which the
 <p id="section-3.5-1">The security of this mechanism relies on the preimage resistance of the hash function.
 Given <code>h[i]</code>, it is computationally infeasible to compute <code>h[i-1]</code> (which would be needed to forge a future validity proof).
 The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.<a href="#section-3.5-1" class="pilcrow">¶</a></p>
-<p id="section-3.5-2">The domain separation in HashChainInput (<a href="#encoding" class="auto internal xref">Appendix A</a>) prevents values from being confused with other protocol elements or with hash chain values at different positions.<a href="#section-3.5-2" class="pilcrow">¶</a></p>
+<p id="section-3.5-2">The label in HashChainInput (<a href="#encoding" class="auto internal xref">Appendix A</a>) domain-separates chain values from other uses of the hash function in MTC, and the per-entry issuer_id, log_number, and index salt each certificate's chain into its own hash domain (<a href="#encoding" class="auto internal xref">Appendix A</a>).<a href="#section-3.5-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="period-zero-rationale">
@@ -1855,8 +1855,8 @@ If not, reject the certificate with a certificate_expired error.<a href="#sectio
 <div class="alignLeft art-text artwork" id="section-6-2.5.2">
 <pre>
 v = tick.value
-for i = chain_length - tick.period + 1 to chain_length:
-    v = Hash(HashChainInput(v, i))
+for i = 1 to tick.period:
+    v = Hash(HashChainInput(v))
 </pre><a href="#section-6-2.5.2" class="pilcrow">¶</a>
 </div>
 </li>
@@ -2354,52 +2354,48 @@ id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 <div class="alignLeft art-text artwork" id="appendix-A-2">
 <pre>
 struct {
-    uint8 label[24] = "MTC HashChain Revocation";
+    uint8 label[7] = "MTCRS\n\0";
     TrustAnchorID issuer_id&lt;1..2^8-1&gt;;
     uint16 log_number;
     uint48 index;
-    uint32 position;
-    opaque preimage[HASH_SIZE];
+    HashValue preimage;
 } HashChainInput;
 </pre><a href="#appendix-A-2" class="pilcrow">¶</a>
 </div>
 <span class="break"></span><dl class="dlParallel" id="appendix-A-3">
         <dt id="appendix-A-3.1">label:</dt>
         <dd style="margin-left: 1.5em" id="appendix-A-3.2">
-          <p id="appendix-A-3.2.1">A fixed ASCII string providing domain separation from other uses of the hash function in MTC.<a href="#appendix-A-3.2.1" class="pilcrow">¶</a></p>
+          <p id="appendix-A-3.2.1">A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
+The trailing "\n\0" follows the convention of the base MTC specification's label (<code>"subtree/v1\n\0"</code>); the NUL terminator keeps the MTC label space prefix-free, so no label can be a prefix of another.
+The label's length is not otherwise security-relevant, and this short value keeps a typical HashChainInput within a single hash compression block.<a href="#appendix-A-3.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="appendix-A-3.3">issuer_id:</dt>
         <dd style="margin-left: 1.5em" id="appendix-A-3.4">
-          <p id="appendix-A-3.4.1">The CA's trust anchor ID.
-Binds the chain to a specific CA.<a href="#appendix-A-3.4.1" class="pilcrow">¶</a></p>
+          <p id="appendix-A-3.4.1">The CA's trust anchor ID.<a href="#appendix-A-3.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="appendix-A-3.5">log_number:</dt>
         <dd style="margin-left: 1.5em" id="appendix-A-3.6">
-          <p id="appendix-A-3.6.1">The log number of the issuance log containing this entry.
-Binds the chain to a specific log.<a href="#appendix-A-3.6.1" class="pilcrow">¶</a></p>
+          <p id="appendix-A-3.6.1">The log number of the issuance log containing this entry.<a href="#appendix-A-3.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="appendix-A-3.7">index:</dt>
         <dd style="margin-left: 1.5em" id="appendix-A-3.8">
-          <p id="appendix-A-3.8.1">The entry's index within the issuance log.
-Binds the chain to a specific entry.<a href="#appendix-A-3.8.1" class="pilcrow">¶</a></p>
+          <p id="appendix-A-3.8.1">The entry's index within the issuance log.<a href="#appendix-A-3.8.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="appendix-A-3.9">position:</dt>
+<dt id="appendix-A-3.9">preimage:</dt>
         <dd style="margin-left: 1.5em" id="appendix-A-3.10">
-          <p id="appendix-A-3.10.1">The position in the chain (1 to chain_length).
-Prevents values at different positions from being interchangeable.<a href="#appendix-A-3.10.1" class="pilcrow">¶</a></p>
-</dd>
-        <dd class="break"></dd>
-<dt id="appendix-A-3.11">preimage:</dt>
-        <dd style="margin-left: 1.5em" id="appendix-A-3.12">
-          <p id="appendix-A-3.12.1">The previous hash chain value being hashed.<a href="#appendix-A-3.12.1" class="pilcrow">¶</a></p>
+          <p id="appendix-A-3.10.1">The previous hash chain value being hashed.<a href="#appendix-A-3.10.1" class="pilcrow">¶</a></p>
 </dd>
       <dd class="break"></dd>
 </dl>
-<p id="appendix-A-4">The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).<a href="#appendix-A-4" class="pilcrow">¶</a></p>
+<p id="appendix-A-4">The issuer_id, log_number, and index fields together identify the log entry and act as a per-entry salt, placing each certificate's chain in a distinct hash domain.
+This salting is not load-bearing for the core guarantee: each chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate (<a href="#assertion-integration" class="auto internal xref">Section 4</a>) binds each revealed value to that specific chain.
+Its contribution is defense in depth.
+It keeps chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of chains at once (the same rationale as salting).<a href="#appendix-A-4" class="pilcrow">¶</a></p>
+<p id="appendix-A-5">The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).<a href="#appendix-A-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="rationale">
