@@ -679,7 +679,7 @@ Its accessLocation is a uniformResourceIdentifier giving the CA's tick base URL 
 The HashChainInput structure provides domain separation for hash chain computations:
 
     struct {
-        uint8 label[5] = "MTCRS";
+        uint8 label[7] = "MTCRS\n\0";
         TrustAnchorID issuer_id<1..2^8-1>;
         uint16 log_number;
         uint48 index;
@@ -688,7 +688,8 @@ The HashChainInput structure provides domain separation for hash chain computati
 
 label:
 : A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
-  The value need only be distinct from the domain-separation labels used elsewhere in MTC; its length is not security-relevant, and the short value keeps a typical HashChainInput within a single hash compression block.
+  The trailing "\n\0" follows the convention of the base MTC specification's label (`"subtree/v1\n\0"`); the NUL terminator keeps the MTC label space prefix-free, so no label can be a prefix of another.
+  The label's length is not otherwise security-relevant, and this short value keeps a typical HashChainInput within a single hash compression block.
 
 issuer_id:
 : The CA's trust anchor ID.
