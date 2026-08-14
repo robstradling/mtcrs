@@ -10,7 +10,7 @@
        This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC)  .
 A Merkle Tree CA includes a hash chain anchor (the &quot;target&quot;) in the certificate at issuance time.
 Periodically, the CA reveals hash chain values that serve as proof of non-revocation.
-The authenticating party embeds the current hash chain value (a &quot;tick&quot;) in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour. 
+The authenticating party embeds the current hash chain value (a &quot;tick&quot;) in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour, or finer. 
        This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA. 
     " name="description">
 <meta content="xml2rfc 3.34.0" name="generator">
@@ -1086,7 +1086,7 @@ svg {
 <p id="section-abstract-1">This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC) <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.
 A Merkle Tree CA includes a hash chain anchor (the "target") in the certificate at issuance time.
 Periodically, the CA reveals hash chain values that serve as proof of non-revocation.
-The authenticating party embeds the current hash chain value (a "tick") in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+The authenticating party embeds the current hash chain value (a "tick") in the certificate's MTCProof, enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour, or finer.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 <p id="section-abstract-2">This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
 </section>
 <section class="note rfcEditorRemove" id="section-note.1">
@@ -1210,10 +1210,10 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
                 <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-hash-chain-tick" class="internal xref">Hash Chain Tick</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1.2.1">
-                    <p id="section-toc.1-1.5.2.1.2.1.1"><a href="#section-5.1.1" class="auto internal xref">5.1.1</a>.  <a href="#name-preferred-encoding-proof-ex" class="internal xref">Preferred Encoding: Proof Extension</a></p>
+                    <p id="section-toc.1-1.5.2.1.2.1.1"><a href="#section-5.1.1" class="auto internal xref">5.1.1</a>.  <a href="#name-preferred-encoding-trailing" class="internal xref">Preferred Encoding: Trailing status_tick Field</a></p>
 </li>
                   <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1.2.2">
-                    <p id="section-toc.1-1.5.2.1.2.2.1"><a href="#section-5.1.2" class="auto internal xref">5.1.2</a>.  <a href="#name-alternative-encoding-traili" class="internal xref">Alternative Encoding: Trailing status_tick Field</a></p>
+                    <p id="section-toc.1-1.5.2.1.2.2.1"><a href="#section-5.1.2" class="auto internal xref">5.1.2</a>.  <a href="#name-alternative-encoding-proof-" class="internal xref">Alternative Encoding: Proof Extension</a></p>
 </li>
                 </ul>
 </li>
@@ -1767,28 +1767,16 @@ The authenticating party reconstructs or replaces the signatureValue with a fres
 A relying party <span class="bcp14">SHOULD</span> accept ticks for the current period or the immediately preceding period, to allow for clock skew and caching.<a href="#section-5.1-5" class="pilcrow">¶</a></p>
 <p id="section-5.1-6">This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
 Both are amendments to the base MTCProof structure and differ in generality.
-The proof-extension encoding (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.1</a>) is <span class="bcp14">RECOMMENDED</span>: it asks the base MTC specification to adopt the reusable, extensible MTCProof structure in <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>.
-The trailing-field encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.2</a>) is a narrower alternative amendment that appends the tick directly, for a base specification that prefers not to introduce a general extensibility point.
+The trailing-field encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) is <span class="bcp14">RECOMMENDED</span>: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
+The proof-extension encoding (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.2</a>) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>); as a general "ignore if unknown" channel it carries the abuse surface discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>, which for a single 36-byte use is not otherwise justified.
 Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded (see <a href="#objections" class="auto internal xref">Appendix D</a>).<a href="#section-5.1-6" class="pilcrow">¶</a></p>
-<div id="tick-proof-extension">
-<section id="section-5.1.1">
-          <h4 id="name-preferred-encoding-proof-ex">
-<a href="#section-5.1.1" class="section-number selfRef">5.1.1. </a><a href="#name-preferred-encoding-proof-ex" class="section-name selfRef">Preferred Encoding: Proof Extension</a>
-          </h4>
-<p id="section-5.1.1-1">In the <span class="bcp14">RECOMMENDED</span> encoding, the MTCProof carries a trailing, length-prefixed <code>proof_extensions</code> field, and the HashChainTick travels as one of its entries.
-This requires the base MTC specification to adopt the extensible MTCProof structure defined in <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>.
-With that amendment in place, unaware parsers can skip the tick and the id-pe-hashChainAnchor extension can remain non-critical, enabling incremental deployment.<a href="#section-5.1.1-1" class="pilcrow">¶</a></p>
-<p id="section-5.1.1-2">The HashChainTick is encoded as an MTCProofExtension with <code>extension_type</code> set to <code>hash_chain_tick(0)</code> and <code>extension_data</code> containing the serialized HashChainTick (4 + HASH_SIZE bytes), as described in <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>.
-When the id-pe-hashChainAnchor extension is present, the MTCProof <span class="bcp14">MUST</span> contain exactly one hash_chain_tick proof extension.<a href="#section-5.1.1-2" class="pilcrow">¶</a></p>
-</section>
-</div>
 <div id="tick-trailing-field">
-<section id="section-5.1.2">
-          <h4 id="name-alternative-encoding-traili">
-<a href="#section-5.1.2" class="section-number selfRef">5.1.2. </a><a href="#name-alternative-encoding-traili" class="section-name selfRef">Alternative Encoding: Trailing status_tick Field</a>
+<section id="section-5.1.1">
+          <h4 id="name-preferred-encoding-trailing">
+<a href="#section-5.1.1" class="section-number selfRef">5.1.1. </a><a href="#name-preferred-encoding-trailing" class="section-name selfRef">Preferred Encoding: Trailing status_tick Field</a>
           </h4>
-<p id="section-5.1.2-1">As a narrower alternative to the general-purpose proof_extensions field, the base MTC specification could instead be amended to append the HashChainTick directly to the MTCProof as a trailing status_tick field:<a href="#section-5.1.2-1" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="section-5.1.2-2">
+<p id="section-5.1.1-1">In the <span class="bcp14">RECOMMENDED</span> encoding, the base MTC specification is amended to append the HashChainTick directly to the MTCProof as a fixed-size trailing status_tick field:<a href="#section-5.1.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1.1-2">
 <pre>
 struct {
     MerkleTreeCertEntryExtension extensions&lt;0..2^16-1&gt;;
@@ -1798,20 +1786,26 @@ struct {
     MTCSignature signatures&lt;0..2^16-1&gt;;
     HashChainTick status_tick;
 } MTCProof;
-</pre><a href="#section-5.1.2-2" class="pilcrow">¶</a>
+</pre><a href="#section-5.1.1-2" class="pilcrow">¶</a>
 </div>
-<p id="section-5.1.2-3">Under this amendment, the status_tick field is present whenever the id-pe-hashChainAnchor extension is present, and the "extra data" check in Section 7.2 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> is amended to account for the trailing status_tick field (just as it would be amended for proof_extensions under the preferred encoding).<a href="#section-5.1.2-3" class="pilcrow">¶</a></p>
-<p id="section-5.1.2-4">Like the preferred encoding, this is a change to the base MTCProof structure, and a relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.
-The two options differ in generality rather than compatibility:<a href="#section-5.1.2-4" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-5.1.2-5.1">
-              <p id="section-5.1.2-5.1.1">The proof_extensions encoding adds a reusable, length-prefixed extensibility point that can also carry future proof-level mechanisms (for example, key transparency signals or policy assertions), at the cost of a small always-present length prefix.<a href="#section-5.1.2-5.1.1" class="pilcrow">¶</a></p>
-</li>
-            <li class="normal" id="section-5.1.2-5.2">
-              <p id="section-5.1.2-5.2.1">The trailing status_tick encoding is slightly simpler, adding no extensibility point and no length prefix, but it is specific to this mechanism and would require a further base-specification change to carry anything else.<a href="#section-5.1.2-5.2.1" class="pilcrow">¶</a></p>
-</li>
-          </ul>
-<p id="section-5.1.2-6">This document RECOMMENDS the proof_extensions encoding for its generality, and offers the trailing status_tick field as a simpler alternative amendment for a base specification that prefers not to introduce a general extensibility point.<a href="#section-5.1.2-6" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-3">The status_tick field is present whenever the id-pe-hashChainAnchor extension is present, and the "extra data" check in Section 7.2 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> is amended to account for the trailing status_tick field.
+A relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.<a href="#section-5.1.1-3" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-4">This is the minimal change to the base MTCProof structure.
+Because the appended field is fixed-size and, for a conforming relying party, fully verified against the committed anchor (<a href="#verification" class="auto internal xref">Section 6</a>), it adds no variable-length "ignore if unknown" region and hence no general stuffing or covert-channel surface (contrast <a href="#tick-proof-extension" class="auto internal xref">Section 5.1.2</a> and <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>).
+Its only cost is that carrying a second proof-level mechanism in future would require a further base-specification change.<a href="#section-5.1.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="tick-proof-extension">
+<section id="section-5.1.2">
+          <h4 id="name-alternative-encoding-proof-">
+<a href="#section-5.1.2" class="section-number selfRef">5.1.2. </a><a href="#name-alternative-encoding-proof-" class="section-name selfRef">Alternative Encoding: Proof Extension</a>
+          </h4>
+<p id="section-5.1.2-1">Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the <code>proof_extensions</code> structure defined in <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a> and carry the HashChainTick as one of its entries.<a href="#section-5.1.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.1.2-2">The HashChainTick is then encoded as an MTCProofExtension with <code>extension_type</code> set to <code>hash_chain_tick(0)</code> and <code>extension_data</code> containing the serialized HashChainTick (4 + HASH_SIZE bytes), as described in <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>.
+When the id-pe-hashChainAnchor extension is present, the MTCProof <span class="bcp14">MUST</span> contain exactly one hash_chain_tick proof extension.<a href="#section-5.1.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.1.2-3">This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
+Those benefits come at a cost: as a general, unauthenticated, "ignore if unknown" channel it introduces the abuse surface -- bloat, covert channels, and a strippable soft-fail for any misuse -- discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>.
+This document treats that surface as unjustified for a single 36-byte use, and therefore recommends the trailing field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) unless a concrete need for general extensibility exists.<a href="#section-5.1.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1841,7 +1835,7 @@ If the tick is absent, malformed, or fails verification, the relying party <span
 If not present, skip hash chain verification (the certificate does not use this mechanism).<a href="#section-6-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-6-2.2">
-          <p id="section-6-2.2.1">Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the hash_chain_tick proof extension (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.1</a>) or, if the proof-extension amendment was not adopted, the trailing status_tick field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.2</a>).
+          <p id="section-6-2.2.1">Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the trailing status_tick field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) or, if the general proof_extensions amendment was adopted instead, the hash_chain_tick proof extension (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.2</a>).
 If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.<a href="#section-6-2.2.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-6-2.3">
@@ -1932,7 +1926,8 @@ CAs using other issuance protocols <span class="bcp14">MUST</span> provide an eq
             <p id="section-7.2-3.2.1"><strong>CA certificate SIA (optional).</strong>
 The base URL <span class="bcp14">MAY</span> additionally be published in the CA's certificate representation (Section 5.5 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) using the id-ad-mtcrsTicks Subject Information Access access method defined in <a href="#iana-considerations" class="auto internal xref">Section 9</a>, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
 This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent record that an authenticating party (or its tooling) can read once.
-When both mechanisms are present and disagree, the provisioning-channel value takes precedence.<a href="#section-7.2-3.2.1" class="pilcrow">¶</a></p>
+When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
+This mechanism carries only the base URL, so it does not apply when unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 7.4</a>) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA <span class="bcp14">SHOULD NOT</span> be published.<a href="#section-7.2-3.2.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-7.2-4">Keeping the base URL out of the certificate is deliberate, but it is not a secrecy measure: as <a href="#rp-no-fetch" class="auto internal xref">Section 8.4</a> explains, the URL is derivable by anyone holding the certificate, so a relying party could construct it regardless.
@@ -2002,7 +1997,8 @@ The key_id prefix identifies K_ca so that it can be rotated; the CA retains supe
         </ul>
 <p id="section-7.4-6">When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
 For ACME, the order object carries the full URL in a <code>tickURL</code> field in place of <code>tickBaseURL</code> (<a href="#acme-integration" class="auto internal xref">Section 7.3</a>).
-The CA-certificate SIA (<a href="#discovery" class="auto internal xref">Section 7.2</a>) conveys only the per-CA base URL and so cannot by itself locate a token-addressed tick; it remains useful only as ancillary information.<a href="#section-7.4-6" class="pilcrow">¶</a></p>
+The CA-certificate SIA (<a href="#discovery" class="auto internal xref">Section 7.2</a>) conveys only the per-CA base URL, which cannot locate a token-addressed tick, and only the provisioning channel carries the token.
+The SIA therefore provides no operational value when unguessable tick URLs are used, and a CA that uses them <span class="bcp14">SHOULD NOT</span> publish the id-ad-mtcrsTicks access method.<a href="#section-7.4-6" class="pilcrow">¶</a></p>
 <p id="section-7.4-7">This hardening preserves the properties of the base HTTP interface.
 Each token addresses a value that is immutable within a period, so per-period caching and CDN distribution (<a href="#load-distribution" class="auto internal xref">Section 7.7</a>) are unchanged.
 The token is an addressing capability, not a confidentiality secret: the tick it locates is public and self-authenticating, so the fetch still requires no transport-layer integrity or confidentiality and <span class="bcp14">MAY</span> be served over plain HTTP.<a href="#section-7.4-7" class="pilcrow">¶</a></p>
@@ -2072,10 +2068,10 @@ Two complementary mechanisms exploit this slack to prevent a period-boundary thu
 <p id="section-7.7.1-1">Rather than fetching at the start of each period, an authenticating party <span class="bcp14">SHOULD</span> fetch at a fixed offset into the period derived deterministically from its own entry_hash:<a href="#section-7.7.1-1" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-7.7.1-2">
 <pre>
-offset = INT32(entry_hash[0..3]) mod revocation_period
+offset = UINT32(entry_hash[0..3]) mod revocation_period
 </pre><a href="#section-7.7.1-2" class="pilcrow">¶</a>
 </div>
-<p id="section-7.7.1-3">where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and INT32 interprets its first four bytes as a big-endian unsigned integer.
+<p id="section-7.7.1-3">where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and UINT32 interprets its first four bytes as a big-endian unsigned integer.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
 During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.<a href="#section-7.7.1-3" class="pilcrow">¶</a></p>
 <p id="section-7.7.1-4">Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
@@ -2154,7 +2150,8 @@ Relying parties possess the CA certificate but <span class="bcp14">MUST NOT</spa
         <h3 id="name-unauthenticated-proof-exten">
 <a href="#section-8.5" class="section-number selfRef">8.5. </a><a href="#name-unauthenticated-proof-exten" class="section-name selfRef">Unauthenticated Proof Extensions</a>
         </h3>
-<p id="section-8.5-1">If the tick is carried in a <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
+<p id="section-8.5-1">The <span class="bcp14">RECOMMENDED</span> trailing status_tick encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) appends a fixed-size, fully verified value and so adds no general "ignore if unknown" region.
+If the base specification instead adopts the alternative proof_extensions encoding (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
 Hash chain revocation does not rely on its authenticity -- the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension.
 <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a> discusses the general risks of this field (bloat, covert channels, and a strippable soft-fail for other mechanisms) and the constraints recommended for the base specification.<a href="#section-8.5-1" class="pilcrow">¶</a></p>
 </section>
@@ -2903,7 +2900,7 @@ An unaware relying party will ignore the non-critical id-pe-hashChainAnchor exte
 <p id="appendix-D.7-4">This means that, in practice, deploying this mechanism requires one of the following:<a href="#appendix-D.7-4" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="appendix-D.7-5">
 <li id="appendix-D.7-5.1">
-            <p id="appendix-D.7-5.1.1"><strong>Amendment to the base MTC specification:</strong> The MTCProof structure is extended with a trailing extensions field (see <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) that existing parsers can safely skip.
+            <p id="appendix-D.7-5.1.1"><strong>Amendment to the base MTC specification:</strong> The MTCProof structure is amended so that conforming parsers accept the tick -- either by appending the fixed status_tick field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) or by adding the general proof_extensions field (see <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>).
 This is the preferred approach and is proposed by this document.<a href="#appendix-D.7-5.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-D.7-5.2">
@@ -2916,9 +2913,9 @@ Early implementations can adopt the extended MTCProof structure from the start.<
 </li>
         </ol>
 <p id="appendix-D.7-6">Both encodings this document describes (<a href="#cert-format" class="auto internal xref">Section 5</a>) take option 1: each amends the base MTC specification so that conforming parsers accept the tick.
-The <span class="bcp14">RECOMMENDED</span> proof-extension encoding (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.1</a>) adds a general, reusable extensibility point, while the alternative trailing status_tick encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.2</a>) is a narrower amendment specific to this mechanism.
+The <span class="bcp14">RECOMMENDED</span> trailing status_tick encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>) is the minimal such amendment; the proof-extension encoding (<a href="#tick-proof-extension" class="auto internal xref">Section 5.1.2</a>) is the alternative for a base specification that also wants a general, reusable extensibility point, at the cost of the abuse surface in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>.
 Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.
-See <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a> for the proposed MTCProof amendment.<a href="#appendix-D.7-6" class="pilcrow">¶</a></p>
+See <a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a> for the proof_extensions amendment.<a href="#appendix-D.7-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="hourly-tick-refresh-adds-operational-burden-to-servers">
@@ -2968,7 +2965,9 @@ If the linear cost is nonetheless a concern for a specific deployment, choosing 
       <h2 id="name-proposed-mtcproof-extensibi">
 <a href="#appendix-E" class="section-number selfRef">Appendix E. </a><a href="#name-proposed-mtcproof-extensibi" class="section-name selfRef">Proposed MTCProof Extensibility</a>
       </h2>
-<p id="appendix-E-1">This document proposes that the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> amend the MTCProof structure to include a trailing proof-level extensions field, enabling future mechanisms (including hash chain revocation) to attach additional data to the certificate presentation without breaking existing parsers.<a href="#appendix-E-1" class="pilcrow">¶</a></p>
+<p id="appendix-E-1">The <span class="bcp14">RECOMMENDED</span> way to carry the tick is the fixed trailing status_tick field (<a href="#tick-trailing-field" class="auto internal xref">Section 5.1.1</a>), which needs no general extensibility mechanism.
+This section describes an alternative: a general, reusable proof-level extensions field that the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> <span class="bcp14">MAY</span> adopt if it wants future mechanisms (beyond hash chain revocation) to attach data to the certificate presentation without a further structural change each time.
+It is not required for hash chain revocation alone, and it carries the abuse surface discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>.<a href="#appendix-E-1" class="pilcrow">¶</a></p>
 <div id="motivation">
 <section id="appendix-E.1">
         <h3 id="name-motivation">
@@ -2990,7 +2989,7 @@ struct {
 This means no trailing data can be added without breaking all existing parsers.<a href="#appendix-E.1-3" class="pilcrow">¶</a></p>
 <p id="appendix-E.1-4">The existing <code>extensions</code> field in MTCProof carries the log entry's MerkleTreeCertEntryExtension values, which are committed to the Merkle Tree.
 These cannot carry dynamic, per-period data like hash chain ticks because the Merkle Tree inclusion proof would fail.<a href="#appendix-E.1-4" class="pilcrow">¶</a></p>
-<p id="appendix-E.1-5">A proof-level extensions field — not committed to the tree and freely updatable by the authenticating party — would allow the MTCProof to carry revocation ticks and potentially other future mechanisms (e.g., key transparency signals, policy assertions) without requiring a new version of the base specification for each.<a href="#appendix-E.1-5" class="pilcrow">¶</a></p>
+<p id="appendix-E.1-5">A proof-level extensions field — not committed to the tree and freely updatable by the authenticating party — would allow the MTCProof to carry revocation ticks and potentially other future self-authenticating proof-level values without requiring a new version of the base specification for each.<a href="#appendix-E.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="proposed-amendment">
