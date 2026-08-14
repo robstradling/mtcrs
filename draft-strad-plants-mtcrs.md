@@ -326,16 +326,7 @@ The extension MUST appear at most once in a certificate.
 ## Hash Chain Tick
 
 When a hash chain anchor extension is present in the certificate, the authenticating party MUST include a hash chain tick in the MTCProof structure (carried in the certificate's signatureValue).
-This document extends the MTCProof with a status_tick field:
-
-    struct {
-        MerkleTreeCertEntryExtension extensions<0..2^16-1>;
-        uint48 start;
-        uint48 end;
-        HashValue inclusion_proof<0..2^16-1>;
-        MTCSignature signatures<0..2^16-1>;
-        HashChainTick status_tick;
-    } MTCProof;
+The tick is a HashChainTick:
 
     struct {
         uint32 period;
@@ -348,21 +339,58 @@ period:
 value:
 : The hash chain value `h[chain_length - period]`.
 
-The status_tick field MUST be present in the MTCProof whenever the certificate's TBSCertificate contains the id-pe-hashChainAnchor extension.
-
-Since the MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), the status_tick can be updated each period without affecting the inclusion proof or cosignatures.
+The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the signatureValue with a fresh tick while reusing the same inclusion proof and signatures.
 
 The authenticating party MUST include a HashChainTick with a period value that is current at the time of the TLS handshake.
 A relying party SHOULD accept ticks for the current period or the immediately preceding period, to allow for clock skew and caching.
+
+This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
+Both are amendments to the base MTCProof structure and differ in generality.
+The proof-extension encoding ({{tick-proof-extension}}) is RECOMMENDED: it asks the base MTC specification to adopt the reusable, extensible MTCProof structure in {{mtcproof-extensibility}}.
+The trailing-field encoding ({{tick-trailing-field}}) is a narrower alternative amendment that appends the tick directly, for a base specification that prefers not to introduce a general extensibility point.
+Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded (see {{objections}}).
+
+### Preferred Encoding: Proof Extension {#tick-proof-extension}
+
+In the RECOMMENDED encoding, the MTCProof carries a trailing, length-prefixed `proof_extensions` field, and the HashChainTick travels as one of its entries.
+This requires the base MTC specification to adopt the extensible MTCProof structure defined in {{mtcproof-extensibility}}.
+With that amendment in place, unaware parsers can skip the tick and the id-pe-hashChainAnchor extension can remain non-critical, enabling incremental deployment.
+
+The HashChainTick is encoded as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized HashChainTick (4 + HASH_SIZE bytes), as described in {{mtcproof-extensibility}}.
+When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one hash_chain_tick proof extension.
+
+### Alternative Encoding: Trailing status_tick Field {#tick-trailing-field}
+
+As a narrower alternative to the general-purpose proof_extensions field, the base MTC specification could instead be amended to append the HashChainTick directly to the MTCProof as a trailing status_tick field:
+
+    struct {
+        MerkleTreeCertEntryExtension extensions<0..2^16-1>;
+        uint48 start;
+        uint48 end;
+        HashValue inclusion_proof<0..2^16-1>;
+        MTCSignature signatures<0..2^16-1>;
+        HashChainTick status_tick;
+    } MTCProof;
+
+Under this amendment, the status_tick field is present whenever the id-pe-hashChainAnchor extension is present, and the "extra data" check in Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} is amended to account for the trailing status_tick field (just as it would be amended for proof_extensions under the preferred encoding).
+
+Like the preferred encoding, this is a change to the base MTCProof structure, and a relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.
+The two options differ in generality rather than compatibility:
+
+- The proof_extensions encoding adds a reusable, length-prefixed extensibility point that can also carry future proof-level mechanisms (for example, key transparency signals or policy assertions), at the cost of a small always-present length prefix.
+
+- The trailing status_tick encoding is slightly simpler, adding no extensibility point and no length prefix, but it is specific to this mechanism and would require a further base-specification change to carry anything else.
+
+This document RECOMMENDS the proof_extensions encoding for its generality, and offers the trailing status_tick field as a simpler alternative amendment for a base specification that prefers not to introduce a general extensibility point.
 
 ## Use in TLS {#tls-use}
 
 No new TLS extension type is required.
 When the authenticating party presents a Merkle Tree Certificate, the hash chain tick is carried within the certificate's signatureValue as part of the MTCProof, which is already transmitted in the CertificateEntry.
 
-The presence of id-pe-hashChainAnchor in the TBSCertificate signals to the relying party that the MTCProof contains a status_tick field.
-If the field is absent, malformed, or fails verification, the relying party MUST reject the certificate.
+The presence of id-pe-hashChainAnchor in the TBSCertificate signals to the relying party that the MTCProof carries a HashChainTick ({{cert-format}}).
+If the tick is absent, malformed, or fails verification, the relying party MUST reject the certificate.
 
 # Verification {#verification}
 
@@ -371,8 +399,8 @@ When a relying party receives a Merkle Tree Certificate with the id-pe-hashChain
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
 
-2. Extract the HashChainTick from the status_tick field of the MTCProof (in the certificate's signatureValue).
-   If the id-pe-hashChainAnchor extension is present but the MTCProof does not contain a status_tick, reject the certificate with a bad_certificate error.
+2. Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the hash_chain_tick proof extension ({{tick-proof-extension}}) or, if the proof-extension amendment was not adopted, the trailing status_tick field ({{tick-trailing-field}}).
+   If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.
 
 3. Compute the expected period from the current time:
 
@@ -460,10 +488,10 @@ The authenticating party periodically fetches its current tick from the CA:
 
 1. At least once per revocation_period, the authenticating party fetches its updated HashChainTick.
 
-2. The authenticating party updates the status_tick field in its certificate's MTCProof (signatureValue) with the newly fetched value.
+2. The authenticating party updates the HashChainTick carried in its certificate's MTCProof (signatureValue) with the newly fetched value.
    The inclusion proof and cosignatures remain unchanged.
 
-3. During TLS handshakes, the authenticating party presents the certificate with the current status_tick.
+3. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
 If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
 After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
@@ -660,7 +688,7 @@ The pebbles are unrevealed chain values and therefore carry the same confidentia
 The tick is embedded directly in the MTCProof (the certificate's signatureValue) rather than delivered via a separate channel because:
 
 1. **Structurally inseparable:** The tick is part of the certificate itself.
-   A relying party that parses the MTCProof will always encounter the status_tick field.
+   A relying party that parses the MTCProof will always encounter the tick.
    There is no possibility of the tick being stripped or omitted in transit.
 
 2. **No new protocol machinery:** No TLS CertificateEntry extension or other signaling mechanism is needed.
@@ -917,7 +945,9 @@ This means that, in practice, deploying this mechanism requires one of the follo
 3. **Concurrent deployment:** Since MTC is not yet deployed at scale, both the base spec and this extension can be implemented together before the ecosystem ossifies.
    Early implementations can adopt the extended MTCProof structure from the start.
 
-This document pursues option 1 as the primary path, with option 3 as a practical fallback during the current development window.
+Both encodings this document describes ({{cert-format}}) take option 1: each amends the base MTC specification so that conforming parsers accept the tick.
+The RECOMMENDED proof-extension encoding ({{tick-proof-extension}}) adds a general, reusable extensibility point, while the alternative trailing status_tick encoding ({{tick-trailing-field}}) is a narrower amendment specific to this mechanism.
+Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.
 See {{mtcproof-extensibility}} for the proposed MTCProof amendment.
 
 ## "Hourly Tick Refresh Adds Operational Burden to Servers"
