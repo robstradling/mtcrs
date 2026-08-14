@@ -370,7 +370,7 @@ The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntr
 The authenticating party reconstructs or replaces the signatureValue with a fresh tick while reusing the same inclusion proof and signatures.
 
 The authenticating party MUST include a HashChainTick with a period value that is current at the time of the TLS handshake.
-A relying party SHOULD accept ticks for the current period or the immediately preceding period, to allow for clock skew and caching.
+A relying party SHOULD accept ticks for the current period, the immediately preceding period, or the immediately following period, to allow for clock skew and caching ({{clock-skew}}).
 
 This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
 Both are amendments to the base MTCProof structure and differ in generality.
@@ -441,7 +441,7 @@ Using these inputs, the verifier performs the following steps:
 
        expected_period = floor((current_time - not_before) / revocation_period)
 
-4. Check that `tick.period` is equal to expected_period or expected_period - 1.
+4. Check that `tick.period` is equal to expected_period, expected_period - 1, or expected_period + 1 ({{clock-skew}}).
    If not, reject the certificate with a certificate_expired error.
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
@@ -600,8 +600,7 @@ At this scale, edge caching (each tick is immutable within its period and cachea
 
 ## Distributing Tick Requests {#load-distribution}
 
-A relying party accepts a tick for either the current period or the immediately preceding period ({{verification}}).
-An authenticating party therefore has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
+Because a relying party also accepts a tick for the immediately preceding period ({{verification}}), an authenticating party has up to one full revocation_period of slack in which to fetch each new tick and need not fetch at the period boundary.
 Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.
 
 ### Client-Side: Deterministic Per-Entry Offset
@@ -680,10 +679,16 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
 
 Relying parties that support both mechanisms SHOULD check both: a certificate is considered revoked if either mechanism indicates revocation.
 
-## Clock Skew
+## Clock Skew {#clock-skew}
 
-The grace period of accepting the current or immediately preceding period's tick ({{verification}}, step 4) provides tolerance for clock skew of up to one full revocation_period.
-Deployments with known clock skew issues MAY extend this to two preceding periods at the cost of slightly delayed revocation enforcement.
+Verification step 4 accepts a tick whose period is the verifier's expected_period, the immediately preceding period (expected_period - 1), or the immediately following period (expected_period + 1).
+This tolerates a verifier clock that is behind or ahead of the authenticating party's by up to one full revocation_period in either direction, and also an authenticating party that is still serving the previous period's tick for caching or staggered refresh ({{load-distribution}}).
+
+The two directions are not equivalent in cost.
+Accepting the immediately following period -- what a verifier whose clock is behind will see -- costs nothing in revocation terms: that tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; {{security-considerations}}).
+Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one revocation_period old, which is the intended one-period grace.
+
+Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{objections}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
 
 # IANA Considerations {#iana-considerations}
 
