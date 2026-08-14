@@ -248,8 +248,13 @@ The period number at any given time t is:
     period = floor((t - not_before) / revocation_period)
 
 not_before is the notBefore time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
-It anchors the period schedule to a value that both the CA and every verifier can read from the certificate; it is not necessarily the exact instant of issuance, since a CA may set notBefore earlier than it actually issued the certificate to allow for clock skew.
-The CA MUST number periods from notBefore, so that the CA and every verifier compute identical period boundaries.
+It anchors the period schedule to a value that both the CA and every verifier read from the certificate, so they compute identical period boundaries regardless of their wall-clock differences; it is not necessarily the exact instant of issuance.
+The CA MUST number periods from notBefore and MUST NOT begin revealing ticks before period 0 starts at notBefore.
+
+A CA commonly sets notBefore slightly earlier than the actual instant of issuance (backdating) to tolerate relying-party clock skew.
+This is harmless here: it merely places the certificate a little way into period 0 when it is first presented (or, if notBefore is backdated by more than one revocation_period, into a later period).
+Setting notBefore later than issuance (forward-dating) is different: there is no period earlier than 0, and for any time t earlier than notBefore the quantity (t - not_before) is negative.
+Such a certificate is simply not yet valid; a verifier MUST reject it through the base MTC validity check before computing any period, and MUST NOT evaluate the period expression with unsigned arithmetic, which would underflow for such times and could yield a spuriously large period.
 
 ## Revealing Values
 
