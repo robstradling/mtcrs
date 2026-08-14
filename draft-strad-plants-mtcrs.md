@@ -469,10 +469,9 @@ A CA MUST make the tick base URL available through at least one of the following
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent record that an authenticating party (or its tooling) can read once.
   When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
 
-Keeping the base URL out of the certificate is deliberate, not merely an optimization.
-Relying parties verify a tick offline, against the anchor already committed in the Merkle Tree ({{verification}}); they never fetch ticks.
-Placing a fetchable tick URL where relying parties could see it (for example, in an AIA extension; see {{alternatives}}) would invite exactly the client-side fetch this mechanism is designed to avoid, reintroducing the privacy leak (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{RFC6960}} problematic.
-Only the authenticating party fetches ticks, so only it is given the base URL.
+Keeping the base URL out of the certificate is deliberate, but it is not a secrecy measure: as {{rp-no-fetch}} explains, the URL is derivable by anyone holding the certificate, so a relying party could construct it regardless.
+The point is not to hide the URL but to avoid standardizing or advertising a per-certificate fetch affordance to relying parties in a field they routinely parse.
+Relying parties verify the embedded tick offline against the committed anchor ({{verification}}) and MUST NOT fetch ticks ({{rp-no-fetch}}); only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents.
 
 Because MTC certificates are renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
 
@@ -570,6 +569,19 @@ A compromised or malicious CA could withhold ticks from a legitimate authenticat
 This is analogous to a CA refusing to issue OCSP responses and is mitigated by the same market forces: an authenticating party that cannot obtain ticks will switch to another CA.
 
 Additionally, since ticks are small (36 bytes), they can be efficiently distributed via CDN, reducing the attack surface for tick withholding.
+
+## Relying Parties Do Not Fetch Ticks {#rp-no-fetch}
+
+The current tick is embedded in the MTCProof presented during the handshake and is verified offline against the anchor committed in the Merkle Tree ({{verification}}).
+A relying party therefore has no need to contact the CA, and MUST NOT fetch ticks or otherwise use the tick distribution endpoint as an online revocation responder.
+
+This is a privacy and availability protection, not a secrecy one.
+The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/tick/{entry_hash}` with {entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
+The design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+A relying-party fetch would gain nothing over the embedded tick -- the authenticating party already presents the current value -- while reintroducing the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{RFC6960}} problematic.
+
+The CA certificate SIA access method ({{discovery}}) exists to convey the base URL to authenticating-party tooling.
+Relying parties possess the CA certificate but MUST NOT use its tick base URL to fetch tick status.
 
 ## Interaction with Base MTC Revocation
 
@@ -783,8 +795,8 @@ This approach was rejected because:
 - **Immutable once issued:** If the CA migrates its tick distribution infrastructure, all existing certificates still contain the old URL.
   Delivering the URL out of band ({{discovery}}) lets the CA migrate its tick infrastructure without certificate reissuance.
 
-- **Only the authenticating party needs it, and only it should fetch:** Relying parties never contact the tick endpoint; they verify the embedded tick offline against the committed anchor.
-  Exposing a fetchable URL to relying parties in the certificate is not merely wasteful -- it would encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids ({{discovery}}).
+- **Only the authenticating party needs it, and only it should fetch:** Relying parties verify the embedded tick offline against the committed anchor and MUST NOT fetch ticks ({{rp-no-fetch}}).
+  Putting a per-certificate URL in the certificate would not make fetching infeasible -- the URL is derivable regardless ({{rp-no-fetch}}) -- but placing it in a field relying parties routinely parse would standardize and encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids.
 
 - **Redundant given existing CA relationship:** The authenticating party obtained the certificate from the CA (e.g., via ACME) and can receive the tick base URL through that same channel at zero per-certificate cost ({{discovery}}).
 
