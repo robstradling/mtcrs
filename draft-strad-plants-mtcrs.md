@@ -219,10 +219,16 @@ The hash chain mechanism introduces the following additional parameter:
 
 revocation_period:
 : A duration, in seconds, that determines the granularity of revocation.
-  This MUST be greater than zero and no greater than the certificate's lifetime.
+  This MUST be greater than zero.
+  The RECOMMENDED and default value is 3600 (one hour); {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no revocation_period bytes.
   The number of periods in a certificate's lifetime is `chain_length = ceil(lifetime / revocation_period)`.
   revocation_period need not evenly divide the lifetime; if it does not, the final period is shorter than revocation_period, ending when the certificate expires.
   This is harmless: the verifier computes the period from not_before ({{construction}}) and the base MTC validity check bounds the certificate at notAfter, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
+
+The certificate's validity period MUST be longer than revocation_period.
+A certificate whose validity period is not longer than revocation_period would have `chain_length = 1`: its only tick is the public period-0 anchor, which enforces nothing (revocation is only enforceable from period 1 onwards; see {{period-zero-rationale}}).
+A CA MUST NOT include the id-pe-hashChainAnchor extension, and MUST NOT use this mechanism, for such a certificate.
+Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}), deployments SHOULD choose a validity period substantially longer than twice revocation_period so that revocation is effective for most of the certificate's life.
 
 revocation_period is a per-certificate value: it is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree ({{assertion-integration}}), rather than being a CA-wide configuration constant.
 This is deliberate.
@@ -323,13 +329,14 @@ This extension is included in the TBSCertificateLogEntry's extensions field, and
 The extension value contains the DER encoding of the following ASN.1 structure:
 
     HashChainAnchorInfo ::= SEQUENCE {
-        revocationPeriod  INTEGER,
+        revocationPeriod  INTEGER DEFAULT 3600,
         anchor            OCTET STRING
     }
 
 revocationPeriod:
-: The revocation period in seconds for this certificate ({{construction}}).
-  The relying party reads it from here; it is the value used to number periods and to compute the expected period during verification ({{verification}}).
+: The revocation period in seconds for this certificate ({{construction}}), with a default of 3600 (one hour).
+  Under DER, a certificate using the default value MUST omit this field (X.690, Section 11.5), so the common one-hour case adds no per-entry bytes; a relying party that finds the field absent MUST use the default of 3600.
+  The relying party reads this value (or the default) from here; it is used to number periods and to compute the expected period during verification ({{verification}}).
 
 anchor:
 : The hash chain anchor value `h[chain_length]` (HASH_SIZE bytes).
@@ -339,6 +346,7 @@ However, relying parties that do implement this mechanism MUST enforce hash chai
 An MTC ecosystem in which all relying parties are expected to support hash chain revocation MAY mark the extension critical, causing implementations that do not recognize it to reject the certificate.
 
 The extension MUST appear at most once in a certificate.
+The extension MUST NOT be present in a certificate whose validity period is not longer than revocation_period ({{construction}}); such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.
 
 # Certificate Presentation {#cert-format}
 
@@ -418,7 +426,7 @@ All of them are obtained from the certificate and the trust anchor being validat
 
 - **issuer_id:** the TrustAnchorID of the trust anchor against which the certificate is being validated (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}).
 - **log_number and index:** recovered from the certificate's serial number, which the base specification defines as `serial = (log_number << 48) | index` (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}); the verifier takes index as the low 48 bits and log_number as the remaining high bits.
-- **revocation_period and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension.
+- **revocation_period and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension; if revocationPeriod is absent, use its default of 3600 ({{assertion-integration}}).
 - **not_before:** the notBefore time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
 
 Using these inputs, the verifier performs the following steps:
