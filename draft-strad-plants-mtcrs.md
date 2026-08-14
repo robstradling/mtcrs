@@ -451,6 +451,20 @@ When the authenticating party presents a Merkle Tree Certificate, the hash chain
 The presence of id-pe-hashChainAnchor in the TBSCertificate signals to the relying party that the MTCProof carries a HashChainTick ({{cert-format}}).
 If the tick is absent, malformed, or fails verification, the relying party MUST reject the certificate.
 
+## Standalone and Landmark-Relative Certificates {#cert-profiles}
+
+A Merkle Tree CA can issue two certificate profiles for the same log entry: a standalone certificate and a landmark-relative certificate (Sections 6.3 and 6.4 of {{I-D.ietf-plants-merkle-tree-certs}}).
+The two differ only in the subtree and signatures carried in their MTCProof; they certify the same TBSCertificateLogEntry.
+
+Hash chain revocation is keyed by the log entry, not by the certificate profile:
+
+- Both profiles commit to the same id-pe-hashChainAnchor extension (part of the TBSCertificateLogEntry, or of the entry's extensions; see {{anchor-entry-extension}}), so a single anchor and hash chain per entry serves both.
+- entry_hash ({{distribution}}) is computed over the entry's tbs_cert_entry_data, which is identical for both profiles, so both resolve to the same tick URL and the same tick.
+- The HashChainTick for a given period is therefore identical in both certificates.
+
+An authenticating party that holds both a standalone and a landmark-relative certificate for the same entry -- for example, during the renewal overlap described in Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} -- fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
+Refreshing the tick is independent of profile selection: the authenticating party selects between the two certificates using the base MTC mechanism (Section 8 of {{I-D.ietf-plants-merkle-tree-certs}}), and updates the HashChainTick in whichever MTCProof it sends.
+
 # Verification {#verification}
 
 When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs hash chain verification in addition to the base MTC verification procedure.
