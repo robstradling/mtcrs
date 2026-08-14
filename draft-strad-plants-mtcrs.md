@@ -626,6 +626,12 @@ A relying-party fetch would gain nothing over the embedded tick -- the authentic
 The CA certificate SIA access method ({{discovery}}) exists to convey the base URL to authenticating-party tooling.
 Relying parties possess the CA certificate but MUST NOT use its tick base URL to fetch tick status.
 
+## Unauthenticated Proof Extensions
+
+If the tick is carried in a `proof_extensions` field ({{mtcproof-extensibility}}), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
+Hash chain revocation does not rely on its authenticity -- the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension.
+{{proof-extensions-considerations}} discusses the general risks of this field (bloat, covert channels, and a strippable soft-fail for other mechanisms) and the constraints recommended for the base specification.
+
 ## Interaction with Base MTC Revocation
 
 The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
@@ -1189,6 +1195,36 @@ For the transition period, ecosystems have two options:
 - **Mark the extension critical:** Unaware implementations reject at the X.509 extension stage, producing a clear error rather than an opaque parse failure.
 
 - **Deploy the base spec amendment first:** Once the proof_extensions field is adopted into the base MTC specification, all conforming implementations will parse it (ignoring unknown types), enabling incremental deployment of hash chain revocation with a non-critical X.509 extension.
+
+## Considerations for the proof_extensions Field {#proof-extensions-considerations}
+
+The `proof_extensions` field is, by design, an unauthenticated and freely mutable region: it is not committed to the Merkle Tree, no cosignature covers the MTCProof, and relying parties ignore unrecognized types.
+These properties are what let the hash chain tick be updated each period, but as a general-purpose extension point they also let an authenticating party, or any intermediary that relays the certificate, add, alter, or strip proof extensions undetectably, and insert arbitrary data that relying parties silently ignore ("stuffing").
+This does not affect hash chain revocation itself -- the tick is self-authenticating and its presence is mandated by the id-pe-hashChainAnchor extension, which is committed to the tree, so stuffed or stripped data can neither forge nor suppress a tick.
+But if the base MTC specification adopts `proof_extensions` as a general mechanism, the following constraints SHOULD apply so that the field is not abused or misused:
+
+Bounded size and count:
+: `proof_extensions` is transmitted in every handshake, so an unbounded ignored field undercuts the compactness that motivates MTC and creates a bloat and denial-of-service surface.
+  The base specification SHOULD set a small maximum total size and extension count, well below the 2^16-1 the length prefix permits, and relying parties MAY reject certificates that exceed it.
+
+Strict, canonical encoding:
+: Proof extensions SHOULD appear in ascending order by `extension_type` with no duplicate types, and parsers SHOULD require the declared lengths to consume the field exactly, with no trailing bytes.
+  This mirrors the ordering discipline the base specification already applies to cosignatures and limits ambiguity and abuse through many or malformed extensions.
+
+Registration:
+: `MTCProofExtensionType` values SHOULD be administered by an IANA registry with a defined allocation policy and a delimited private-use range, rather than left as an open channel.
+
+Security-relevant extensions must be anchored:
+: Because unrecognized or absent proof extensions are ignored, any future proof extension carrying security-relevant data MUST make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{assertion-integration}}).
+  Otherwise "ignore if unknown" becomes a strippable soft-fail -- exactly the failure mode described in {{ocsp-stapling-comparison}}.
+
+No transparency:
+: Unlike `entry_extensions`, `proof_extensions` are neither logged nor committed to the tree, so monitors never observe them.
+  Mechanisms that require transparency MUST use `entry_extensions` instead; `proof_extensions` MUST NOT be treated as a transparent or auditable channel.
+
+Identity:
+: `proof_extensions` widen the malleability of the signatureValue already noted in Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}.
+  Applications that derive a unique identifier from a certificate MUST derive it from the TBSCertificate, never from the MTCProof.
 
 # Acknowledgments
 {:numbered="false"}
