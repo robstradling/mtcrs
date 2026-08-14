@@ -35,6 +35,8 @@ normative:
   RFC5280:
   RFC8174:
   RFC8446:
+  RFC8555:
+  RFC8615:
   SHS:
     title: "Secure Hash Standard"
     author:
@@ -760,6 +762,38 @@ The id-ad-mtcrsTicks access method is used as a Subject Information Access acces
 Its accessLocation is a uniformResourceIdentifier giving the CA's tick base URL ({{discovery}}).
 
     id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
+
+## Well-Known URI
+
+IANA is requested to register the following entry in the "Well-Known URIs" registry ({{RFC8615}}):
+
+| Field | Value |
+|-------|-------|
+| URI Suffix | mtcrs |
+| Change Controller | IETF |
+| Reference | This document |
+| Status | permanent |
+| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/tick/{entry_hash}` ({{distribution}}) |
+
+## ACME Order Object Fields
+
+IANA is requested to register the following entries in the "ACME Order Object Fields" registry ({{RFC8555}}):
+
+| Field Name  | Field Type | Configurable | Reference     |
+|-------------|------------|--------------|---------------|
+| tickBaseURL | string     | false        | This document |
+| tickURL     | string     | false        | This document |
+
+Both fields are set by the server in the order object; neither is configurable by the client in a newOrder request.
+A CA uses tickBaseURL for the derivable tick URL scheme ({{acme-integration}}) and tickURL for the unguessable per-certificate URL scheme ({{unguessable-urls}}); the two are mutually exclusive for a given order.
+
+## MTCProof Extension Type
+
+The proof-extension encoding of the tick ({{tick-proof-extension}}) relies on an MTCProofExtensionType code point, hash_chain_tick(0), within a proof_extensions field that the base MTC specification does not currently define ({{mtcproof-extensibility}}).
+This document does not create an MTCProofExtensionType registry.
+If the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} adopts the proof_extensions mechanism, it -- not this document -- is expected to establish the corresponding IANA registry, following the allocation policy recommended in {{proof-extensions-considerations}}.
+This document requests that, in that event, the value hash_chain_tick be allocated in that registry with a reference to this document.
+When the RECOMMENDED trailing status_tick encoding ({{tick-trailing-field}}) is used instead, no such registry or code point is required.
 
 --- back
 
