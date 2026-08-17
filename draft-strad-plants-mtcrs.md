@@ -220,6 +220,8 @@ Root program policies can leverage this by requiring both short revocation perio
 
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (Section 5 of {{I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
+
+The HashChainTick that this mechanism embeds in the MTCProof ({{cert-format}}) is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of the current period, complementing the inclusion proof and cosignatures that attest authenticity.
 The separate entry_hash used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
 
 # Hash Chain Construction {#construction}
@@ -420,7 +422,7 @@ A base specification that is willing to make its entry-extension registry and co
 ## Hash Chain Tick
 
 When a hash chain anchor extension is present in the certificate, the authenticating party MUST include a hash chain tick in the MTCProof structure (carried in the certificate's signatureValue).
-The tick is the non-revocation component of the MTCProof: where the inclusion proof and cosignatures attest that the certificate is authentic, the tick attests that it has not been revoked as of the current period.
+The tick is the certificate's non-revocation proof: where the inclusion proof and cosignatures attest that the certificate is authentic, the tick attests that it has not been revoked as of the current period.
 The tick is a HashChainTick:
 
     struct {
