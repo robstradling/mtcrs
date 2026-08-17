@@ -1318,13 +1318,11 @@ Concretely, a 47-day certificate with hash chain revocation survives a multi-hou
 
 ## "CRLite/CRLSets Already Solve This Problem"
 
-Browser vendors already push compressed revocation data to relying parties.
-Adding an in-band mechanism may appear redundant.
+Browser vendors already push compressed revocation data to relying parties, so an in-band mechanism may appear redundant.
 
-External revocation systems and hash chain revocation serve different roles.
-CRLite and CRLSets are controlled by the browser vendor, not the CA; they operate on the vendor's update schedule; and they provide coverage only to relying parties that subscribe to the feed.
-Hash chain revocation is CA-operated, has a deterministic latency bound (one period), and is enforced by every relying party that validates the certificate — including non-browser TLS clients, IoT devices, and any implementation that supports MTC but has no external revocation feed.
-The two mechanisms are complementary: external revocation is defense-in-depth, while hash chains provide a universal baseline.
+The two are complementary and serve different roles, as the CRLite / CRLSets / External Revocation entry in {{alternatives}} details.
+The distinguishing point is reach and control: external revocation is vendor-controlled, best-effort, and reaches only relying parties that subscribe to the feed, whereas hash chain revocation is CA-operated, has a deterministic one-period latency bound, and is enforced by every relying party that validates the certificate -- including non-browser TLS clients and IoT devices with no external feed.
+External revocation is defense-in-depth; hash chains provide a universal baseline.
 
 ## "The Non-Critical Extension Means Split Enforcement"
 
