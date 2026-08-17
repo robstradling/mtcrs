@@ -325,6 +325,22 @@ This document uses the shorter construction because the operational grace period
 
 # Integration with MTC Log Entries {#assertion-integration}
 
+## Amendments Requested of the Base Specification {#base-spec-amendments}
+
+This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with as little change to it as possible.
+For convenience, this subsection collects the amendments this document asks of the base specification; each is specified in full in the section cited.
+
+Exactly one change to the base specification is required:
+
+- **Amend the Section 7.2 "extra data" check** so that, when a certificate carries the hash chain anchor, the MTCProof in its signatureValue may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
+  The RECOMMENDED realization appends a trailing status_tick field ({{tick-trailing-field}}); a base specification that instead adopts the general proof_extensions field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends Section 7.2 accordingly.
+
+The following item is optional; a base specification MAY adopt it but need not:
+
+- **Register a hash_chain_anchor entry-extension type** in the MerkleTreeCertEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
+
+Everything else this document defines -- the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}) -- layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
+
 ## Hash Chain Anchor Extension
 
 This document defines a new X.509 certificate extension for carrying the hash chain anchor.
