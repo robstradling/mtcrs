@@ -1431,7 +1431,7 @@ It is not required for hash chain revocation alone, and it carries the abuse sur
 
 ## Motivation
 
-The current MTCProof structure is a fixed sequence of fields with no extensibility point:
+The current MTCProof is a fixed sequence of fields with no extensibility point, and Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} requires relying parties to reject any data trailing it, so no field can be appended without amending the base specification ({{tick-trailing-field}}):
 
     struct {
         MerkleTreeCertEntryExtension extensions<0..2^16-1>;
@@ -1441,13 +1441,9 @@ The current MTCProof structure is a fixed sequence of fields with no extensibili
         MTCSignature signatures<0..2^16-1>;
     } MTCProof;
 
-Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} requires implementations to reject certificates where the signatureValue contains extra data after the MTCProof.
-This means no trailing data can be added without breaking all existing parsers.
+The existing `extensions` field carries the log entry's MerkleTreeCertEntryExtension values, which are committed to the Merkle Tree and so cannot carry dynamic, per-period data like hash chain ticks: the inclusion proof would fail.
 
-The existing `extensions` field in MTCProof carries the log entry's MerkleTreeCertEntryExtension values, which are committed to the Merkle Tree.
-These cannot carry dynamic, per-period data like hash chain ticks because the Merkle Tree inclusion proof would fail.
-
-A proof-level extensions field — not committed to the tree and freely updatable by the authenticating party — would allow the MTCProof to carry revocation ticks and potentially other future self-authenticating proof-level values without requiring a new version of the base specification for each.
+A proof-level extensions field -- not committed to the tree and freely updatable by the authenticating party -- would let the MTCProof carry revocation ticks and other future self-authenticating proof-level values without a new version of the base specification for each.
 
 ## Proposed Amendment
 
