@@ -775,6 +775,8 @@ With a one-hour revocation_period and a 47-day lifetime, the chain length is 1,1
 The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed chain values confidential.
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.
 
+A CA that derives per-certificate seeds from a single long-term secret ({{storage-tradeoff}}) concentrates this requirement into that secret: it MUST then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation SHOULD be used to bound the impact of a compromise.
+
 If the CA's seed storage is compromised, the CA MUST revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see {{interaction-with-base-mtc-revocation}}.
 
 ## Denial of Service via Tick Withholding {#dos-withholding}
@@ -1115,6 +1117,13 @@ This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB 
 
 This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
 The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed ({{security-considerations}}).
+
+The per-certificate seed itself can also be eliminated from storage.
+Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function -- for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || log_number || index)`, or the equivalent with HKDF.
+A raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse; a proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of {{construction}}.
+Any chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
+The cost is concentration: compromise of `ca_seed` exposes every certificate's chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}) -- though, being a single small key, it is better suited to HSM custody than a bulk per-certificate seed store.
+To bound the blast radius, a CA SHOULD derive per-log or per-epoch sub-seeds (`log_seed = KDF(ca_seed, log_number)`, then `h[0] = KDF(log_seed, label || index)`), which can be retired as their logs expire; as with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
 
 ## Why Embed the Tick in the MTCProof
 
