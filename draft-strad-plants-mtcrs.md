@@ -1217,6 +1217,7 @@ Additionally, `status_request` carries `OCSPResponse` semantics (a signed assert
 
 The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
 For example, 1-day certificates have at most 24-hour exposure after compromise.
+{{revocation-vs-expiry}} makes the general case that functional revocation is superior to passive expiry; this section catalogues the specific costs that nonetheless motivate longer lifetimes.
 
 This approach has trade-offs that motivate longer lifetimes:
 
@@ -1310,12 +1311,10 @@ Finally, the alternative (no in-band revocation) means the ecosystem depends ent
 ## "Just Use Shorter Certificate Lifetimes"
 
 If revocation latency is the concern, reducing certificate lifetimes (e.g., to one day) achieves similar bounds without new mechanism complexity.
-The PLANTS community may prefer this simpler approach.
 
-Shorter lifetimes and hash chain revocation are not mutually exclusive, but shorter lifetimes alone impose costs that hash chains avoid.
-Daily issuance for millions of subscribers produces proportionally larger Merkle Trees, more frequent log publications, and tighter availability requirements on issuance infrastructure.
-A one-day certificate that cannot be renewed due to a 2-hour CA outage causes immediate service disruption; a 47-day certificate with hash chain revocation survives the same outage with no impact (the tick was already fetched).
-Hash chains provide short revocation latency while preserving the operational headroom that longer lifetimes afford.
+Shorter lifetimes and hash chain revocation are not mutually exclusive, but shorter lifetimes alone impose issuance-scaling and availability costs that hash chains avoid, and they cannot act on anything the CA learns mid-lifetime.
+{{revocation-vs-expiry}} makes the general case for functional revocation over passive expiry, and the Shorter Certificate Lifetimes entry in {{alternatives}} catalogues the specific trade-offs.
+Concretely, a 47-day certificate with hash chain revocation survives a multi-hour CA outage that would strand a one-day certificate, while still bounding post-compromise exposure to about two revocation periods.
 
 ## "CRLite/CRLSets Already Solve This Problem"
 
