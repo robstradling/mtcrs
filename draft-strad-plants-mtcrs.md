@@ -714,13 +714,15 @@ Two complementary mechanisms exploit this slack to prevent a period-boundary thu
 
 ### Client-Side: Deterministic Per-Entry Offset
 
-Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the period derived deterministically from its own entry_hash:
+Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own entry_hash:
 
-    offset = UINT32(entry_hash[0..3]) mod revocation_period
+    offset = UINT32(entry_hash[0..3]) mod max(1, revocation_period / 2)
 
-where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry and UINT32 interprets its first four bytes as a big-endian unsigned integer.
+where entry_hash is the binary (pre-hex-encoding) SHA-256 hash of the TBSCertificateLogEntry, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
-During the first offset seconds of the period it continues to serve the preceding period's tick, which remains valid under the grace window, so any offset less than revocation_period introduces no verification risk.
+During the first offset seconds of the period it continues to serve the preceding period's tick.
+The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}): a verifier whose clock is ahead by more than (revocation_period - offset) already expects the following period and rejects a tick two periods behind its expectation.
+Bounding the offset to half of revocation_period leaves at least half a period of that grace available to absorb verifier clock skew, while still spreading fetches across a wide window.
 
 Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
 This is preferable to independent random jitter, which can still cluster and which varies each period.
@@ -767,12 +769,16 @@ Compromise of these values would allow an attacker to produce future ticks, defe
 
 If the CA's seed storage is compromised, the CA MUST revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see {{interaction-with-base-mtc-revocation}}.
 
-## Denial of Service via Tick Withholding
+## Denial of Service via Tick Withholding {#dos-withholding}
 
-A compromised or malicious CA could withhold ticks from a legitimate authenticating party, effectively denying service.
-This is analogous to a CA refusing to issue OCSP responses and is mitigated by the same market forces: an authenticating party that cannot obtain ticks will switch to another CA.
+A compromised or malicious CA could withhold ticks from a legitimate authenticating party -- either broadly or targeted at a specific subscriber, in which case it revokes that certificate with no auditable signal.
+This is analogous to a CA refusing to issue OCSP responses, or refusing to issue or renew certificates at all: it is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behaviour today:
 
-Additionally, since ticks are small (36 bytes), they can be efficiently distributed via CDN, reducing the attack surface for tick withholding.
+- **Detectability.** The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
+- **Third-party observability.** The tick distribution endpoint can be monitored externally (CT-style auditing), making selective withholding observable.
+- **Market pressure.** An authenticating party that cannot reliably obtain ticks will switch CAs.
+
+Because ticks are small (36 bytes) and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
 
 ## Relying Parties Do Not Fetch Ticks {#rp-no-fetch}
 
@@ -1402,11 +1408,8 @@ If the period is set to one day instead of one hour, the operational cadence mat
 A CA can selectively withhold ticks from a specific subscriber, effectively revoking their certificate without any auditable signal.
 This weaponizes the revocation mechanism as a censorship tool.
 
-This concern applies equally to any CA-mediated revocation system and is inherent in the CA trust model.
-A CA can already refuse to issue or renew certificates for any subscriber.
-Tick withholding is detectable: the authenticating party knows it did not receive a tick and can raise an alarm, switch CAs, or fall back to a traditionally-signed certificate.
-Furthermore, the tick distribution endpoint can be monitored by third parties (CT-style auditing), making selective withholding observable.
-The threat is real but not novel, and the mitigations (market pressure, monitoring, CA switching) are the same ones that discipline CA behavior today.
+This threat is real but neither novel nor unmitigated: selective tick withholding is no more powerful than a CA's existing ability to refuse issuance or renewal, and it is detectable, externally observable (CT-style auditing), and disciplined by market pressure and CA switching.
+It is addressed in {{dos-withholding}}.
 
 ## "Verification Cost Grows Linearly with Certificate Age"
 
