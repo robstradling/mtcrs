@@ -1195,9 +1195,7 @@ This approach was rejected because:
 - **Strippable:** A TLS extension can potentially be omitted by middleboxes or misconfigured servers.
   Embedding the tick in the MTCProof makes it structurally inseparable from the certificate.
 
-- **The OCSP stapling lesson:** OCSP stapling was defined as optional, requiring servers to opt in.
-  After more than a decade, stapling adoption remains incomplete, and browsers have been unable to enforce hard-fail policies.
-  Any mechanism that relies on a separate signaling channel risks the same outcome.
+- **The OCSP stapling lesson:** any mechanism carried in a separate, optional signalling channel is strippable and forces relying parties to soft-fail -- exactly the failure mode analysed in {{ocsp-stapling-comparison}}. Embedding the tick in the MTCProof avoids it.
 
 - **Unnecessary complexity:** Defining a new TLS extension type requires IANA registration and implementation changes in TLS stacks.
   Embedding in the MTCProof requires no TLS-layer changes beyond MTC support itself.
@@ -1207,9 +1205,7 @@ This approach was rejected because:
 The TLS `status_request` extension (defined for OCSP stapling) uses a `CertificateStatusType` enum that is designed to be extensible beyond OCSP.
 In TLS 1.2, a new status type could deliver the tick in a `CertificateStatus` message; in TLS 1.3, it could be carried per-certificate in the `CertificateEntry` extensions.
 
-This approach was rejected for the same fundamental reason as a generic TLS extension: it makes the tick delivery optional and strippable.
-The `status_request` mechanism is inherently opt-in — the client must request it, and the server can omit it without causing a hard failure.
-Reusing an optional delivery channel for a mandatory validity condition is semantically contradictory and reintroduces the soft-fail problem that this mechanism is designed to eliminate.
+This approach was rejected for the same fundamental reason as a generic TLS extension: status_request is inherently opt-in -- the client requests it and the server can omit it with no hard failure -- so reusing it for a mandatory validity condition reintroduces the strippable soft-fail analysed in {{ocsp-stapling-comparison}}.
 
 Additionally, `status_request` carries `OCSPResponse` semantics (a signed assertion from a responder); repurposing it for a bare hash value that is self-authenticating against the certificate would be a poor semantic fit.
 
