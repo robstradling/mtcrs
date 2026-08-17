@@ -820,6 +820,24 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
 
 Relying parties that support both mechanisms SHOULD check both: a certificate is considered revoked if either mechanism indicates revocation.
 
+## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
+
+A relying party checks the non-revocation proof ({{verification}}) only when it validates the certificate, which happens during a full TLS handshake.
+Two common TLS behaviours mean this check does not recur for the life of a connection or a resumed session, so the effective client-side revocation latency is bounded not by revocation_period alone but by how long a client keeps or resumes a connection:
+
+- **Established connections.** Once a full handshake completes, the certificate -- and hence the tick -- is not re-evaluated for the lifetime of that connection. A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
+
+- **Session resumption.** A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked. A client may therefore resume without re-checking revocation for as long as its session tickets remain usable. TLS 1.3 caps a ticket's lifetime at seven days ({{RFC8446}}, Section 4.6.1), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
+
+- **Renegotiation.** TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick. There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
+
+The effective latency before a revocation takes effect at a given client is therefore approximately the maximum of revocation_period, the remaining lifetime of any established connection, and the client's session-resumption window.
+A deployment that wants revocation to take effect within about one revocation_period SHOULD bound the session-ticket lifetime (and, where practical, the lifetime of long-lived connections) to a value near revocation_period, so that a fresh full handshake -- and thus a fresh tick -- is forced within that period.
+
+This limitation is not specific to this mechanism.
+Every handshake-time revocation mechanism (OCSP {{RFC6960}}, CRLite {{CRLite}}, CRLSets {{CRLSets}}) is likewise consulted only when the certificate is validated, and the base MTC short-lived-certificate model has the same property: a revoked-but-unexpired certificate is equally accepted on a resumed session.
+Relative to passive expiry, this mechanism still improves matters, because every full handshake re-checks a per-period non-revocation proof rather than trusting a static notAfter.
+
 ## Clock Skew {#clock-skew}
 
 Verification step 4 accepts a tick whose period is the verifier's expected_period, the immediately preceding period (expected_period - 1), or the immediately following period (expected_period + 1).
