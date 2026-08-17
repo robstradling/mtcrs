@@ -139,6 +139,9 @@ Each revocation period (e.g., every hour), the CA reveals the next hash chain va
 To revoke a certificate, the CA simply stops revealing values.
 The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the signatureValue), and the relying party (client) verifies it against the anchor committed in the log entry.
 
+The MTCProof already carries a proof of inclusion: the evidence that a certificate is authentic, because its entry sits in a cosigned Merkle Tree.
+This mechanism adds a proof of non-revocation to the same structure, so that together they let a relying party confirm not merely that the certificate was issued, but that it may be relied upon now.
+
 This approach achieves the following properties:
 
 - **Timely revocation:** Revocation takes effect within one period (e.g., one hour), regardless of when the relying party last updated its trusted subtrees.
@@ -417,6 +420,7 @@ A base specification that is willing to make its entry-extension registry and co
 ## Hash Chain Tick
 
 When a hash chain anchor extension is present in the certificate, the authenticating party MUST include a hash chain tick in the MTCProof structure (carried in the certificate's signatureValue).
+The tick is the non-revocation component of the MTCProof: where the inclusion proof and cosignatures attest that the certificate is authentic, the tick attests that it has not been revoked as of the current period.
 The tick is a HashChainTick:
 
     struct {
@@ -1094,7 +1098,8 @@ The pebbles are unrevealed chain values and therefore carry the same confidentia
 
 ## Why Embed the Tick in the MTCProof
 
-The tick is embedded directly in the MTCProof (the certificate's signatureValue) rather than delivered via a separate channel because:
+The MTCProof is the bundle of evidence a relying party checks to accept a certificate: the inclusion proof and cosignatures establish authenticity, and the tick completes it with non-revocation, so embedding the tick extends the certificate's proof of validity rather than attaching unrelated data.
+It is embedded directly in the MTCProof (the certificate's signatureValue) rather than delivered via a separate channel because:
 
 1. **Structurally inseparable:** The tick is part of the certificate itself.
    A relying party that parses the MTCProof will always encounter the tick.
@@ -1374,6 +1379,7 @@ Adding a status_tick field to MTCProof requires changes to every MTC implementat
 The base MTC specification may not have anticipated this kind of extension.
 
 This objection is well-founded.
+The addition is conceptually natural -- the tick is not foreign data but the non-revocation component of the MTCProof ({{cert-format}}), so the amendment extends the proof's meaning rather than repurposing the structure -- but it is a structural change that the base specification must accommodate.
 Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} explicitly requires relying parties to reject an MTCProof if the signatureValue contains "extra data after the MTCProof."
 The current MTCProof structure has no extensibility mechanism: it is a fixed sequence of fields with no trailing extensions block or version indicator.
 
