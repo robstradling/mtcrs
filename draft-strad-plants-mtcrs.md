@@ -586,9 +586,8 @@ A CA MUST make the tick base URL available through at least one of the following
   When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
   This mechanism carries only the base URL, so it does not apply when unguessable tick URLs ({{unguessable-urls}}) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA SHOULD NOT be published.
 
-Keeping the base URL out of the certificate is deliberate, but it is not a secrecy measure: as {{rp-no-fetch}} explains, the URL is derivable by anyone holding the certificate, so a relying party could construct it regardless.
-The point is not to hide the URL but to avoid standardizing or advertising a per-certificate fetch affordance to relying parties in a field they routinely parse.
-Relying parties verify the embedded tick offline against the committed anchor ({{verification}}) and MUST NOT fetch ticks ({{rp-no-fetch}}); only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents.
+Keeping the base URL out of the certificate is not a secrecy measure -- the URL is derivable by anyone holding the certificate ({{rp-no-fetch}}) -- but a way to avoid standardizing a per-certificate fetch affordance in a field relying parties routinely parse.
+Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents; relying parties verify the embedded tick offline ({{verification}}) and MUST NOT fetch ticks ({{rp-no-fetch}}).
 
 Because MTC certificates are renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
 
