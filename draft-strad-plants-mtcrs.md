@@ -661,10 +661,13 @@ The authenticating party periodically fetches its current tick from the CA:
 
 1. At least once per revocation_period, the authenticating party fetches its updated HashChainTick.
 
-2. The authenticating party updates the HashChainTick carried in its certificate's MTCProof (signatureValue) with the newly fetched value.
+2. The authenticating party SHOULD verify the fetched tick against the anchor committed in its own certificate before installing it: that hashing tick.value forward tick.period times yields the anchor ({{verification}}), and that tick.period is the period it expects to be current.
+   This catches a corrupted, truncated, misrouted (wrong-entry), or unexpectedly stale response before it is ever presented in a handshake, where it would otherwise cause relying parties to reject the certificate.
+
+3. The authenticating party updates the HashChainTick carried in its certificate's MTCProof (signatureValue) with the newly fetched value.
    The inclusion proof and cosignatures remain unchanged.
 
-3. During TLS handshakes, the authenticating party presents the certificate with the current tick.
+4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
 During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
 A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to publish the chain ({{period-zero-rationale}}).
