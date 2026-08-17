@@ -1291,7 +1291,8 @@ This approach was rejected because:
 
 # Anticipated Objections {#objections}
 
-This section addresses some potential objections that may arise from the PLANTS community regarding this proposal.
+This section gives concise answers to objections likely to arise in the PLANTS community.
+Where an objection touches a topic developed at length elsewhere, the answer summarizes and points to the fuller treatment (for example {{rationale}} or {{alternatives}}) rather than repeating it.
 
 ## "MTC Was Designed to Avoid Revocation Complexity"
 
@@ -1390,10 +1391,8 @@ This means that, in practice, deploying this mechanism requires one of the follo
 3. **Concurrent deployment:** Since MTC is not yet deployed at scale, both the base spec and this extension can be implemented together before the ecosystem ossifies.
    Early implementations can adopt the extended MTCProof structure from the start.
 
-Both encodings this document describes ({{cert-format}}) take option 1: each amends the base MTC specification so that conforming parsers accept the tick.
-The RECOMMENDED trailing status_tick encoding ({{tick-trailing-field}}) is the minimal such amendment; the proof-extension encoding ({{tick-proof-extension}}) is the alternative for a base specification that also wants a general, reusable extensibility point, at the cost of the abuse surface in {{proof-extensions-considerations}}.
+Both encodings this document describes take option 1 ({{cert-format}}): each amends the base MTC specification so that conforming parsers accept the tick, the RECOMMENDED trailing status_tick field being the minimal such amendment ({{tick-trailing-field}}).
 Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.
-See {{mtcproof-extensibility}} for the proof_extensions amendment.
 
 ## "Hourly Tick Refresh Adds Operational Burden to Servers"
 
