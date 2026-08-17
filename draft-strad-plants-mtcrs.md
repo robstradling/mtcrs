@@ -1379,6 +1379,23 @@ The two are complementary and serve different roles, as the CRLite / CRLSets / E
 The distinguishing point is reach and control: external revocation is vendor-controlled, best-effort, and reaches only relying parties that subscribe to the feed, whereas hash chain revocation is CA-operated, has a deterministic one-period latency bound, and is enforced by every relying party that validates the certificate -- including non-browser TLS clients and IoT devices with no external feed.
 External revocation is defense-in-depth; hash chains provide a universal baseline.
 
+## "Browsers Already Abandoned Handshake and Online Revocation"
+
+The major browsers disabled live OCSP checking and never pushed OCSP stapling to ubiquity; instead they moved to client-side pushed revocation (Chrome's CRLSets {{CRLSets}}, Mozilla's OneCRL and CRLite {{CRLite}}, and Apple's on-device revocation data).
+A handshake-carried status mechanism may look like a return to an approach the ecosystem already rejected.
+
+The reasons for that move are specific, and this mechanism is designed around each of them:
+
+- **Soft-fail.** Online OCSP had to treat an unreachable responder as "not revoked," so an active attacker could simply suppress the check, making enforcement impossible.
+  The non-revocation proof here is structurally part of the certificate presentation and cannot be stripped while leaving a usable certificate, so relying parties hard-fail by construction ({{ocsp-stapling-comparison}}) -- the property OCSP Must-Staple ({{RFC7633}}) aimed at but never achieved at scale.
+- **Relying-party privacy.** Client-driven OCSP leaked relying-party browsing to CAs. Relying parties here never contact the CA ({{rp-no-fetch}}); the only fetch is server-side.
+- **Operator and responder fragility.** Must-Staple saw negligible adoption because a stapling-pipeline failure caused self-inflicted outages, and clients could not hard-fail until coverage was universal.
+  Here the refresh is a trivial cacheable 36-byte GET with no signing, backed by a full period of buffer and multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
+
+The pushed-list systems remain valuable and complementary -- comprehensive and fail-closed, but vendor-controlled and effective only for relying parties that ship the feed.
+This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients with no external feed (see the CRLite / CRLSets objection above).
+Their success in fact validates the design choices adopted here: fail-closed enforcement with no handshake-time relying-party network dependency.
+
 ## "The Non-Critical Extension Means Split Enforcement"
 
 Since id-pe-hashChainAnchor is marked non-critical, relying parties that have not implemented this mechanism will ignore it.
