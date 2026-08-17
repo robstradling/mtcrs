@@ -542,6 +542,8 @@ Using these inputs, the verifier performs the following steps:
        for i = 1 to tick.period:
            v = Hash(HashChainInput(v))
 
+   Because step 4 has already constrained `tick.period` to within one of expected_period (and hence to at most chain_length + 1), the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
+
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
 
