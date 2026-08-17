@@ -747,7 +747,7 @@ With a one-hour revocation_period and a 47-day lifetime, the chain length is 1,1
 The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed chain values confidential.
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.
 
-If the CA's seed storage is compromised, the CA MUST revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback.
+If the CA's seed storage is compromised, the CA MUST revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see {{interaction-with-base-mtc-revocation}}.
 
 ## Denial of Service via Tick Withholding
 
@@ -1341,7 +1341,7 @@ If an attacker compromises the CA's stored hash chain seeds, they can compute va
 This is true, and is acknowledged in {{security-considerations}}.
 However, the threat model is no worse than the status quo: a CA whose signing key is compromised can issue arbitrary certificates.
 Seeds require confidentiality and integrity protection — for example, encrypted-at-rest storage with strong access controls and monitoring — but their operational profile differs from signing keys: a CA with millions of active certificates must store and retrieve seeds in bulk, which is better suited to encrypted database storage than to HSMs designed for a small number of high-value keys.
-Additionally, the fallback to revoked ranges provides a recovery path: if seed compromise is detected, the CA revokes affected certificates via ranges, which relying parties enforce regardless of hash chain state.
+The recovery path for a detected compromise -- revoking the affected serial-number ranges via the base MTC mechanism -- is described in {{seed-confidentiality}} and {{interaction-with-base-mtc-revocation}}.
 
 ## "Modifying MTCProof Breaks Existing Implementations"
 
