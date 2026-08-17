@@ -38,6 +38,7 @@ normative:
   RFC8446:
   RFC8555:
   RFC8615:
+  RFC9110:
   SHS:
     title: "Secure Hash Standard"
     author:
@@ -273,7 +274,7 @@ This is harmless here: it merely places the certificate a little way into period
 Setting notBefore later than issuance (forward-dating) is different: there is no period earlier than 0, and for any time t earlier than notBefore the quantity (t - not_before) is negative.
 Such a certificate is simply not yet valid; a verifier MUST reject it through the base MTC validity check before computing any period, and MUST NOT evaluate the period expression with unsigned arithmetic, which would underflow for such times and could yield a spuriously large period.
 
-## Revealing Values
+## Revealing Values {#revealing-values}
 
 For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[chain_length - t]`.
 This value can be verified by hashing it t times and comparing with the anchor.
@@ -364,6 +365,11 @@ Both are committed to the Merkle Tree, so either home makes the anchor self-auth
 
 In this alternative, a new MerkleTreeCertEntryExtensionType (for example, hash_chain_anchor) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and revocation_period from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
+
+This changes what `entry_hash` ({{distribution}}) covers, though not its role.
+entry_hash is computed over tbs_cert_entry_data, which contains the TBSCertificateLogEntry but not the entry-level extensions of the MerkleTreeCertEntry.
+In this alternative the anchor is therefore committed to the tree through the MerkleTreeCertEntry rather than through tbs_cert_entry_data, and does not contribute to entry_hash; in the primary design the anchor, as an X.509 extension of the TBSCertificateLogEntry, is part of tbs_cert_entry_data and does contribute.
+Either way entry_hash remains well-defined and identical for a given entry's standalone and landmark-relative certificates ({{cert-profiles}}), and continues to serve only as the tick-URL identifier.
 
 This has a natural symmetry with the tick's encoding: the immutable, committed anchor lives in the committed entry extensions, while the mutable, per-period tick lives in the uncommitted trailing field or proof_extensions ({{cert-format}}).
 It is also more compact, because a MerkleTreeCertEntryExtension uses a short TLS type-and-length framing rather than an X.509 extension's OBJECT IDENTIFIER and DER wrapper.
@@ -636,8 +642,13 @@ Its benefit is that a relying party, or a third party holding a captured certifi
 The response body is the serialized HashChainTick structure: a 4-byte big-endian period followed by HASH_SIZE bytes of value (36 bytes total for SHA-256).
 The response Content-Type MUST be `application/octet-stream`.
 
-A successful response MUST use HTTP status code 200.
-If the certificate has been revoked (no tick will be issued), the CA MUST respond with HTTP status code 404.
+The CA uses HTTP status codes ({{RFC9110}}) as follows:
+
+- **200 (OK):** the response body is the current HashChainTick for the entry.
+- **404 (Not Found):** the CA is not serving a current tick for this entry. This covers both a revoked certificate, for which the CA has stopped revealing values ({{revealing-values}}), and a tick that is merely not yet available -- for example during the period 0 grace, before the CA has published the chain ({{period-zero-rationale}}). The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation; it means only that no fresh tick was obtained on this attempt. The authenticating party continues to serve its most recent still-valid tick and MAY retry (see the Operational Model below).
+- **429 (Too Many Requests) or 503 (Service Unavailable):** transient overload; the authenticating party retries according to the Retry-After header ({{load-distribution}}).
+
+Any other status code carries its ordinary HTTP semantics ({{RFC9110}}); an authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.
 
 The CA SHOULD set HTTP cache headers with a max-age no longer than revocation_period seconds.
 For example:
@@ -654,6 +665,9 @@ The authenticating party periodically fetches its current tick from the CA:
    The inclusion proof and cosignatures remain unchanged.
 
 3. During TLS handshakes, the authenticating party presents the certificate with the current tick.
+
+During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
+A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to publish the chain ({{period-zero-rationale}}).
 
 If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
 After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
