@@ -399,6 +399,7 @@ The tick is a HashChainTick:
 
 period:
 : The period number for which this tick is valid.
+  It tells the relying party both the freshness the tick asserts -- that the certificate was not revoked as of this period, checked against the relying party's clock ({{verification}}) -- and how many times to hash value forward to reach the committed anchor, which cannot be taken from the relying party's own expected period because clock skew and caching allow the presented tick to be for an adjacent period.
   The field is 32 bits so that fine revocation_period values remain usable across the full certificate lifetime: a 16-bit field would overflow at 65,535 periods, which a minute-granularity period already exceeds within a 47-day lifetime.
 
 value:
