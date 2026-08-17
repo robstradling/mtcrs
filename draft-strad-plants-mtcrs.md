@@ -363,7 +363,8 @@ revocationPeriod:
   The relying party reads this value (or the default) from here; it is used to number periods and to compute the expected period during verification ({{verification}}).
 
 anchor:
-: The hash chain anchor value `h[chain_length]` (HASH_SIZE bytes).
+: The hash chain anchor value `h[chain_length]`.
+  This OCTET STRING MUST be exactly HASH_SIZE bytes long; a relying party MUST reject the certificate if it is not ({{verification}}).
 
 The id-pe-hashChainAnchor extension SHOULD be marked non-critical, so that relying parties that do not implement this mechanism can still process the certificate.
 However, relying parties that do implement this mechanism MUST enforce hash chain verification as described in {{verification}} when the extension is present.
@@ -525,6 +526,7 @@ Using these inputs, the verifier performs the following steps:
 
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
+   If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
 
 2. Extract the HashChainTick from the MTCProof (in the certificate's signatureValue), according to the encoding fixed by the base MTC specification: the trailing status_tick field ({{tick-trailing-field}}) or, if the general proof_extensions amendment was adopted instead, the hash_chain_tick proof extension ({{tick-proof-extension}}).
    If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.
