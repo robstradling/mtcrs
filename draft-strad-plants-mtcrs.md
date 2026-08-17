@@ -215,6 +215,10 @@ Root program policies can leverage this by requiring both short revocation perio
 
 {::boilerplate bcp14-tagged}
 
+This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (Section 5 of {{I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
+Hash chain values, the anchor, and the tick all use this hash.
+The separate entry_hash used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
+
 # Hash Chain Construction {#construction}
 
 ## Parameters
@@ -471,7 +475,7 @@ This document treats that surface as unjustified for a single 36-byte use, and t
 No new TLS extension type is required.
 When the authenticating party presents a Merkle Tree Certificate, the hash chain tick is carried within the certificate's signatureValue as part of the MTCProof, which is already transmitted in the CertificateEntry.
 
-The presence of id-pe-hashChainAnchor in the TBSCertificate signals to the relying party that the MTCProof carries a HashChainTick ({{cert-format}}).
+The presence of the hash chain anchor -- the id-pe-hashChainAnchor extension in the primary design, or the hash_chain_anchor entry extension in the alternative ({{anchor-entry-extension}}) -- signals to the relying party that the MTCProof carries a HashChainTick ({{cert-format}}).
 If the tick is absent, malformed, or fails verification, the relying party MUST reject the certificate.
 
 ## Standalone and Landmark-Relative Certificates {#cert-profiles}
@@ -491,6 +495,7 @@ Refreshing the tick is independent of profile selection: the authenticating part
 # Verification {#verification}
 
 When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs hash chain verification in addition to the base MTC verification procedure.
+The steps below name the id-pe-hashChainAnchor X.509 extension of the primary design; under the entry-extension alternative ({{anchor-entry-extension}}) the relying party instead reads the same HashChainAnchorInfo from the entry's extensions, and the procedure is otherwise identical.
 
 The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to the period computation ({{construction}}).
 All of them are obtained from the certificate and the trust anchor being validated against; no data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
@@ -525,6 +530,10 @@ Using these inputs, the verifier performs the following steps:
    If they do not match, reject the certificate with a bad_certificate error.
 
 If all steps succeed, the hash chain verification passes, confirming that the CA has not revoked this certificate as of the indicated period.
+
+Although the MTCProof is not committed to the Merkle Tree and can be modified in transit, the tick is self-authenticating: steps 5 and 6 bind both tick.value and tick.period to the committed anchor, because a given value reaches the anchor only after the exact number of forward hashes that its true period implies.
+Tampering with either field therefore fails verification, and producing a tick for a period the CA has not yet revealed requires inverting the hash function ({{security-considerations}}).
+The only tick an attacker can present that still verifies is a genuine, already-revealed one, and step 4 bounds how stale that may be.
 
 # Tick Distribution {#distribution}
 
