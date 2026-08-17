@@ -151,7 +151,7 @@ This approach achieves the following properties:
 - **Self-authenticating:** The hash chain value is verified against the anchor already committed in the Merkle Tree.
   No new trust relationships or authenticated channels are needed.
 
-- **Minimal overhead:** A single hash value (32 bytes for SHA-256) is added to the certificate's MTCProof.
+- **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added to the certificate's MTCProof.
 
 ## Rationale for This Approach
 
@@ -297,7 +297,7 @@ The label in HashChainInput ({{encoding}}) domain-separates chain values from ot
 ## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
 
 Revealing the anchor `h[chain_length]` as the period 0 tick means the mechanism does not enforce revocation during period 0.
-The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period ({{verification}}), the public anchor remains acceptable throughout period 1.
+The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period (the acceptance window of {{verification}} also allows the immediately following period, but that does not extend acceptance of the period 0 anchor), the public anchor remains acceptable throughout period 1.
 A certificate that the CA wishes to revoke from the moment of issuance thus becomes unusable at the start of period 2.
 This is the same worst-case bound of at most two revocation periods that applies to any revocation decision ({{revocation-vs-expiry}}); the only capability given up is the ability to revoke a certificate faster than that bound in the first moments after issuance.
 This trade-off is deliberate and has two advantages.
@@ -332,7 +332,7 @@ This extension is included in the TBSCertificateLogEntry's extensions field, and
 The extension value contains the DER encoding of the following ASN.1 structure:
 
     HashChainAnchorInfo ::= SEQUENCE {
-        revocationPeriod  INTEGER DEFAULT 3600,
+        revocationPeriod  INTEGER (1..MAX) DEFAULT 3600,
         anchor            OCTET STRING
     }
 
@@ -399,6 +399,7 @@ The tick is a HashChainTick:
 
 period:
 : The period number for which this tick is valid.
+  The field is 32 bits so that fine revocation_period values remain usable across the full certificate lifetime: a 16-bit field would overflow at 65,535 periods, which a minute-granularity period already exceeds within a 47-day lifetime.
 
 value:
 : The hash chain value `h[chain_length - period]`.
