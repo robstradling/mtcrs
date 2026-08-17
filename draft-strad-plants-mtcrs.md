@@ -152,7 +152,7 @@ This approach achieves the following properties:
 - **Self-authenticating:** The hash chain value is verified against the anchor already committed in the Merkle Tree.
   No new trust relationships or authenticated channels are needed.
 
-- **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added to the certificate's MTCProof.
+- **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof; the committed anchor adds roughly 40 to 50 bytes to each log entry ({{assertion-integration}}).
 
 ## Rationale for This Approach
 
@@ -250,7 +250,7 @@ At certificate issuance time, for each log entry, the CA generates a hash chain 
 
 1. Generate a cryptographically random seed of HASH_SIZE bytes (32 bytes for SHA-256).
 
-2. Compute the hash chain of length chain_length + 1:
+2. Compute the chain_length + 1 values of the hash chain:
 
        h[0] = seed
        h[i] = Hash(HashChainInput(h[i-1]))  for i = 1, ..., chain_length
@@ -536,7 +536,7 @@ Using these inputs, the verifier performs the following steps:
        expected_period = floor((current_time - not_before) / revocation_period)
 
 4. Check that `tick.period` is equal to expected_period, expected_period - 1, or expected_period + 1 ({{clock-skew}}).
-   If not, reject the certificate with a certificate_expired error.
+   If not, reject the certificate with a certificate_expired error (this alert also covers a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see).
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
 
