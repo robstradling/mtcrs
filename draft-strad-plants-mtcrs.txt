@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             14 August 2026
-Expires: 15 February 2027
+Intended status: Experimental                             17 August 2026
+Expires: 18 February 2027
 
 
            Merkle Tree Certificate Revocation Status (MTCRS)
@@ -60,7 +60,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 15 February 2027.
+   This Internet-Draft will expire on 18 February 2027.
 
 Copyright Notice
 
@@ -216,8 +216,9 @@ Table of Contents
       the anchor already committed in the Merkle Tree.  No new trust
       relationships or authenticated channels are needed.
 
-   *  *Minimal overhead:* A single hash value (32 bytes for SHA-256) is
-      added to the certificate's MTCProof.
+   *  *Minimal overhead:* A single tick (36 bytes for SHA-256: a 4-byte
+      period and a 32-byte hash value) is added to the certificate's
+      MTCProof.
 
 1.1.  Rationale for This Approach
 
@@ -465,7 +466,9 @@ Table of Contents
    mechanism does not enforce revocation during period 0.  The earliest
    period for which the CA can withhold a secret value is period 1, and,
    because a relying party accepts the tick for the current or the
-   immediately preceding period (Section 6), the public anchor remains
+   immediately preceding period (the acceptance window of Section 6 also
+   allows the immediately following period, but that does not extend
+   acceptance of the period 0 anchor), the public anchor remains
    acceptable throughout period 1.  A certificate that the CA wishes to
    revoke from the moment of issuance thus becomes unusable at the start
    of period 2.  This is the same worst-case bound of at most two
@@ -527,7 +530,7 @@ Table of Contents
    structure:
 
    HashChainAnchorInfo ::= SEQUENCE {
-       revocationPeriod  INTEGER DEFAULT 3600,
+       revocationPeriod  INTEGER (1..MAX) DEFAULT 3600,
        anchor            OCTET STRING
    }
 
@@ -650,7 +653,17 @@ Table of Contents
        HashValue value;
    } HashChainTick;
 
-   period:  The period number for which this tick is valid.
+   period:  The period number for which this tick is valid.  It tells
+      the relying party both the freshness the tick asserts -- that the
+      certificate was not revoked as of this period, checked against the
+      relying party's clock (Section 6) -- and how many times to hash
+      value forward to reach the committed anchor, which cannot be taken
+      from the relying party's own expected period because clock skew
+      and caching allow the presented tick to be for an adjacent period.
+      The field is 32 bits so that fine revocation_period values remain
+      usable across the full certificate lifetime: a 16-bit field would
+      overflow at 65,535 periods, which a minute-granularity period
+      already exceeds within a 47-day lifetime.
 
    value:  The hash chain value h[chain_length - period].
 

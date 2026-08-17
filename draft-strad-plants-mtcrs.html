@@ -1052,7 +1052,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Stradling</td>
-<td class="center">Expires 15 February 2027</td>
+<td class="center">Expires 18 February 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1065,12 +1065,12 @@ svg {
 <dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-08-14" class="published">14 August 2026</time>
+<time datetime="2026-08-17" class="published">17 August 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-02-15">15 February 2027</time></dd>
+<dd class="expires"><time datetime="2027-02-18">18 February 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1124,7 +1124,7 @@ The authenticating party embeds the current hash chain value (a "tick") in the c
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 15 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 18 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1492,7 +1492,7 @@ Unlike OCSP stapling, the mechanism cannot be silently omitted by the authentica
 No new trust relationships or authenticated channels are needed.<a href="#section-1-5.4.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-1-5.5">
-          <p id="section-1-5.5.1"><strong>Minimal overhead:</strong> A single hash value (32 bytes for SHA-256) is added to the certificate's MTCProof.<a href="#section-1-5.5.1" class="pilcrow">¶</a></p>
+          <p id="section-1-5.5.1"><strong>Minimal overhead:</strong> A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added to the certificate's MTCProof.<a href="#section-1-5.5.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 <div id="rationale-for-this-approach">
@@ -1697,7 +1697,7 @@ The chain is revealed in reverse order precisely for this reason: knowledge of t
 <a href="#section-3.6" class="section-number selfRef">3.6. </a><a href="#name-rationale-for-using-the-tar" class="section-name selfRef">Rationale for Using the Target as the Period 0 Tick</a>
         </h3>
 <p id="section-3.6-1">Revealing the anchor <code>h[chain_length]</code> as the period 0 tick means the mechanism does not enforce revocation during period 0.
-The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period (<a href="#verification" class="auto internal xref">Section 6</a>), the public anchor remains acceptable throughout period 1.
+The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period (the acceptance window of <a href="#verification" class="auto internal xref">Section 6</a> also allows the immediately following period, but that does not extend acceptance of the period 0 anchor), the public anchor remains acceptable throughout period 1.
 A certificate that the CA wishes to revoke from the moment of issuance thus becomes unusable at the start of period 2.
 This is the same worst-case bound of at most two revocation periods that applies to any revocation decision (<a href="#revocation-vs-expiry" class="auto internal xref">Section 1.2</a>); the only capability given up is the ability to revoke a certificate faster than that bound in the first moments after issuance.
 This trade-off is deliberate and has two advantages.<a href="#section-3.6-1" class="pilcrow">¶</a></p>
@@ -1749,7 +1749,7 @@ id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
 <div class="alignLeft art-text artwork" id="section-4.1-4">
 <pre>
 HashChainAnchorInfo ::= SEQUENCE {
-    revocationPeriod  INTEGER DEFAULT 3600,
+    revocationPeriod  INTEGER (1..MAX) DEFAULT 3600,
     anchor            OCTET STRING
 }
 </pre><a href="#section-4.1-4" class="pilcrow">¶</a>
@@ -1838,7 +1838,9 @@ struct {
 <span class="break"></span><dl class="dlParallel" id="section-5.1-3">
           <dt id="section-5.1-3.1">period:</dt>
           <dd style="margin-left: 1.5em" id="section-5.1-3.2">
-            <p id="section-5.1-3.2.1">The period number for which this tick is valid.<a href="#section-5.1-3.2.1" class="pilcrow">¶</a></p>
+            <p id="section-5.1-3.2.1">The period number for which this tick is valid.
+It tells the relying party both the freshness the tick asserts -- that the certificate was not revoked as of this period, checked against the relying party's clock (<a href="#verification" class="auto internal xref">Section 6</a>) -- and how many times to hash value forward to reach the committed anchor, which cannot be taken from the relying party's own expected period because clock skew and caching allow the presented tick to be for an adjacent period.
+The field is 32 bits so that fine revocation_period values remain usable across the full certificate lifetime: a 16-bit field would overflow at 65,535 periods, which a minute-granularity period already exceeds within a 47-day lifetime.<a href="#section-5.1-3.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-5.1-3.3">value:</dt>
