@@ -683,6 +683,7 @@ A 404 during period 0 is therefore expected and harmless, because the CA has unt
 
 If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
 After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
+{{objections}} (This Creates a New Availability Dependency) discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
@@ -1293,9 +1294,7 @@ This concern is real but bounded.
 First, the dependency is on a trivial HTTP GET returning 36 bytes — far less fragile than ACME issuance or OCSP responder availability.
 Second, the authenticating party has a full period (e.g., one hour) of buffer; brief outages are invisible to relying parties.
 Third, CAs already operate high-availability infrastructure for issuance; tick distribution is a strictly simpler service (static content, cacheable, CDN-friendly).
-Additionally, relying parties can choose to accept ticks that are slightly stale (e.g., two or three periods old rather than only the current or immediately preceding period), according to local policy.
-This trades revocation latency for resilience: if a CA outage prevents the authenticating party from obtaining a fresh tick, relying parties with a more permissive staleness policy will continue to accept the certificate while the outage is resolved.
-The base verification procedure ({{verification}}, step 4) already allows the immediately preceding period; deployments with known availability concerns MAY extend this window further.
+Additionally, deployments with availability concerns MAY widen the acceptance window to tolerate an outage longer than one period, trading revocation latency for resilience ({{clock-skew}}).
 
 As a further mitigation, authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs.
 If one CA's tick distribution infrastructure becomes unavailable, the authenticating party can immediately switch to presenting a certificate from a different CA whose ticks remain current.
