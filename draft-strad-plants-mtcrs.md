@@ -1150,6 +1150,7 @@ It is embedded directly in the MTCProof (the certificate's signatureValue) rathe
 
 OCSP stapling delivers a CA-signed status response inside the TLS handshake, and is the closest existing analogue to this mechanism.
 It has nonetheless failed to become an enforceable revocation channel, for reasons this mechanism is specifically designed to avoid.
+The major browsers' migration away from live OCSP and stapling toward pushed revocation lists was itself a verdict on soft-fail; {{objections}} (Browsers Already Abandoned Handshake and Online Revocation) addresses how this mechanism differs.
 
 ### Why OCSP Stapling Is Not Enforceable
 
