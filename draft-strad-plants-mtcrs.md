@@ -1378,10 +1378,7 @@ Additionally, `status_request` carries `OCSPResponse` semantics (a signed assert
 ## Shorter Certificate Lifetimes
 
 The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
-For example, 1-day certificates have at most 24-hour exposure after compromise.
-{{revocation-vs-expiry}} makes the general case that functional revocation is superior to passive expiry; this section catalogues the specific costs that nonetheless motivate longer lifetimes.
-
-This approach has trade-offs that motivate longer lifetimes:
+The general case for functional revocation over passive expiry is made once, in {{revocation-vs-expiry}}; this section only catalogues the specific operational costs that nonetheless motivate longer lifetimes:
 
 - **Issuance infrastructure load:** Shorter lifetimes require more frequent issuance.
   With millions of subscribers, daily certificate issuance produces proportionally larger logs and more frequent Merkle Tree constructions.
@@ -1463,9 +1460,8 @@ The alternative -- no in-band revocation -- instead makes the ecosystem depend e
 
 If revocation latency is the concern, reducing certificate lifetimes (e.g., to one day) achieves similar bounds without new mechanism complexity.
 
-Shorter lifetimes and hash chain revocation are not mutually exclusive, but shorter lifetimes alone impose issuance-scaling and availability costs that hash chains avoid, and they cannot act on anything the CA learns mid-lifetime.
-{{revocation-vs-expiry}} makes the general case for functional revocation over passive expiry, and the Shorter Certificate Lifetimes entry in {{alternatives}} catalogues the specific trade-offs.
-Concretely, a 47-day certificate with hash chain revocation survives a multi-hour CA outage that would strand a one-day certificate, while still bounding post-compromise exposure to about two revocation periods.
+Shorter lifetimes and hash chain revocation are not mutually exclusive, but shorter lifetimes alone impose issuance-scaling and availability costs and cannot act on what the CA learns mid-lifetime.
+This is argued in full in {{revocation-vs-expiry}}, with the concrete operational trade-offs catalogued in the Shorter Certificate Lifetimes entry of {{alternatives}}.
 
 ## "CRLite/CRLSets Already Solve This Problem"
 
