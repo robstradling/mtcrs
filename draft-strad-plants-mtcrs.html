@@ -1266,6 +1266,9 @@ The authenticating party embeds the current tick in the certificate's MTCProof a
 </li>
                 </ul>
 </li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8.2.8">
+                <p id="section-toc.1-1.8.2.8.1"><a href="#section-8.8" class="auto internal xref">8.8</a>.  <a href="#name-delegated-tick-distribution" class="internal xref">Delegated Tick Distribution</a></p>
+</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
@@ -1369,6 +1372,9 @@ The authenticating party embeds the current tick in the certificate's MTCProof a
 </li>
                   <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.5.2.3">
                     <p id="section-toc.1-1.16.2.5.2.3.1"><a href="#appendix-D.5.3" class="auto internal xref">D.5.3</a>.  <a href="#name-why-it-is-more-readily-depl" class="internal xref">Why It Is More Readily Deployable</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.5.2.4">
+                    <p id="section-toc.1-1.16.2.5.2.4.1"><a href="#appendix-D.5.4" class="auto internal xref">D.5.4</a>.  <a href="#name-operational-simplicity-and-" class="internal xref">Operational Simplicity and Resilience</a></p>
 </li>
                 </ul>
 </li>
@@ -2305,6 +2311,28 @@ Because the authenticating party retains its previously fetched tick, which rema
 </div>
 </section>
 </div>
+<div id="delegated-distribution">
+<section id="section-8.8">
+        <h3 id="name-delegated-tick-distribution">
+<a href="#section-8.8" class="section-number selfRef">8.8. </a><a href="#name-delegated-tick-distribution" class="section-name selfRef">Delegated Tick Distribution</a>
+        </h3>
+<p id="section-8.8-1">Because a tick is self-authenticating -- a relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree (<a href="#verification" class="auto internal xref">Section 7</a>) -- the party that serves ticks need not be trusted for integrity or authenticity.
+A distributor cannot forge a tick for a period the CA has not revealed (preimage resistance; <a href="#security-considerations" class="auto internal xref">Section 10</a>), and cannot serve a tampered value that verifies.
+Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.<a href="#section-8.8-1" class="pilcrow">¶</a></p>
+<p id="section-8.8-2">Each period, the CA publishes to its authorized distributors the set of revealed values for that period -- a bundle keyed by entry_hash -- and each distributor serves them through the HTTP interface of <a href="#distribution" class="auto internal xref">Section 8</a>.
+To revoke a certificate, the CA omits it from the next period's bundle: absence is revocation, so no revocation list is exchanged.
+Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.<a href="#section-8.8-2" class="pilcrow">¶</a></p>
+<p id="section-8.8-3">MTC mirrors are a natural home for this role: they already replicate and serve MTC log data at high availability, and extending a mirror to also serve the current period's ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
+Content delivery networks and relying-party-side operators -- including browser providers, which already run large-scale revocation-distribution infrastructure -- can serve as distributors on the same terms.
+Operating such a service is distinct from the prohibition in <a href="#rp-no-fetch" class="auto internal xref">Section 10.4</a>, which forbids a relying party from using the endpoint as its own online responder during validation; it does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
+The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of <a href="#objections" class="auto internal xref">Appendix F</a>.<a href="#section-8.8-3" class="pilcrow">¶</a></p>
+<p id="section-8.8-4">What is delegated is distribution, not revocation authority.
+The CA retains the seed and the unrevealed chain values (<a href="#security-considerations" class="auto internal xref">Section 10</a>), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given (<a href="#dos-withholding" class="auto internal xref">Section 10.3</a>), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.<a href="#section-8.8-4" class="pilcrow">¶</a></p>
+<p id="section-8.8-5">A CA <span class="bcp14">MAY</span> push only the current period's bundle, in which case each distributor depends on the CA every period and the CA retains tight, sole control of revocation.
+Alternatively a CA <span class="bcp14">MAY</span> pre-provision a small buffer of future periods' values so that a distributor can keep serving through a CA-side outage; this trades revocation control for distributor autonomy, because a certificate cannot be revoked through a distributor that already holds its future values (the same outage-budget trade-off as the period-0 grace; <a href="#period-zero-rationale" class="auto internal xref">Section 3.6</a>), and <span class="bcp14">SHOULD</span> be limited to a short buffer and to distributors trusted to stop serving on the CA's instruction.
+The feed from CA to distributor <span class="bcp14">SHOULD</span> be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check (<a href="#verification" class="auto internal xref">Section 7</a>), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.<a href="#section-8.8-5" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="privacy-considerations">
@@ -3130,6 +3158,20 @@ Within an MTC ecosystem, enforcement can be mandatory from day one (or made so b
 <a href="#objections" class="auto internal xref">Appendix F</a> discusses this availability dependency and its mitigations.<a href="#appendix-D.5.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
+<div id="operational-resilience">
+<section id="appendix-D.5.4">
+          <h4 id="name-operational-simplicity-and-">
+<a href="#appendix-D.5.4" class="section-number selfRef">D.5.4. </a><a href="#name-operational-simplicity-and-" class="section-name selfRef">Operational Simplicity and Resilience</a>
+          </h4>
+<p id="appendix-D.5.4-1">Beyond the deployment barrier, tick distribution is simpler to operate and more resilient than an OCSP responder.
+The serving path holds no online signing key and no responder certificate: it returns precomputed values that are immutable within a period, so it is a static, cacheable, CDN-offloadable, plain-HTTP key-value service (<a href="#distribution" class="auto internal xref">Section 8</a>) with no per-request cryptography and nothing security-critical in the request path.
+A compromised or overloaded tick service can only serve public precomputed values; it cannot mint a false non-revocation statement, unlike a responder whose signing key is a high-value online target.
+Relying parties impose no load at all, because they never fetch (<a href="#rp-no-fetch" class="auto internal xref">Section 10.4</a>) -- removing the responder-in-the-hot-path that made online OCSP a latency, availability, and privacy problem.<a href="#appendix-D.5.4-1" class="pilcrow">¶</a></p>
+<p id="appendix-D.5.4-2">Two qualifications apply.
+First, the new cost is on the generation side: the CA must produce the current tick for every non-revoked certificate each period, a precompute workload (<a href="#storage-tradeoff" class="auto internal xref">Appendix D.3</a>) rather than OCSP's sign-on-demand.
+Second, the failure mode differs by design: an OCSP responder outage fails open (relying parties soft-fail and proceed), whereas a tick-distribution outage lasting longer than one period fails closed for the affected certificate -- bounded by the one-period buffer and mitigated by caching, multi-CA operation, and window-widening (<a href="#objections" class="auto internal xref">Appendix F</a>).<a href="#appendix-D.5.4-2" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 </section>
@@ -3355,7 +3397,7 @@ Deployments must choose a revocation period that balances their revocation laten
 <p id="appendix-F.2-3">This concern is real but bounded.
 First, the dependency is on a trivial HTTP GET returning 36 bytes — far less fragile than ACME issuance or OCSP responder availability.
 Second, the authenticating party has a full period (e.g., one hour) of buffer; brief outages are invisible to relying parties.
-Third, CAs already operate high-availability infrastructure for issuance; tick distribution is a strictly simpler service (static content, cacheable, CDN-friendly).
+Third, CAs already operate high-availability infrastructure for issuance; tick distribution is a strictly simpler service (static content, cacheable, CDN-friendly), and is simpler to operate and more resilient than an OCSP responder (<a href="#operational-resilience" class="auto internal xref">Appendix D.5.4</a>).
 Additionally, deployments with availability concerns <span class="bcp14">MAY</span> widen the acceptance window to tolerate an outage longer than one period, trading revocation latency for resilience (<a href="#clock-skew" class="auto internal xref">Section 10.8</a>).<a href="#appendix-F.2-3" class="pilcrow">¶</a></p>
 <p id="appendix-F.2-4">As a further mitigation, authenticating parties <span class="bcp14">SHOULD</span> obtain Merkle Tree Certificates from multiple independent CAs.
 If one CA's tick distribution infrastructure becomes unavailable, the authenticating party can immediately switch to presenting a certificate from a different CA whose ticks remain current.
