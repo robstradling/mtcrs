@@ -775,6 +775,13 @@ For a buffer of N periods the CA need send each distributor only a single value 
 One value per certificate thus covers the whole buffer, and it confers no power beyond period t+N, since serving any later period would require inverting the hash.
 A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}) with a distributor: unlike a bounded buffer of already-revealed values, that secret would grant the unbounded ability to forge non-revocation for the entire certificate population.
 
+This prohibition holds even in disaster recovery: a CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret (or its per-certificate seeds) to a successor operator as a continuity measure.
+That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event -- not a lightweight recovery step -- and it destroys the mechanism's forward security while transferring unbounded forging power and revocation authority over the entire population.
+It is also unnecessary.
+Continuity for already-issued certificates is provided by the bounded pre-provisioned buffer above, which keeps them usable through the outage without conferring any power beyond period t+N; and because MTC certificates are short-lived and renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}), the failing CA's population ages out within the buffer and remaining-lifetime window while subscribers migrate to a successor that issues fresh certificates under its own key and its own seed -- which never requires the old seed.
+If the disaster is itself a seed or key compromise, the correct response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which contains the damage, rather than widening custody of a possibly-tainted forging secret.
+The only scenario in which seed handover is even coherent is a full corporate succession that also transfers the signing key and trust anchors, governed by the same ceremony and root-program rules; even then, letting the old population expire under the buffer is cleaner than importing another CA's forging secret.
+
 The feed from CA to distributor SHOULD be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
 
 # Privacy Considerations
