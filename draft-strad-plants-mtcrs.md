@@ -803,7 +803,7 @@ With a one-hour revocation_period and a 47-day lifetime, the chain length is 1,1
 The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed chain values confidential.
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.
 
-A CA that derives per-certificate seeds from a single long-term secret ({{storage-tradeoff}}) concentrates this requirement into that secret: it MUST then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation SHOULD be used to bound the impact of a compromise.
+A CA that derives per-certificate seeds from a single long-term secret ({{derived-seeds}}) concentrates this requirement into that secret: it MUST then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation SHOULD be used to bound the impact of a compromise.
 
 If the CA's seed storage is compromised, the CA MUST revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see {{interaction-with-base-mtc-revocation}}.
 
@@ -1122,7 +1122,12 @@ Deployments SHOULD choose the shortest period operationally feasible.
 
 ## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
 
-A CA does not have to choose between the two naive extremes for managing each certificate's hash chain of length `chain_length` (denoted L below):
+A CA has two largely independent implementation choices for each certificate's hash chain of length `chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
+Both are CA-side only; the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
+
+### Storing Versus Recomputing Chain Values {#chain-traversal}
+
+Within a single chain, a CA does not have to choose between the two naive extremes:
 
 - **Store the entire chain:** O(L) storage per certificate, but each revealed value is a free lookup.
   For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
@@ -1143,8 +1148,9 @@ For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) p
 Across 1 billion certificates that is roughly 340 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
 This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).
 
-This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
 The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed ({{security-considerations}}).
+
+### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
 
 The per-certificate seed itself can also be eliminated from storage.
 Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function -- for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || log_number || index)`, or the equivalent with HKDF.
