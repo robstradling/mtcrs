@@ -1170,7 +1170,9 @@ A one-hour revocation_period provides a good balance:
   With 32 bytes per seed, 1 billion certificates require 32 GB.
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
-Deployments SHOULD choose the shortest period operationally feasible.
+At day-scale periods the chain is short enough (chain_length on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
+A day-scale period should be compared against a same-lifetime certificate with no in-band revocation -- whose worst-case exposure is the full remaining lifetime -- not against a one-day short-lived certificate: its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
+The fine-grained-revocation advantage over short lifetimes ({{revocation-vs-expiry}}) is precisely what a short period buys, so deployments SHOULD choose the shortest period operationally feasible.
 
 ## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
 
