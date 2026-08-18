@@ -763,7 +763,13 @@ What is delegated is distribution, not revocation authority.
 The CA retains the seed and the unrevealed chain values ({{security-considerations}}), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
 
 A CA MAY push only the current period's bundle, in which case each distributor depends on the CA every period and the CA retains tight, sole control of revocation.
-Alternatively a CA MAY pre-provision a small buffer of future periods' values so that a distributor can keep serving through a CA-side outage; this trades revocation control for distributor autonomy, because a certificate cannot be revoked through a distributor that already holds its future values (the same outage-budget trade-off as the period-0 grace; {{period-zero-rationale}}), and SHOULD be limited to a short buffer and to distributors trusted to stop serving on the CA's instruction.
+
+Alternatively, as part of disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values, so that the distributor can keep certificates usable through a CA-side outage.
+This is continuity (liveness) delegation, not delegation of revocation: sharing future ticks lets the holder keep certificates alive, and correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
+The buffer length therefore caps how quickly those certificates can be revoked through the hash chain; during the window the only remaining lever is the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which the CA controls independently.
+Future values held by a distributor are as sensitive as the CA's own unrevealed chain values ({{security-considerations}}): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
+A CA SHOULD therefore keep the buffer short -- sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace ({{period-zero-rationale}}) -- and pre-provision only distributors trusted to stop serving on the CA's instruction.
+
 The feed from CA to distributor SHOULD be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
 
 # Privacy Considerations
