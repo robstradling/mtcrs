@@ -829,11 +829,15 @@ The dependency is bounded, and several factors and mitigations limit its impact:
   Fetching a tick is a single HTTP GET returning 36 bytes with no per-request cryptography -- far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
   Because the authenticating party retains a full period of buffer, brief outages are invisible to relying parties.
 
-- **The acceptance window can be widened.**
-  Deployments with availability concerns MAY accept ticks from further preceding periods, tolerating an outage longer than one period at the cost of correspondingly delayed revocation enforcement ({{clock-skew}}).
+- **The acceptance window can be widened, deliberately.**
+  A relying party MAY accept ticks from further preceding periods, converting a tick-distribution outage longer than one period into bounded additional revocation latency rather than a hard failure ({{clock-skew}}).
+  This is a relying-party (or root-program) policy, not something a server can switch on, and it applies to every certificate that relying party validates, so it loosens revocation freshness ecosystem-wide; it is therefore a conscious fallback for known-poor availability, not a default.
+  It remains hard-fail once the widened window elapses -- a bounded extension of acceptable staleness, not a fail-open.
+  The multi-CA approach below is preferable wherever it is available, because it restores availability without accepting any additional staleness.
 
 - **Multiple independent CAs remove the single point of failure.**
   Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
+  This is the preferred resilience mechanism, because -- unlike widening the acceptance window -- it restores availability at no cost to revocation freshness.
   Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
 The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
