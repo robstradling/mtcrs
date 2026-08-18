@@ -843,6 +843,8 @@ The dependency is bounded, and several factors and mitigations limit its impact:
 - **Multiple independent CAs remove the single point of failure.**
   Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
   This is the preferred resilience mechanism, because -- unlike widening the acceptance window -- it restores availability at no cost to revocation freshness.
+  Failover needs no new protocol: the tick is embedded in the MTCProof rather than negotiated as a separate stapled response, so a server holding certificates from several CAs simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism (Section 8 of {{I-D.ietf-plants-merkle-tree-certs}}).
+  This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange; its one precondition is that the relying party support the alternate CA's trust anchor.
   Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
 The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
