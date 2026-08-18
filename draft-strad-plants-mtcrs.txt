@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             17 August 2026
-Expires: 18 February 2027
+Intended status: Experimental                             18 August 2026
+Expires: 19 February 2027
 
 
            Merkle Tree Certificate Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 18 February 2027.
+   This Internet-Draft will expire on 19 February 2027.
 
 Copyright Notice
 
@@ -159,12 +159,14 @@ Table of Contents
      F.2.  "This Creates a New Availability Dependency"
      F.3.  "Just Use Shorter Certificate Lifetimes"
      F.4.  "CRLite/CRLSets Already Solve This Problem"
-     F.5.  "The Non-Critical Extension Means Split Enforcement"
-     F.6.  "CA Seed Compromise Is Catastrophic"
-     F.7.  "Modifying MTCProof Breaks Existing Implementations"
-     F.8.  "Hourly Tick Refresh Adds Operational Burden to Servers"
-     F.9.  "This Introduces a Covert Denial-of-Service Vector"
-     F.10. "Verification Cost Grows Linearly with Certificate Age"
+     F.5.  "Browsers Already Abandoned Handshake and Online
+            Revocation"
+     F.6.  "The Non-Critical Extension Means Split Enforcement"
+     F.7.  "CA Seed Compromise Is Catastrophic"
+     F.8.  "Modifying MTCProof Breaks Existing Implementations"
+     F.9.  "Hourly Tick Refresh Adds Operational Burden to Servers"
+     F.10. "This Introduces a Covert Denial-of-Service Vector"
+     F.11. "Verification Cost Grows Linearly with Certificate Age"
    Appendix G.  Proposed MTCProof Extensibility
      G.1.  Motivation
      G.2.  Proposed Amendment
@@ -2137,7 +2139,10 @@ D.5.  Comparison with OCSP Stapling
    handshake, and is the closest existing analogue to this mechanism.
    It has nonetheless failed to become an enforceable revocation
    channel, for reasons this mechanism is specifically designed to
-   avoid.
+   avoid.  The major browsers' migration away from live OCSP and
+   stapling toward pushed revocation lists was itself a verdict on soft-
+   fail; Appendix F (Browsers Already Abandoned Handshake and Online
+   Revocation) addresses how this mechanism differs.
 
 D.5.1.  Why OCSP Stapling Is Not Enforceable
 
@@ -2535,7 +2540,48 @@ F.4.  "CRLite/CRLSets Already Solve This Problem"
    revocation is defense-in-depth; hash chains provide a universal
    baseline.
 
-F.5.  "The Non-Critical Extension Means Split Enforcement"
+F.5.  "Browsers Already Abandoned Handshake and Online Revocation"
+
+   The major browsers disabled live OCSP checking and never pushed OCSP
+   stapling to ubiquity; instead they moved to client-side pushed
+   revocation (Chrome's CRLSets [CRLSets], Mozilla's OneCRL and CRLite
+   [CRLite], and Apple's on-device revocation data).  A handshake-
+   carried status mechanism may look like a return to an approach the
+   ecosystem already rejected.
+
+   The reasons for that move are specific, and this mechanism is
+   designed around each of them:
+
+   *  *Soft-fail.* Online OCSP had to treat an unreachable responder as
+      "not revoked," so an active attacker could simply suppress the
+      check, making enforcement impossible.  The non-revocation proof
+      here is structurally part of the certificate presentation and
+      cannot be stripped while leaving a usable certificate, so relying
+      parties hard-fail by construction (Appendix D.5) -- the property
+      OCSP Must-Staple ([RFC7633]) aimed at but never achieved at scale.
+
+   *  *Relying-party privacy.* Client-driven OCSP leaked relying-party
+      browsing to CAs.  Relying parties here never contact the CA
+      (Section 10.4); the only fetch is server-side.
+
+   *  *Operator and responder fragility.* Must-Staple saw negligible
+      adoption because a stapling-pipeline failure caused self-inflicted
+      outages, and clients could not hard-fail until coverage was
+      universal.  Here the refresh is a trivial cacheable 36-byte GET
+      with no signing, backed by a full period of buffer and multi-CA
+      fallback (Section 10.3), and MTC is greenfield, so enforcement can
+      be mandatory from the outset.
+
+   The pushed-list systems remain valuable and complementary --
+   comprehensive and fail-closed, but vendor-controlled and effective
+   only for relying parties that ship the feed.  This mechanism provides
+   a universal, CA-operated baseline enforced by every relying party,
+   including non-browser TLS clients with no external feed (see the
+   CRLite / CRLSets objection above).  Their success in fact validates
+   the design choices adopted here: fail-closed enforcement with no
+   handshake-time relying-party network dependency.
+
+F.6.  "The Non-Critical Extension Means Split Enforcement"
 
    Since id-pe-hashChainAnchor is marked non-critical, relying parties
    that have not implemented this mechanism will ignore it.  This
@@ -2561,7 +2607,7 @@ F.5.  "The Non-Critical Extension Means Split Enforcement"
    ecosystem.  A root program policy could similarly mandate critical
    marking once adoption is deemed sufficient.
 
-F.6.  "CA Seed Compromise Is Catastrophic"
+F.7.  "CA Seed Compromise Is Catastrophic"
 
    If an attacker compromises the CA's stored hash chain seeds, they can
    compute valid ticks for revoked certificates, completely defeating
@@ -2579,7 +2625,7 @@ F.6.  "CA Seed Compromise Is Catastrophic"
    compromise -- revoking the affected serial-number ranges via the base
    MTC mechanism -- is described in Section 10.2 and Section 10.6.
 
-F.7.  "Modifying MTCProof Breaks Existing Implementations"
+F.8.  "Modifying MTCProof Breaks Existing Implementations"
 
    Adding a status_tick field to MTCProof requires changes to every MTC
    implementation.  The base MTC specification may not have anticipated
@@ -2629,7 +2675,7 @@ F.7.  "Modifying MTCProof Breaks Existing Implementations"
    available as transition strategies for an ecosystem that deploys
    before the chosen amendment is widely implemented.
 
-F.8.  "Hourly Tick Refresh Adds Operational Burden to Servers"
+F.9.  "Hourly Tick Refresh Adds Operational Burden to Servers"
 
    Authenticating parties already perform periodic certificate
    management: renewing certificates before expiry (recommended at 75%
@@ -2651,7 +2697,7 @@ F.8.  "Hourly Tick Refresh Adds Operational Burden to Servers"
    instead of one hour, the operational cadence matches what servers
    already do for DNS record TTL refreshes.
 
-F.9.  "This Introduces a Covert Denial-of-Service Vector"
+F.10.  "This Introduces a Covert Denial-of-Service Vector"
 
    A CA can selectively withhold ticks from a specific subscriber,
    effectively revoking their certificate without any auditable signal.
@@ -2663,7 +2709,7 @@ F.9.  "This Introduces a Covert Denial-of-Service Vector"
    observable (CT-style auditing), and disciplined by market pressure
    and CA switching.  It is addressed in Section 10.3.
 
-F.10.  "Verification Cost Grows Linearly with Certificate Age"
+F.11.  "Verification Cost Grows Linearly with Certificate Age"
 
    A relying party verifying a tick near the end of a 47-day
    certificate's lifetime must compute up to 1,127 hashes.  This linear
