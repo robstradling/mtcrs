@@ -1357,6 +1357,14 @@ The authenticating party embeds the current tick in the certificate's MTCProof a
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.3">
                 <p id="section-toc.1-1.16.2.3.1"><a href="#appendix-D.3" class="auto internal xref">D.3</a>.  <a href="#name-ca-side-storage-and-computa" class="internal xref">CA-Side Storage and Computation Trade-off</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.3.2.1">
+                    <p id="section-toc.1-1.16.2.3.2.1.1"><a href="#appendix-D.3.1" class="auto internal xref">D.3.1</a>.  <a href="#name-storing-versus-recomputing-" class="internal xref">Storing Versus Recomputing Chain Values</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.3.2.2">
+                    <p id="section-toc.1-1.16.2.3.2.2.1"><a href="#appendix-D.3.2" class="auto internal xref">D.3.2</a>.  <a href="#name-deriving-seeds-from-a-long-" class="internal xref">Deriving Seeds from a Long-Term CA Secret</a></p>
+</li>
+                </ul>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.4">
                 <p id="section-toc.1-1.16.2.4.1"><a href="#appendix-D.4" class="auto internal xref">D.4</a>.  <a href="#name-why-embed-the-tick-in-the-m" class="internal xref">Why Embed the Tick in the MTCProof</a></p>
@@ -2328,9 +2336,17 @@ Operating such a service is distinct from the prohibition in <a href="#rp-no-fet
 The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of <a href="#objections" class="auto internal xref">Appendix F</a>.<a href="#section-8.8-3" class="pilcrow">¶</a></p>
 <p id="section-8.8-4">What is delegated is distribution, not revocation authority.
 The CA retains the seed and the unrevealed chain values (<a href="#security-considerations" class="auto internal xref">Section 10</a>), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given (<a href="#dos-withholding" class="auto internal xref">Section 10.3</a>), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.<a href="#section-8.8-4" class="pilcrow">¶</a></p>
-<p id="section-8.8-5">A CA <span class="bcp14">MAY</span> push only the current period's bundle, in which case each distributor depends on the CA every period and the CA retains tight, sole control of revocation.
-Alternatively a CA <span class="bcp14">MAY</span> pre-provision a small buffer of future periods' values so that a distributor can keep serving through a CA-side outage; this trades revocation control for distributor autonomy, because a certificate cannot be revoked through a distributor that already holds its future values (the same outage-budget trade-off as the period-0 grace; <a href="#period-zero-rationale" class="auto internal xref">Section 3.6</a>), and <span class="bcp14">SHOULD</span> be limited to a short buffer and to distributors trusted to stop serving on the CA's instruction.
-The feed from CA to distributor <span class="bcp14">SHOULD</span> be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check (<a href="#verification" class="auto internal xref">Section 7</a>), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.<a href="#section-8.8-5" class="pilcrow">¶</a></p>
+<p id="section-8.8-5">A CA <span class="bcp14">MAY</span> push only the current period's bundle, in which case each distributor depends on the CA every period and the CA retains tight, sole control of revocation.<a href="#section-8.8-5" class="pilcrow">¶</a></p>
+<p id="section-8.8-6">Alternatively, as part of disaster-recovery planning, a CA <span class="bcp14">MAY</span> pre-provision a distributor with a small buffer of future periods' values, so that the distributor can keep certificates usable through a CA-side outage.
+This is continuity (liveness) delegation, not delegation of revocation: sharing future ticks lets the holder keep certificates alive, and correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
+The buffer length therefore caps how quickly those certificates can be revoked through the hash chain; during the window the only remaining lever is the base MTC revoked-ranges fallback (<a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 10.6</a>), which the CA controls independently.
+Future values held by a distributor are as sensitive as the CA's own unrevealed chain values (<a href="#security-considerations" class="auto internal xref">Section 10</a>): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
+A CA <span class="bcp14">SHOULD</span> therefore keep the buffer short -- sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace (<a href="#period-zero-rationale" class="auto internal xref">Section 3.6</a>) -- and pre-provision only distributors trusted to stop serving on the CA's instruction.<a href="#section-8.8-6" class="pilcrow">¶</a></p>
+<p id="section-8.8-7">Such a buffer is compact and inherently bounded.
+For a buffer of N periods the CA need send each distributor only a single value per certificate -- the value that will be revealed N periods ahead -- from which the distributor derives every intervening period's value by hashing forward (<a href="#revealing-values" class="auto internal xref">Section 3.4</a>).
+One value per certificate thus covers the whole buffer, and it confers no power beyond period t+N, since serving any later period would require inverting the hash.
+A CA <span class="bcp14">MUST NOT</span> instead share the seed-derivation secret (<a href="#derived-seeds" class="auto internal xref">Appendix D.3.2</a>) with a distributor: unlike a bounded buffer of already-revealed values, that secret would grant the unbounded ability to forge non-revocation for the entire certificate population.<a href="#section-8.8-7" class="pilcrow">¶</a></p>
+<p id="section-8.8-8">The feed from CA to distributor <span class="bcp14">SHOULD</span> be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check (<a href="#verification" class="auto internal xref">Section 7</a>), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.<a href="#section-8.8-8" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2382,7 +2398,7 @@ With a one-hour revocation_period and a 47-day lifetime, the chain length is 1,1
         </h3>
 <p id="section-10.2-1">The CA <span class="bcp14">MUST</span> keep the hash chain seed (h[0]) and all not-yet-revealed chain values confidential.
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
-<p id="section-10.2-2">A CA that derives per-certificate seeds from a single long-term secret (<a href="#storage-tradeoff" class="auto internal xref">Appendix D.3</a>) concentrates this requirement into that secret: it <span class="bcp14">MUST</span> then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation <span class="bcp14">SHOULD</span> be used to bound the impact of a compromise.<a href="#section-10.2-2" class="pilcrow">¶</a></p>
+<p id="section-10.2-2">A CA that derives per-certificate seeds from a single long-term secret (<a href="#derived-seeds" class="auto internal xref">Appendix D.3.2</a>) concentrates this requirement into that secret: it <span class="bcp14">MUST</span> then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation <span class="bcp14">SHOULD</span> be used to bound the impact of a compromise.<a href="#section-10.2-2" class="pilcrow">¶</a></p>
 <p id="section-10.2-3">If the CA's seed storage is compromised, the CA <span class="bcp14">MUST</span> revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see <a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 10.6</a>.<a href="#section-10.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -3027,39 +3043,55 @@ Deployments <span class="bcp14">SHOULD</span> choose the shortest period operati
         <h3 id="name-ca-side-storage-and-computa">
 <a href="#appendix-D.3" class="section-number selfRef">D.3. </a><a href="#name-ca-side-storage-and-computa" class="section-name selfRef">CA-Side Storage and Computation Trade-off</a>
         </h3>
-<p id="appendix-D.3-1">A CA does not have to choose between the two naive extremes for managing each certificate's hash chain of length <code>chain_length</code> (denoted L below):<a href="#appendix-D.3-1" class="pilcrow">¶</a></p>
+<p id="appendix-D.3-1">A CA has two largely independent implementation choices for each certificate's hash chain of length <code>chain_length</code> (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
+Both are CA-side only; the on-the-wire tick and the relying party's verification procedure (<a href="#verification" class="auto internal xref">Section 7</a>) are unchanged.<a href="#appendix-D.3-1" class="pilcrow">¶</a></p>
+<div id="chain-traversal">
+<section id="appendix-D.3.1">
+          <h4 id="name-storing-versus-recomputing-">
+<a href="#appendix-D.3.1" class="section-number selfRef">D.3.1. </a><a href="#name-storing-versus-recomputing-" class="section-name selfRef">Storing Versus Recomputing Chain Values</a>
+          </h4>
+<p id="appendix-D.3.1-1">Within a single chain, a CA does not have to choose between the two naive extremes:<a href="#appendix-D.3.1-1" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="appendix-D.3-2.1">
-            <p id="appendix-D.3-2.1.1"><strong>Store the entire chain:</strong> O(L) storage per certificate, but each revealed value is a free lookup.
-For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.<a href="#appendix-D.3-2.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="appendix-D.3.1-2.1">
+              <p id="appendix-D.3.1-2.1.1"><strong>Store the entire chain:</strong> O(L) storage per certificate, but each revealed value is a free lookup.
+For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.<a href="#appendix-D.3.1-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="appendix-D.3-2.2">
-            <p id="appendix-D.3-2.2.1"><strong>Store only the seed:</strong> O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
-Over a certificate's lifetime this is O(L^2) hashing.<a href="#appendix-D.3-2.2.1" class="pilcrow">¶</a></p>
+            <li class="normal" id="appendix-D.3.1-2.2">
+              <p id="appendix-D.3.1-2.2.1"><strong>Store only the seed:</strong> O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
+Over a certificate's lifetime this is O(L^2) hashing.<a href="#appendix-D.3.1-2.2.1" class="pilcrow">¶</a></p>
 </li>
-        </ul>
-<p id="appendix-D.3-3">A CA <span class="bcp14">MAY</span> instead use <strong>fractal hash-chain traversal</strong> <span>[<a href="#FRACTAL" class="cite xref">FRACTAL</a>]</span> <span>[<a href="#ALMOST-OPTIMAL" class="cite xref">ALMOST-OPTIMAL</a>]</span> to obtain a logarithmic middle ground.
+          </ul>
+<p id="appendix-D.3.1-3">A CA <span class="bcp14">MAY</span> instead use <strong>fractal hash-chain traversal</strong> <span>[<a href="#FRACTAL" class="cite xref">FRACTAL</a>]</span> <span>[<a href="#ALMOST-OPTIMAL" class="cite xref">ALMOST-OPTIMAL</a>]</span> to obtain a logarithmic middle ground.
 The chain is revealed in reverse of the order in which it is computed (the CA computes <code>h[1..L]</code> forward from the secret seed <code>h[0]</code>, but reveals <code>h[L-1], h[L-2], ..., h[1]</code> over time), which is exactly the setting these algorithms address.
 Instead of the whole chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the chain.
 When the value for the current period is needed, a pebble is already there; between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
-The scheduling guarantees:<a href="#appendix-D.3-3" class="pilcrow">¶</a></p>
-<div class="alignLeft art-text artwork" id="appendix-D.3-4">
+The scheduling guarantees:<a href="#appendix-D.3.1-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="appendix-D.3.1-4">
 <pre>
 storage  ~ log2(L)      hash values per certificate
 work     ~ (1/2) log2(L) hash evaluations per revealed value
-</pre><a href="#appendix-D.3-4" class="pilcrow">¶</a>
+</pre><a href="#appendix-D.3.1-4" class="pilcrow">¶</a>
 </div>
-<p id="appendix-D.3-5">For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
+<p id="appendix-D.3.1-5">For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
 Across 1 billion certificates that is roughly 340 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
-This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).<a href="#appendix-D.3-5" class="pilcrow">¶</a></p>
-<p id="appendix-D.3-6">This is purely a CA-side implementation choice: the on-the-wire tick and the relying party's verification procedure (<a href="#verification" class="auto internal xref">Section 7</a>) are unchanged.
-The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed (<a href="#security-considerations" class="auto internal xref">Section 10</a>).<a href="#appendix-D.3-6" class="pilcrow">¶</a></p>
-<p id="appendix-D.3-7">The per-certificate seed itself can also be eliminated from storage.
+This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).<a href="#appendix-D.3.1-5" class="pilcrow">¶</a></p>
+<p id="appendix-D.3.1-6">The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed (<a href="#security-considerations" class="auto internal xref">Section 10</a>).<a href="#appendix-D.3.1-6" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="derived-seeds">
+<section id="appendix-D.3.2">
+          <h4 id="name-deriving-seeds-from-a-long-">
+<a href="#appendix-D.3.2" class="section-number selfRef">D.3.2. </a><a href="#name-deriving-seeds-from-a-long-" class="section-name selfRef">Deriving Seeds from a Long-Term CA Secret</a>
+          </h4>
+<p id="appendix-D.3.2-1">The per-certificate seed itself can also be eliminated from storage.
 Instead of generating and storing an independent random seed per certificate, a CA <span class="bcp14">MAY</span> derive each seed from a single long-term CA secret with a keyed key-derivation function -- for example <code>h[0] = HMAC-SHA256(ca_seed, label || issuer_id || log_number || index)</code>, or the equivalent with HKDF.
 A raw <code>Hash(ca_seed || ...)</code> construction <span class="bcp14">MUST NOT</span> be used, as it invites length-extension and MAC-misuse; a proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of <a href="#construction" class="auto internal xref">Section 3</a>.
 Any chain is then recomputable on demand from <code>ca_seed</code> and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
 The cost is concentration: compromise of <code>ca_seed</code> exposes every certificate's chain, past, present, and future, so it <span class="bcp14">MUST</span> be protected at least as strongly as the CA's issuance signing key (<a href="#seed-confidentiality" class="auto internal xref">Section 10.2</a>) -- though, being a single small key, it is better suited to HSM custody than a bulk per-certificate seed store.
-To bound the blast radius, a CA <span class="bcp14">SHOULD</span> derive per-log or per-epoch sub-seeds (<code>log_seed = KDF(ca_seed, log_number)</code>, then <code>h[0] = KDF(log_seed, label || index)</code>), which can be retired as their logs expire; as with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback (<a href="#seed-confidentiality" class="auto internal xref">Section 10.2</a>).<a href="#appendix-D.3-7" class="pilcrow">¶</a></p>
+To bound the blast radius, a CA <span class="bcp14">SHOULD</span> derive per-log or per-epoch sub-seeds (<code>log_seed = KDF(ca_seed, log_number)</code>, then <code>h[0] = KDF(log_seed, label || index)</code>), which can be retired as their logs expire; as with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback (<a href="#seed-confidentiality" class="auto internal xref">Section 10.2</a>).
+Rotation is by issuance epoch, not by tick period: a certificate's entire chain derives from the seed fixed at issuance, so per-log or per-epoch sub-seeds are the finest granularity at which a compromise can be bounded.<a href="#appendix-D.3.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="why-embed-the-tick-in-the-mtcproof">
@@ -3212,13 +3244,18 @@ The CA <span class="bcp14">SHOULD</span> set TTLs no longer than revocation_peri
 Depending on the DNS infrastructure, this may be more complex than serving an HTTP endpoint.<a href="#appendix-E.1-6.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="appendix-E.1-7">Deployments <span class="bcp14">MAY</span> use DNS-based distribution as an alternative or complement to HTTP-based distribution.
-The choice does not affect interoperability, since the relying party only sees the tick in the MTCProof.<a href="#appendix-E.1-7" class="pilcrow">¶</a></p>
-<p id="appendix-E.1-8">DNSSEC is not required for DNS-based tick distribution and <span class="bcp14">SHOULD NOT</span> be used.
+<p id="appendix-E.1-7">These limitations are largely addressable.
+Rather than provisioning a static zone with one record per certificate, a CA can answer queries dynamically: a programmable authoritative server synthesizes the response for <code>{entry_hash}._tick.&lt;zone&gt;</code> on demand from the same chain state the HTTP interface uses (<a href="#distribution" class="auto internal xref">Section 8</a>), so no per-certificate records are stored and record count ceases to be a scaling concern; the namespace can also be sharded by entry_hash prefix across delegated sub-zones.
+Staleness is bounded by the record TTL, which <span class="bcp14">SHOULD</span> be no longer than revocation_period; because a relying party already accepts a tick for the immediately preceding period (<a href="#clock-skew" class="auto internal xref">Section 10.8</a>), a briefly stale record remains acceptable, and the authenticating party's pre-installation check (<a href="#verification" class="auto internal xref">Section 7</a>) rejects an unexpectedly stale record and refetches.
+For revocation, a cached record extends the window in which a revoked certificate remains usable by at most the TTL beyond the normal one-period grace, so a short TTL bounds it.
+Under dynamic synthesis the per-period work is the same the HTTP interface performs, merely fronted by a DNS responder; and because ticks are self-authenticating, the delegated-distribution model (<a href="#delegated-distribution" class="auto internal xref">Section 8.8</a>) applies unchanged, with edge DNS nodes fed the per-period bundle answering authoritatively.<a href="#appendix-E.1-7" class="pilcrow">¶</a></p>
+<p id="appendix-E.1-8">Deployments <span class="bcp14">MAY</span> use DNS-based distribution as an alternative or complement to HTTP-based distribution.
+The choice does not affect interoperability, since the relying party only sees the tick in the MTCProof.<a href="#appendix-E.1-8" class="pilcrow">¶</a></p>
+<p id="appendix-E.1-9">DNSSEC is not required for DNS-based tick distribution and <span class="bcp14">SHOULD NOT</span> be used.
 Each tick is self-authenticating: the relying party verifies it by hashing it forward to the anchor already committed in the Merkle Tree.
 An attacker who modifies a tick in transit cannot produce a value that passes this verification without inverting the hash function.
 An attacker who suppresses a tick only prevents the authenticating party from obtaining a fresh tick, which is equivalent to a network-level denial of service against any distribution channel.
-Adding DNSSEC would introduce unnecessary operational complexity (key management, signature generation for frequently changing records) and increase DNS response sizes, without improving the security of the revocation mechanism.<a href="#appendix-E.1-8" class="pilcrow">¶</a></p>
+Adding DNSSEC would introduce unnecessary operational complexity (key management, signature generation for frequently changing records) and increase DNS response sizes, without improving the security of the revocation mechanism.<a href="#appendix-E.1-9" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="aia-based-tick-url-discovery">
