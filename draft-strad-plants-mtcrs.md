@@ -744,6 +744,28 @@ Under transient overload, the CA or edge MAY respond with HTTP status code 429 (
 To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
 Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
 
+## Delegated Tick Distribution {#delegated-distribution}
+
+Because a tick is self-authenticating -- a relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree ({{verification}}) -- the party that serves ticks need not be trusted for integrity or authenticity.
+A distributor cannot forge a tick for a period the CA has not revealed (preimage resistance; {{security-considerations}}), and cannot serve a tampered value that verifies.
+Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
+
+Each period, the CA publishes to its authorized distributors the set of revealed values for that period -- a bundle keyed by entry_hash -- and each distributor serves them through the HTTP interface of {{distribution}}.
+To revoke a certificate, the CA omits it from the next period's bundle: absence is revocation, so no revocation list is exchanged.
+Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.
+
+MTC mirrors are a natural home for this role: they already replicate and serve MTC log data at high availability, and extending a mirror to also serve the current period's ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
+Content delivery networks and relying-party-side operators -- including browser providers, which already run large-scale revocation-distribution infrastructure -- can serve as distributors on the same terms.
+Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation; it does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
+The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{objections}}.
+
+What is delegated is distribution, not revocation authority.
+The CA retains the seed and the unrevealed chain values ({{security-considerations}}), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
+
+A CA MAY push only the current period's bundle, in which case each distributor depends on the CA every period and the CA retains tight, sole control of revocation.
+Alternatively a CA MAY pre-provision a small buffer of future periods' values so that a distributor can keep serving through a CA-side outage; this trades revocation control for distributor autonomy, because a certificate cannot be revoked through a distributor that already holds its future values (the same outage-budget trade-off as the period-0 grace; {{period-zero-rationale}}), and SHOULD be limited to a short buffer and to distributors trusted to stop serving on the CA's instruction.
+The feed from CA to distributor SHOULD be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
+
 # Privacy Considerations
 
 The Privacy Considerations of {{I-D.ietf-plants-merkle-tree-certs}} (Section 11) apply to Merkle Tree Certificates that use this mechanism.
