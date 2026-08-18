@@ -1192,6 +1192,17 @@ Several differences lower the deployment barrier relative to stapling:
 The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
 {{objections}} discusses this availability dependency and its mitigations.
 
+### Operational Simplicity and Resilience {#operational-resilience}
+
+Beyond the deployment barrier, tick distribution is simpler to operate and more resilient than an OCSP responder.
+The serving path holds no online signing key and no responder certificate: it returns precomputed values that are immutable within a period, so it is a static, cacheable, CDN-offloadable, plain-HTTP key-value service ({{distribution}}) with no per-request cryptography and nothing security-critical in the request path.
+A compromised or overloaded tick service can only serve public precomputed values; it cannot mint a false non-revocation statement, unlike a responder whose signing key is a high-value online target.
+Relying parties impose no load at all, because they never fetch ({{rp-no-fetch}}) -- removing the responder-in-the-hot-path that made online OCSP a latency, availability, and privacy problem.
+
+Two qualifications apply.
+First, the new cost is on the generation side: the CA must produce the current tick for every non-revoked certificate each period, a precompute workload ({{storage-tradeoff}}) rather than OCSP's sign-on-demand.
+Second, the failure mode differs by design: an OCSP responder outage fails open (relying parties soft-fail and proceed), whereas a tick-distribution outage lasting longer than one period fails closed for the affected certificate -- bounded by the one-period buffer and mitigated by caching, multi-CA operation, and window-widening ({{objections}}).
+
 # Alternatives Considered {#alternatives}
 
 ## DNS-Based Tick Distribution
@@ -1354,7 +1365,7 @@ Deployments must choose a revocation period that balances their revocation laten
 This concern is real but bounded.
 First, the dependency is on a trivial HTTP GET returning 36 bytes — far less fragile than ACME issuance or OCSP responder availability.
 Second, the authenticating party has a full period (e.g., one hour) of buffer; brief outages are invisible to relying parties.
-Third, CAs already operate high-availability infrastructure for issuance; tick distribution is a strictly simpler service (static content, cacheable, CDN-friendly).
+Third, CAs already operate high-availability infrastructure for issuance; tick distribution is a strictly simpler service (static content, cacheable, CDN-friendly), and is simpler to operate and more resilient than an OCSP responder ({{operational-resilience}}).
 Additionally, deployments with availability concerns MAY widen the acceptance window to tolerate an outage longer than one period, trading revocation latency for resilience ({{clock-skew}}).
 
 As a further mitigation, authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs.
