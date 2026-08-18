@@ -1177,9 +1177,10 @@ Rotation is by issuance epoch, not by tick period: a certificate's entire chain 
 The MTCProof is the bundle of evidence a relying party checks to accept a certificate: the inclusion proof and cosignatures establish authenticity, and the tick completes it with non-revocation, so embedding the tick extends the certificate's proof of validity rather than attaching unrelated data.
 It is embedded directly in the MTCProof (the certificate's signatureValue) rather than delivered via a separate channel because:
 
-1. **Structurally inseparable:** The tick is part of the certificate itself.
-   A relying party that parses the MTCProof will always encounter the tick.
-   There is no possibility of the tick being stripped or omitted in transit.
+1. **Inseparable from acceptance:** The tick is part of the certificate presentation, not a separate signal.
+   When the committed id-pe-hashChainAnchor extension is present, the amended Section 7.2 parse ({{tick-trailing-field}}) requires the MTCProof to carry the tick, so a relying party that implements this mechanism rejects the certificate if the tick is absent.
+   The tick is not itself covered by a CA signature -- like the rest of the MTCProof it is mutable, which is precisely what lets it be refreshed each period -- so an active attacker can remove the bytes; what it cannot do is remove them and leave a certificate that still verifies.
+   Stripping the tick therefore forces a hard failure rather than the silent soft-fail that let a stripped OCSP staple pass ({{ocsp-stapling-comparison}}): the guarantee is that revocation status cannot be dropped undetectably, not that the bytes are physically immovable.
 
 2. **No new protocol machinery:** No TLS CertificateEntry extension or other signaling mechanism is needed.
    The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support.
@@ -1317,8 +1318,8 @@ Another alternative was carrying the hash chain tick in a TLS CertificateEntry e
 
 This approach was rejected because:
 
-- **Strippable:** A TLS extension can potentially be omitted by middleboxes or misconfigured servers.
-  Embedding the tick in the MTCProof makes it structurally inseparable from the certificate.
+- **Strippable:** A TLS extension can potentially be omitted by middleboxes or misconfigured servers, with the relying party unable to tell an omitted extension from one that was never sent, so it must soft-fail.
+  Embedding the tick in the MTCProof does not make the bytes physically immovable -- they are covered by no signature -- but it makes the tick inseparable from the certificate's acceptance: when the committed anchor is present, an aware relying party rejects the certificate if the tick is missing ({{tick-trailing-field}}), so stripping forces a hard failure rather than a silent soft-fail.
 
 - **The OCSP stapling lesson:** any mechanism carried in a separate, optional signalling channel is strippable and forces relying parties to soft-fail -- exactly the failure mode analysed in {{ocsp-stapling-comparison}}. Embedding the tick in the MTCProof avoids it.
 
