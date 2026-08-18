@@ -824,7 +824,8 @@ Relying parties that support both mechanisms SHOULD check both: a certificate is
 
 Because an authenticating party must fetch a fresh tick at least once per revocation_period ({{distribution}}), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
-The dependency is bounded, and several factors and mitigations limit its impact:
+It is intrinsic to enforceable revocation rather than a defect: a mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open -- the soft-fail behaviour this design rejects ({{ocsp-stapling-comparison}}).
+The goal is therefore to bound the dependency, not to eliminate it; several factors and mitigations limit its impact:
 
 - **The revocation period is the outage-tolerance budget.**
   A one-hour period lets an authenticating party tolerate up to one hour of tick-distribution unavailability before its certificate becomes unusable; a one-day period provides 24 hours of buffer but delays revocation enforcement proportionally.
