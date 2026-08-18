@@ -697,6 +697,10 @@ Under transient overload, the CA or edge MAY respond with HTTP status code 429 (
 To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
 Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
 
+The deterministic per-entry offset above and edge caching together flatten period-boundary load: the offset spreads fetches uniformly across the period, and caching collapses the fetches for each entry into a single origin request per period regardless of client timing.
+At large scale these are required rather than merely recommended, as the Operational Model ({{distribution}}) notes.
+This document nonetheless specifies them as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification; a specific load-shaping or availability target is left to root-program or CA operational policy.
+
 ## Delegated Tick Distribution {#delegated-distribution}
 
 Because a tick is self-authenticating -- a relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree ({{verification}}) -- the party that serves ticks need not be trusted for integrity or authenticity.
@@ -709,6 +713,7 @@ Because a distributor only ever receives already-revealed values, compromising i
 
 MTC mirrors are a natural home for this role: they already replicate and serve MTC log data at high availability, and extending a mirror to also serve the current period's ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
 Content delivery networks and relying-party-side operators -- including browser providers, which already run large-scale revocation-distribution infrastructure -- can serve as distributors on the same terms.
+Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several delegated distributors concurrently with no added trust, removing the CA origin as a single point of failure; the level of redundancy a CA must provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
 Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation; it does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
 The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{availability-considerations}}.
 
