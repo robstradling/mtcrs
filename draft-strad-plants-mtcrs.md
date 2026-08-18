@@ -320,10 +320,6 @@ anchor:
 : The hash chain anchor value `h[chain_length]`.
   This OCTET STRING MUST be exactly HASH_SIZE bytes long; a relying party MUST reject the certificate if it is not ({{verification}}).
 
-The id-pe-hashChainAnchor extension SHOULD be marked non-critical, so that relying parties that do not implement this mechanism can still process the certificate.
-However, relying parties that do implement this mechanism MUST enforce hash chain verification as described in {{verification}} when the extension is present.
-An MTC ecosystem in which all relying parties are expected to support hash chain revocation MAY mark the extension critical, causing implementations that do not recognize it to reject the certificate.
-
 The extension MUST appear at most once in a certificate.
 The extension MUST NOT be present in a certificate whose validity period is not longer than revocation_period ({{construction}}); such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.
 
@@ -331,6 +327,14 @@ Because the anchor is committed to the Merkle Tree, this extension enlarges ever
 With the default revocation_period, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing -- on the order of 40 to 50 bytes per entry.
 This is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
 The DEFAULT encoding of revocationPeriod keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
+
+## Criticality and Incremental Deployment {#extension-criticality}
+
+The id-pe-hashChainAnchor extension SHOULD be marked non-critical, so that relying parties that do not implement this mechanism can still process the certificate.
+However, relying parties that do implement this mechanism MUST enforce hash chain verification as described in {{verification}} when the extension is present.
+An MTC ecosystem in which all relying parties are expected to support hash chain revocation MAY mark the extension critical, causing implementations that do not recognize it to reject the certificate.
+Marking the extension critical is the transition lever that forces relying parties unaware of this mechanism to hard-fail rather than silently ignore it; the entry-extension encoding ({{anchor-entry-extension}}) lacks this lever.
+During a transition in which not all relying parties yet implement this mechanism, the base MTC revoked-ranges mechanism and external revocation systems continue to provide coverage, and a root program MAY mandate critical marking once adoption is deemed sufficient.
 
 ## Alternative: Carrying the Anchor as a Merkle Tree Entry Extension {#anchor-entry-extension}
 
@@ -353,7 +357,7 @@ It has three costs, however:
 
 - **No criticality lever.**
   Entry extensions have no critical marking, and relying parties ignore unrecognized ones (Section 12.5 of {{I-D.ietf-plants-merkle-tree-certs}}).
-  The transition strategy of marking the X.509 extension critical to force unaware relying parties to hard-fail ({{objections}}) is therefore unavailable; enforcement rests entirely on relying parties that implement this mechanism.
+  The transition strategy of marking the X.509 extension critical to force unaware relying parties to hard-fail ({{extension-criticality}}) is therefore unavailable; enforcement rests entirely on relying parties that implement this mechanism.
 
 - **Not visible to generic X.509 tooling.**
   The anchor no longer appears in the TBSCertificate, so only MTC-aware software can observe that a certificate uses this mechanism.
@@ -397,7 +401,7 @@ This document describes two possible ways to carry the HashChainTick inside the 
 Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding ({{tick-trailing-field}}) is RECOMMENDED: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
 The proof-extension encoding ({{tick-proof-extension}}) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point ({{mtcproof-extensibility}}); as a general "ignore if unknown" channel it carries the abuse surface discussed in {{proof-extensions-considerations}}, which for a single 36-byte use is not otherwise justified.
-Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded (see {{objections}}).
+Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded.
 
 ### Preferred Encoding: Trailing status_tick Field {#tick-trailing-field}
 
@@ -657,7 +661,7 @@ A 404 during period 0 is therefore expected and harmless, because the CA has unt
 
 If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
 After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
-{{objections}} (This Creates a New Availability Dependency) discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
+{{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
@@ -706,7 +710,7 @@ Because a distributor only ever receives already-revealed values, compromising i
 MTC mirrors are a natural home for this role: they already replicate and serve MTC log data at high availability, and extending a mirror to also serve the current period's ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
 Content delivery networks and relying-party-side operators -- including browser providers, which already run large-scale revocation-distribution infrastructure -- can serve as distributors on the same terms.
 Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation; it does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
-The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{objections}}.
+The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{availability-considerations}}.
 
 What is delegated is distribution, not revocation authority.
 The CA retains the seed and the unrevealed chain values ({{security-considerations}}), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
@@ -811,6 +815,29 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
 
 Relying parties that support both mechanisms SHOULD check both: a certificate is considered revoked if either mechanism indicates revocation.
 
+## Availability Considerations {#availability-considerations}
+
+Because an authenticating party must fetch a fresh tick at least once per revocation_period ({{distribution}}), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
+This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
+The dependency is bounded, and several factors and mitigations limit its impact:
+
+- **The revocation period is the outage-tolerance budget.**
+  A one-hour period lets an authenticating party tolerate up to one hour of tick-distribution unavailability before its certificate becomes unusable; a one-day period provides 24 hours of buffer but delays revocation enforcement proportionally.
+  Deployments choose revocation_period to balance revocation latency against their realistic availability expectations for tick distribution.
+
+- **The dependency is on a lightweight service.**
+  Fetching a tick is a single HTTP GET returning 36 bytes with no per-request cryptography -- far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
+  Because the authenticating party retains a full period of buffer, brief outages are invisible to relying parties.
+
+- **The acceptance window can be widened.**
+  Deployments with availability concerns MAY accept ticks from further preceding periods, tolerating an outage longer than one period at the cost of correspondingly delayed revocation enforcement ({{clock-skew}}).
+
+- **Multiple independent CAs remove the single point of failure.**
+  Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
+  Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
+
+The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
+
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
 A relying party checks the non-revocation proof ({{verification}}) only when it validates the certificate, which happens during a full TLS handshake.
@@ -838,7 +865,7 @@ The two directions are not equivalent in cost.
 Accepting the immediately following period -- what a verifier whose clock is behind will see -- costs nothing in revocation terms: that tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; {{security-considerations}}).
 Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one revocation_period old, which is the intended one-period grace.
 
-Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{objections}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
+Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
 
 # IANA Considerations {#iana-considerations}
 
@@ -1204,7 +1231,7 @@ It is embedded directly in the MTCProof (the certificate's signatureValue) rathe
 
 OCSP stapling delivers a CA-signed status response inside the TLS handshake, and is the closest existing analogue to this mechanism.
 It has nonetheless failed to become an enforceable revocation channel, for reasons this mechanism is specifically designed to avoid.
-The major browsers' migration away from live OCSP and stapling toward pushed revocation lists was itself a verdict on soft-fail; {{objections}} (Browsers Already Abandoned Handshake and Online Revocation) addresses how this mechanism differs.
+The major browsers' migration away from live OCSP and stapling toward pushed revocation lists was itself a verdict on soft-fail.
 
 ### Why OCSP Stapling Is Not Enforceable
 
@@ -1241,10 +1268,10 @@ Several differences lower the deployment barrier relative to stapling:
 
 - **Greenfield enforcement.**
   MTC is new, so there is no legacy soft-fail install base to accommodate.
-  Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see {{objections}}), avoiding the transition that stapling never completed.
+  Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see {{extension-criticality}}), avoiding the transition that stapling never completed.
 
 The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
-{{objections}} discusses this availability dependency and its mitigations.
+{{availability-considerations}} discusses this availability dependency and its mitigations.
 
 ### Operational Simplicity and Resilience {#operational-resilience}
 
@@ -1255,7 +1282,7 @@ Relying parties impose no load at all, because they never fetch ({{rp-no-fetch}}
 
 Two qualifications apply.
 First, the new cost is on the generation side: the CA must produce the current tick for every non-revoked certificate each period, a precompute workload ({{storage-tradeoff}}) rather than OCSP's sign-on-demand.
-Second, the failure mode differs by design: an OCSP responder outage fails open (relying parties soft-fail and proceed), whereas a tick-distribution outage lasting longer than one period fails closed for the affected certificate -- bounded by the one-period buffer and mitigated by caching, multi-CA operation, and window-widening ({{objections}}).
+Second, the failure mode differs by design: an OCSP responder outage fails open (relying parties soft-fail and proceed), whereas a tick-distribution outage lasting longer than one period fails closed for the affected certificate -- bounded by the one-period buffer and mitigated by caching, multi-CA operation, and window-widening ({{availability-considerations}}).
 
 # Alternatives Considered {#alternatives}
 
@@ -1422,23 +1449,8 @@ Authenticating parties must fetch a fresh tick at least once per revocation_peri
 If the CA's tick distribution infrastructure is unavailable for longer than one period, the certificate becomes unusable.
 This may be seen as undermining MTC's advantage of decoupling certificate validity from real-time CA availability.
 
-The revocation period is effectively the outage tolerance budget: a one-hour period means the authenticating party can tolerate at most one hour of tick distribution unavailability before its certificate becomes unusable.
-Shorter revocation periods provide faster revocation enforcement but leave less margin for infrastructure failures.
-Conversely, a one-day period provides 24 hours of buffer but delays revocation enforcement proportionally.
-Deployments must choose a revocation period that balances their revocation latency requirements against their realistic availability expectations for tick distribution infrastructure.
-
-This concern is real but bounded.
-First, the dependency is on a trivial HTTP GET returning 36 bytes — far less fragile than ACME issuance or OCSP responder availability.
-Second, the authenticating party has a full period (e.g., one hour) of buffer; brief outages are invisible to relying parties.
-Third, CAs already operate high-availability infrastructure for issuance; tick distribution is a strictly simpler service (static content, cacheable, CDN-friendly), and is simpler to operate and more resilient than an OCSP responder ({{operational-resilience}}).
-Additionally, deployments with availability concerns MAY widen the acceptance window to tolerate an outage longer than one period, trading revocation latency for resilience ({{clock-skew}}).
-
-As a further mitigation, authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs.
-If one CA's tick distribution infrastructure becomes unavailable, the authenticating party can immediately switch to presenting a certificate from a different CA whose ticks remain current.
-This multi-CA strategy eliminates the single point of failure: a tick distribution outage at one CA causes no service disruption as long as at least one other CA's infrastructure remains operational.
-Since MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest compared to the resilience benefit.
-
-Finally, the alternative (no in-band revocation) means the ecosystem depends entirely on external revocation systems whose availability the CA does not control.
+This concern is real but bounded, and is addressed in {{availability-considerations}}: the revocation period is the outage-tolerance budget, the dependency is on a trivial cacheable 36-byte GET rather than a signing responder, the acceptance window can be widened to ride out longer outages ({{clock-skew}}), and holding certificates from multiple independent CAs removes the single point of failure.
+The alternative -- no in-band revocation -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
 
 ## "Just Use Shorter Certificate Lifetimes"
 
