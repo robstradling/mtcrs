@@ -1647,7 +1647,8 @@ But if the base MTC specification adopts `proof_extensions` as a general mechani
 
 Bounded size and count:
 : `proof_extensions` is transmitted in every handshake, so an unbounded ignored field undercuts the compactness that motivates MTC and creates a bloat and denial-of-service surface.
-  The base specification SHOULD set a small maximum total size and extension count, well below the 2^16-1 the length prefix permits, and relying parties MAY reject certificates that exceed it.
+  The base specification MUST set a small maximum total size and extension count, well below the 2^16-1 the length prefix permits, and relying parties MUST reject certificates that exceed it.
+  This bound is enforceable by any MTC relying party without understanding any extension's contents.
 
 Strict, canonical encoding:
 : Proof extensions SHOULD appear in ascending order by `extension_type` with no duplicate types, and parsers SHOULD require the declared lengths to consume the field exactly, with no trailing bytes.
@@ -1660,13 +1661,34 @@ Security-relevant extensions must be anchored:
 : Because unrecognized or absent proof extensions are ignored, any future proof extension carrying security-relevant data MUST make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{assertion-integration}}).
   Otherwise "ignore if unknown" becomes a strippable soft-fail -- exactly the failure mode described in {{ocsp-stapling-comparison}}.
 
+Committed admissibility:
+: The strongest control on stuffing is to make the set of permissible proof extensions a function of committed data rather than an open channel.
+  The base specification SHOULD commit, per entry, a generic allow-list of permitted (extension_type, length) pairs -- carried in the tree-committed entry data as an entry extension or X.509 extension ({{assertion-integration}}) -- and require relying parties to reject any proof extension whose type is absent from that allow-list or whose length disagrees with it.
+  This generalizes the per-mechanism anchoring above into a structural rule, and has two properties the other controls lack.
+  First, it is enforceable by an MTC relying party that does not implement the specific mechanism: checking type-and-length membership against the committed list needs no understanding of what an extension means, so a client unaware of, for example, hash chain revocation can still confirm that every proof extension present was authorized by the CA at issuance and reject anything stuffed in addition, while still accepting the certificate.
+  Second, because the allow-list is committed and therefore logged, the presence of each proof-level mechanism becomes transparent to monitors even though its per-period value is not, narrowing the transparency gap noted below.
+
+Fail-closed on unknown types:
+: The entire stuffing surface stems from the rule that relying parties ignore unrecognized types.
+  A base specification MAY instead require relying parties to reject a proof extension whose type they do not recognize, optionally softened by a per-extension criticality bit (unknown-but-critical rejected, unknown-non-critical ignored) on the model of X.509 criticality.
+  Rejecting unknown types closes the ignore channel entirely, but at a cost that is acute precisely for a relying party unaware of a given mechanism: to such a client every certificate using that mechanism carries an unknown type and is rejected outright, so this control trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical ({{extension-criticality}}).
+  The non-critical path does not protect an unaware client, which still silently ignores.
+
+Deterministic, fixed-length region:
+: If each permitted extension_type carries a fixed-length value implied by its type, and the region is required to be the canonical concatenation of exactly the permitted extensions in type order, a relying party can recompute the expected byte layout and reject any deviation -- extra bytes, padding, wrong length, or a stray entry.
+  For values that are themselves self-authenticating, such as the hash chain tick, the region then contains no unauthenticated free space at all.
+  This control is strong but requires a parser that knows each present type's length; a relying party unaware of a type does not know its length and cannot validate, or even skip, it, so unlike committed admissibility it does not protect a mechanism-unaware client and, for a genuinely unknown type, degrades into fail-closed.
+
 No transparency:
-: Unlike `entry_extensions`, `proof_extensions` are neither logged nor committed to the tree, so monitors never observe them.
-  Mechanisms that require transparency MUST use `entry_extensions` instead; `proof_extensions` MUST NOT be treated as a transparent or auditable channel.
+: Unlike `entry_extensions`, the proof-extension values themselves are neither logged nor committed to the tree, so monitors never observe them; a committed admissibility allow-list, above, exposes only which types are present, not their per-period values.
+  Mechanisms that require transparency of their contents MUST use `entry_extensions` instead; `proof_extensions` MUST NOT be treated as a transparent or auditable channel for values.
 
 Identity:
 : `proof_extensions` widen the malleability of the signatureValue already noted in Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}.
   Applications that derive a unique identifier from a certificate MUST derive it from the TBSCertificate, never from the MTCProof.
+
+Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots -- which is much of why this document RECOMMENDS the fixed trailing status_tick field ({{tick-trailing-field}}) for the single use it needs.
+Of these controls, the size budget and committed admissibility are the ones an MTC relying party can enforce without understanding the specific extension, and are therefore the mitigations that protect a relying party unaware of hash chain revocation from stuffing while still allowing it to accept the certificate.
 
 # Acknowledgments
 {:numbered="false"}
