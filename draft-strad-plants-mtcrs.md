@@ -867,6 +867,13 @@ Accepting the immediately preceding period -- a verifier clock that is ahead, or
 
 Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
 
+The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on the integrity of that clock.
+The direction that matters for revocation is a clock that runs behind true time: it shifts the whole window toward the past, so that a genuine but stale tick -- one the CA revealed before it stopped revealing, and which a correctly-clocked verifier would reject as too old -- can fall within the window and be accepted.
+An attacker able to move a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded for small offsets by the window width and otherwise by notAfter, which is checked against the same clock.
+The forward direction, and the immediately-following-period allowance in particular, adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the value accepted is always genuine; the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
+This is the trusted-time dependency shared by every time-based validity and revocation check -- notAfter, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- and is not specific to this mechanism.
+Two consequences follow: the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure; and a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short revocation_period, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
+
 # IANA Considerations {#iana-considerations}
 
 ## Module Identifier
