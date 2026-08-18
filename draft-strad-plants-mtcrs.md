@@ -157,62 +157,7 @@ This approach achieves the following properties:
 
 - **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof; the committed anchor adds roughly 40 to 50 bytes to each log entry ({{assertion-integration}}).
 
-## Rationale for This Approach
-
-Several alternative revocation mechanisms were considered and rejected.
-{{alternatives}} provides detailed analysis of each.
-The hash chain approach was selected because it uniquely combines mandatory enforcement (the value is structurally required for certificate validity), zero signing overhead, self-authentication against an already-trusted anchor, and minimal bandwidth cost.
-
-## Why Functional Revocation Is Superior to Passive Expiry {#revocation-vs-expiry}
-
-A common argument holds that sufficiently short certificate lifetimes eliminate the need for revocation: if a certificate expires in one day, the window of exposure after key compromise or misissuance is bounded by that day.
-This reasoning is incomplete.
-Three independent time intervals govern the security of a certificate:
-
-1. **Certificate lifetime:** The maximum duration for which a certificate can be presented.
-   Without revocation, this is the upper bound on exposure after any problem.
-
-2. **Revocation latency:** Once the CA decides to revoke, how quickly can the certificate become unusable?
-   Without a revocation mechanism, this equals the remaining certificate lifetime.
-   With hash chain revocation, this is at most two revocation periods (e.g., two hours).
-
-3. **CA validation frequency:** How often the CA re-verifies that the subscriber remains authorized (domain control, organization identity, etc.).
-   This determines how quickly the CA *learns* of problems that are not self-reported by the subscriber.
-
-These three intervals interact as follows.
-The worst-case exposure time after a problem occurs is:
-
-    exposure = min(remaining_lifetime, detection_time + revocation_latency)
-
-Without revocation, detection_time is irrelevant — the certificate remains valid until it expires regardless of what the CA knows.
-With revocation, the CA can act as soon as it detects the problem, and the certificate becomes unusable within the revocation latency.
-
-This has a counterintuitive consequence: a certificate with a long lifetime but active revocation can provide *shorter* exposure than a certificate with a short lifetime but no revocation.
-For example:
-
-- A 1-day certificate without revocation: worst-case exposure is ~24 hours (compromise occurs immediately after issuance).
-
-- A 47-day certificate with 1-hour hash chain revocation: if the CA learns of the compromise within minutes (subscriber report, domain validation re-check, or external notification), worst-case exposure is ~2 hours.
-
-By substituting expensive asymmetric signatures with incredibly cheap symmetric hashing, this mechanism allows CAs to achieve the security benefit of an hourly expiration window without any of the architectural cost that comes with hourly re-issuance {{SHORTLIVED}}.
-Rather than re-signing and re-logging every certificate each hour, the CA reveals a single precomputed hash value per period, and the relying party verifies it with a single hash computation.
-
-The critical difference is that passive expiry provides no mechanism for the CA to act on new information.
-A hash chain tick is a *continuous assertion of non-revocation* — each tick is an active statement by the CA that, as of this period, it has not revoked the certificate.
-Absence of the tick is immediately detectable and enforced by the relying party.
-
-### The Role of CA Validation Frequency
-
-Even with functional revocation, the CA cannot revoke a certificate for a problem it does not know about.
-The frequency of CA re-validation therefore determines the effective security bound for non-self-reported problems (e.g., loss of domain control that the subscriber does not notice or report).
-
-Without revocation, validation frequency is largely irrelevant: even if the CA discovers a problem mid-lifetime, it cannot shorten the certificate's validity.
-The only recourse is to publish the revocation via an external mechanism (CRLite, CRLSets) that may or may not reach all relying parties.
-
-With hash chain revocation, frequent CA validation translates directly into security improvement: the CA can revoke within one period of detecting any problem.
-This creates an incentive structure where CAs that validate more frequently provide measurably better security — an incentive that does not exist in a pure short-lived-certificate model without revocation.
-
-Root program policies can leverage this by requiring both short revocation periods and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.
+The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
 
 # Conventions and Definitions
 
@@ -343,6 +288,10 @@ The following item is optional; a base specification MAY adopt it but need not:
 - **Register a hash_chain_anchor entry-extension type** in the MerkleTreeCertEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
 
 Everything else this document defines -- the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}) -- layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
+
+The MTCProof changes themselves -- the trailing status_tick field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the proof_extensions field ({{mtcproof-extensibility}}) -- are edits to a structure that the base specification owns.
+This document specifies them in full so that the required change is concrete and reviewable, but the intent is to hand them to the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
+If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
 
 # Integration with MTC Log Entries {#assertion-integration}
 
@@ -1095,6 +1044,63 @@ v2 equals the anchor h\[5\], so verification succeeds.
 
 This section provides rationale for the choices made in this document.
 
+## Rationale for This Approach
+
+Several alternative revocation mechanisms were considered and rejected.
+{{alternatives}} provides detailed analysis of each.
+The hash chain approach was selected because it uniquely combines mandatory enforcement (the value is structurally required for certificate validity), zero signing overhead, self-authentication against an already-trusted anchor, and minimal bandwidth cost.
+
+## Why Functional Revocation Is Superior to Passive Expiry {#revocation-vs-expiry}
+
+A common argument holds that sufficiently short certificate lifetimes eliminate the need for revocation: if a certificate expires in one day, the window of exposure after key compromise or misissuance is bounded by that day.
+This reasoning is incomplete.
+Three independent time intervals govern the security of a certificate:
+
+1. **Certificate lifetime:** The maximum duration for which a certificate can be presented.
+   Without revocation, this is the upper bound on exposure after any problem.
+
+2. **Revocation latency:** Once the CA decides to revoke, how quickly can the certificate become unusable?
+   Without a revocation mechanism, this equals the remaining certificate lifetime.
+   With hash chain revocation, this is at most two revocation periods (e.g., two hours).
+
+3. **CA validation frequency:** How often the CA re-verifies that the subscriber remains authorized (domain control, organization identity, etc.).
+   This determines how quickly the CA *learns* of problems that are not self-reported by the subscriber.
+
+These three intervals interact as follows.
+The worst-case exposure time after a problem occurs is:
+
+    exposure = min(remaining_lifetime, detection_time + revocation_latency)
+
+Without revocation, detection_time is irrelevant — the certificate remains valid until it expires regardless of what the CA knows.
+With revocation, the CA can act as soon as it detects the problem, and the certificate becomes unusable within the revocation latency.
+
+This has a counterintuitive consequence: a certificate with a long lifetime but active revocation can provide *shorter* exposure than a certificate with a short lifetime but no revocation.
+For example:
+
+- A 1-day certificate without revocation: worst-case exposure is ~24 hours (compromise occurs immediately after issuance).
+
+- A 47-day certificate with 1-hour hash chain revocation: if the CA learns of the compromise within minutes (subscriber report, domain validation re-check, or external notification), worst-case exposure is ~2 hours.
+
+By substituting expensive asymmetric signatures with incredibly cheap symmetric hashing, this mechanism allows CAs to achieve the security benefit of an hourly expiration window without any of the architectural cost that comes with hourly re-issuance {{SHORTLIVED}}.
+Rather than re-signing and re-logging every certificate each hour, the CA reveals a single precomputed hash value per period, and the relying party verifies it with a single hash computation.
+
+The critical difference is that passive expiry provides no mechanism for the CA to act on new information.
+A hash chain tick is a *continuous assertion of non-revocation* — each tick is an active statement by the CA that, as of this period, it has not revoked the certificate.
+Absence of the tick is immediately detectable and enforced by the relying party.
+
+### The Role of CA Validation Frequency
+
+Even with functional revocation, the CA cannot revoke a certificate for a problem it does not know about.
+The frequency of CA re-validation therefore determines the effective security bound for non-self-reported problems (e.g., loss of domain control that the subscriber does not notice or report).
+
+Without revocation, validation frequency is largely irrelevant: even if the CA discovers a problem mid-lifetime, it cannot shorten the certificate's validity.
+The only recourse is to publish the revocation via an external mechanism (CRLite, CRLSets) that may or may not reach all relying parties.
+
+With hash chain revocation, frequent CA validation translates directly into security improvement: the CA can revoke within one period of detecting any problem.
+This creates an incentive structure where CAs that validate more frequently provide measurably better security — an incentive that does not exist in a pure short-lived-certificate model without revocation.
+
+Root program policies can leverage this by requiring both short revocation periods and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.
+
 ## Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
 
 Hash chains {{MICALI}} were selected because they are the only known mechanism that simultaneously provides:
@@ -1391,6 +1397,11 @@ This approach was rejected because:
 
 # Anticipated Objections {#objections}
 
+This appendix has a deliberately limited lifetime.
+It is working-group material: its purpose is to support discussion and adoption of this mechanism in the PLANTS community by gathering, in one place, the objections the design anticipates together with the responses to them.
+It is advocacy and FAQ rather than specification -- nothing in it is normative, and the substantive points it makes also appear in the normative body or in the other appendices it cites.
+The editors expect to trim or remove this appendix before publication, once the working group has worked through these points; it is retained until then only as a convenience for reviewers.
+
 This section gives concise answers to objections likely to arise in the PLANTS community.
 Where an objection touches a topic developed at length elsewhere, the answer summarizes and points to the fuller treatment (for example {{rationale}} or {{alternatives}}) rather than repeating it.
 
@@ -1545,6 +1556,7 @@ If the linear cost is nonetheless a concern for a specific deployment, choosing 
 The RECOMMENDED way to carry the tick is the fixed trailing status_tick field ({{tick-trailing-field}}), which needs no general extensibility mechanism.
 This section describes an alternative: a general, reusable proof-level extensions field that the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} MAY adopt if it wants future mechanisms (beyond hash chain revocation) to attach data to the certificate presentation without a further structural change each time.
 It is not required for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
+Like the trailing-field amendment ({{tick-trailing-field}}), this is an edit to a base-specification-owned structure ({{base-spec-amendments}}); it is written out here for concreteness but is intended to be handed to the base MTC specification to adopt and maintain, not kept as a separate definition.
 
 ## Motivation
 
