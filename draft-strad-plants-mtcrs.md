@@ -1776,6 +1776,12 @@ Even on constrained IoT devices, SHA-256 is typically hardware-accelerated and t
 For comparison, verifying a single Ed25519 signature costs roughly the same as hundreds of SHA-256 operations.
 If the linear cost is nonetheless a concern for a specific deployment, choosing a shorter certificate lifetime (reducing chain_length) or a longer revocation_period (also reducing chain_length) provides a direct mitigation.
 
+The same holds when the cost is budgeted in aggregate across the many connections a page load opens, rather than per handshake.
+Three effects keep the total small.
+First, the hashing is a small fraction of work each full handshake already performs -- the asymmetric key exchange and signature verification cost far more (one signature verification is worth hundreds of SHA-256 operations), and both are dwarfed by the network round-trip that dominates time-to-first-byte -- so summing the hashing across, say, ten origins on a page is still a small fraction of the asymmetric crypto summed across the same ten handshakes.
+Second, most connections do not pay it at all: a resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection, so the cost is incurred once per full handshake, not once per asset.
+Third, beyond the lifetime and revocation_period levers above, a relying party that revalidates the same certificate and period -- for example a third-party CDN origin recurring across sites -- MAY cache the verified (entry, period) result and skip the forward hashing on repeat.
+
 ## "Symmetric Hash Chains Are a Post-Quantum Distraction"
 
 With the IETF focused on migrating to post-quantum cryptography, investing in symmetric hash-chain machinery may look like a distraction from adopting standard post-quantum primitives.
