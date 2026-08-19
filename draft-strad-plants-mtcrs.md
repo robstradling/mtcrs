@@ -1766,6 +1766,11 @@ This means that, in practice, deploying this mechanism requires one of the follo
 Both encodings this document describes take option 1 ({{cert-format}}): each amends the base MTC specification so that conforming parsers accept the tick, the RECOMMENDED trailing status_tick field being the minimal such amendment ({{tick-trailing-field}}).
 Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.
 
+The required change is nonetheless narrow, not a rewrite of the MTC validation lifecycle.
+It is a single localized amendment to the Section 7.2 "extra data" check, and it is backward-compatible: the trailing status_tick is a variant selected by the presence of the anchor extension, occupying zero bytes when absent, so a certificate that does not use this mechanism is byte-identical to a base MTCProof ({{tick-trailing-field}}).
+Base MTC verification, the Merkle tree, the cosigner, and the log are unchanged; the anchor rides as an ordinary X.509 extension so the cosigner-recognition gate never fires ({{anchor-entry-extension}}), and hash chain verification is purely additive -- skipped entirely when the anchor extension is absent ({{verification}}).
+The reason the change is worth foregrounding is timing, not size: MTC is greenfield, so folding the trailing field into the base specification now avoids any lasting split between aware and unaware parsers ({{base-spec-amendments}}), whereas retrofitting it after wide deployment would be far harder.
+
 ## "Hourly Tick Refresh Adds Operational Burden to Servers"
 
 Authenticating parties already perform periodic certificate management: renewing certificates before expiry (recommended at 75% of lifetime, per Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}) and optionally fetching landmark-relative certificates as new landmarks are allocated.
