@@ -1508,6 +1508,29 @@ An attacker who modifies a tick in transit cannot produce a value that passes th
 An attacker who suppresses a tick only prevents the authenticating party from obtaining a fresh tick, which is equivalent to a network-level denial of service against any distribution channel.
 Adding DNSSEC would introduce unnecessary operational complexity (key management, signature generation for frequently changing records) and increase DNS response sizes, without improving the security of the revocation mechanism.
 
+## OCSP-Based Tick Distribution
+
+Another alternative is to distribute ticks over OCSP {{RFC6960}} -- for example, defining a new OCSP response type (or response extension) that carries the HashChainTick, so an authenticating party fetches its tick from an OCSP responder instead of the HTTP interface ({{distribution}}).
+As with DNS-based distribution, this would be only a transport choice for the authenticating party's fetch: the tick is still embedded in the MTCProof and verified offline, so the relying party's procedure is unchanged.
+The surface appeal is that CAs already operate OCSP infrastructure.
+
+This approach was rejected because:
+
+- **The tick is self-authenticating, so an OCSP signature is pointless or harmful.**
+  An OCSP response is a responder-signed status.
+  Signing each tick reintroduces exactly the per-response signing load this mechanism is designed to avoid (the OCSP-like per-certificate signatures alternative below; {{operational-resilience}}); leaving it unsigned is not really an OCSP response.
+
+- **It is heavier and less cacheable than a 36-byte GET.**
+  The HTTP interface is a static, plain-HTTP, CDN-cacheable key-value fetch with no per-request cryptography; OCSP adds DER request construction, a responder, nonce handling, and signature validation, contradicting the operational-simplicity argument ({{operational-resilience}}).
+
+- **Addressing and semantics do not fit.**
+  OCSP is a relying-party-to-responder status query located via AIA and keyed by CertID (issuer name and key hashes plus serial), whereas here the authenticating party fetches a value about its own certificate, addressed by entry_hash and the CA's TrustAnchorID ({{distribution}}); mapping this onto OCSP reintroduces the AIA-inflation problem rejected above.
+
+- **It invites relying-party fetching.**
+  OCSP is strongly associated with client-side status checking, so an OCSP-shaped interface risks reintroducing the CA-visible relying-party fetch, latency, and soft-fail that {{rp-no-fetch}} forbids and this design avoids.
+
+Because the relying party only ever sees the embedded tick, the CA-to-authenticating-party transport is a bilateral choice; a CA MAY tunnel ticks over any transport it and its authenticating parties support, including OCSP, but this document neither standardizes nor recommends an OCSP encoding for it.
+
 ## AIA-Based Tick URL Discovery
 
 Another alternative is to convey the tick distribution URL via a new Authority Information Access (AIA) access method in the certificate, following the established pattern used for OCSP responder URLs in {{RFC5280}}.
