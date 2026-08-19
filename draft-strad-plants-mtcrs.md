@@ -805,6 +805,17 @@ The security of this mechanism depends on the preimage resistance of the hash fu
 SHA-256 {{SHS}} provides 256 bits of preimage resistance, which is sufficient for all foreseeable certificate lifetimes.
 With a one-hour revocation_period and a 47-day lifetime, the chain length is 1,128, which does not meaningfully degrade the security margin.
 
+## Post-Quantum Considerations {#post-quantum}
+
+This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
+Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up: against SHA-256 that leaves work on the order of 2^128, an ample margin for all foreseeable certificate lifetimes.
+The mechanism relies on no collision resistance -- a revealed value is bound to a specific chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply.
+It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
+
+Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
+A signed-status approach -- OCSP-like per-certificate signatures ({{alternatives}}) -- would require a post-quantum signature per certificate per period (for example an ML-DSA-65 signature of roughly 3,309 bytes), whereas a tick is 36 bytes of hash output and is never signed.
+Adopting hash-chain revocation is therefore aligned with a post-quantum transition rather than a distraction from it: it removes post-quantum signing from the revocation path instead of adding it.
+
 ## Seed Confidentiality
 
 The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed chain values confidential.
@@ -1340,8 +1351,8 @@ A one-hour revocation_period provides a good balance:
 - **Chain length:** For 47-day certificates, the chain length is 1,128.
   Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
 
-- **CA storage:** The CA must store one seed per active certificate.
-  With 32 bytes per seed, 1 billion certificates require 32 GB.
+- **CA storage:** A CA MAY store one seed per active certificate (32 bytes each; 32 GB for 1 billion), but need not.
+  Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing -- any chain is recomputed on demand from that one secret and the public entry identity -- and traversal or checkpoint schemes ({{chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 At day-scale periods the chain is short enough (chain_length on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
@@ -1764,6 +1775,15 @@ On modern hardware, 1,127 SHA-256 operations take approximately 10-20 microsecon
 Even on constrained IoT devices, SHA-256 is typically hardware-accelerated and the computation completes in under a millisecond.
 For comparison, verifying a single Ed25519 signature costs roughly the same as hundreds of SHA-256 operations.
 If the linear cost is nonetheless a concern for a specific deployment, choosing a shorter certificate lifetime (reducing chain_length) or a longer revocation_period (also reducing chain_length) provides a direct mitigation.
+
+## "Symmetric Hash Chains Are a Post-Quantum Distraction"
+
+With the IETF focused on migrating to post-quantum cryptography, investing in symmetric hash-chain machinery may look like a distraction from adopting standard post-quantum primitives.
+
+This is backwards.
+Hash chains are already post-quantum robust -- they rest only on preimage resistance, which Grover's algorithm weakens merely quadratically -- and use a standard, long-established primitive rather than custom cryptography.
+More to the point, this mechanism keeps post-quantum signatures off the revocation path entirely: the post-quantum-expensive alternative is signed per-certificate status, whose signatures run to thousands of bytes, whereas a tick is 36 unsigned bytes.
+Hash-chain revocation is thus aligned with the post-quantum transition, not a distraction from it; see {{post-quantum}}.
 
 # Acknowledgments
 {:numbered="false"}
