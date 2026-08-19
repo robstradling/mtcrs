@@ -897,6 +897,12 @@ The goal is therefore to bound the dependency, not to eliminate it; several fact
   This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange; its one precondition is that the relying party support the alternate CA's trust anchor.
   Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
+Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
+A single successful fetch gives more runway than one period: because a relying party also accepts the immediately preceding period's tick ({{clock-skew}}), a tick fetched for one period stays acceptable through the end of the next, so a distribution outage breaks a certificate only after it outlasts that certificate's last-fetch runway -- up to about two periods -- not the instant it passes one.
+Short-lived certificates do not remove the dependency on CA availability; they relocate it: such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
+The difference is cadence and weight -- MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly 36-byte GET with no cryptography ({{operational-resilience}}), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on -- and multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
+A longer revocation_period trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
+
 The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
 
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
