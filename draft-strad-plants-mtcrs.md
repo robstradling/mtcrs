@@ -1601,6 +1601,13 @@ The general case for functional revocation over passive expiry is made once, in 
 - **Deployment constraints:** Root program policies such as {{CHROME-MTC}} have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments.
   Not all deployments can support arbitrarily short lifetimes.
 
+Matching a one-hour period's revocation latency with lifetime alone would mean issuing certificates that expire about every two hours.
+That attains comparable worst-case exposure, but it does not remove the cost -- it moves it, and to heavier places than a hash computation.
+A relying party's "no extra hashes" is paid instead in trusted-subtree state: it must keep its trusted tree heads fresh enough to validate certificates minted in the last two hours, a recurring network-and-state sync that dwarfs the microseconds of hashing it saves.
+The CA pays it in issuance, tree cosigning, and log growth on a two-hourly cadence -- the issuance-scaling and trusted-subtree costs above, now some hundredfold larger than a 47-day cadence, discarding the batched compactness MTC exists to provide.
+And the availability dependency becomes stricter rather than absent: a two-hour certificate strands its server whenever the CA's issuance pipeline is unavailable for two hours, and re-issuance (key generation, CSR, challenge, log inclusion) is a far heavier operation to keep continuously live than the 36-byte tick fetch that a long-lived certificate tolerates outages against.
+Hash chain revocation buys the same fine-grained revocation for a few microseconds of hashing instead of that few-hundredfold increase in issuance and relying-party sync, which is why the microseconds are the cheap side of the trade, not over-engineering.
+
 Hash chain revocation provides the revocation latency benefits of short-lived certificates while retaining the operational advantages of longer lifetimes.
 
 ## CRLite / CRLSets / External Revocation
