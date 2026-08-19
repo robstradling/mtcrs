@@ -819,6 +819,7 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
 - Relying parties that have not yet implemented hash chain verification
 
 Relying parties that support both mechanisms SHOULD check both: a certificate is considered revoked if either mechanism indicates revocation.
+Whether to check the base MTC revoked ranges in addition to the hash chain is a relying-party policy choice ({{rp-policy}}).
 
 ## Availability Considerations {#availability-considerations}
 
@@ -863,6 +864,7 @@ Two common TLS behaviours mean this check does not recur for the life of a conne
 
 The effective latency before a revocation takes effect at a given client is therefore approximately the maximum of revocation_period, the remaining lifetime of any established connection, and the client's session-resumption window.
 A deployment that wants revocation to take effect within about one revocation_period SHOULD bound the session-ticket lifetime (and, where practical, the lifetime of long-lived connections) to a value near revocation_period, so that a fresh full handshake -- and thus a fresh tick -- is forced within that period.
+On the relying-party side this is a policy choice ({{rp-policy}}): a client MAY cap how long it reuses session tickets and force a periodic full handshake so that the tick is re-checked, independently of the server's ticket-lifetime setting.
 
 This limitation is not specific to this mechanism.
 Every handshake-time revocation mechanism (OCSP {{RFC6960}}, CRLite {{CRLite}}, CRLSets {{CRLSets}}) is likewise consulted only when the certificate is validated, and the base MTC short-lived-certificate model has the same property: a revoked-but-unexpired certificate is equally accepted on a resumed session.
@@ -885,6 +887,38 @@ An attacker able to move a relying party's clock backward can thereby keep a rev
 The forward direction, and the immediately-following-period allowance in particular, adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the value accepted is always genuine; the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
 This is the trusted-time dependency shared by every time-based validity and revocation check -- notAfter, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- and is not specific to this mechanism.
 Two consequences follow: the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure; and a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short revocation_period, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
+A relying party that requires tight revocation SHOULD therefore source time from a trusted, integrity-protected clock; both this and the window width are relying-party policy choices ({{rp-policy}}).
+
+## Relying-Party Policy Levers {#rp-policy}
+
+Several behaviours of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
+This section collects them for convenience; each is specified in full in the section cited, and nothing here is a new requirement.
+
+Acceptance window:
+: The default accepts a tick for the current, immediately preceding, or immediately following period.
+  A relying party MAY widen the preceding side to tolerate a tick-distribution outage, at the cost of correspondingly delayed revocation, or the following side to tolerate a clock that runs behind, at no revocation cost.
+  Widening applies to every certificate the relying party validates ({{clock-skew}}, {{availability-considerations}}).
+
+Trusted time:
+: The acceptance window is anchored to the relying party's clock, so revocation timeliness is bounded by clock integrity.
+  A relying party that requires tight revocation SHOULD source time from a trusted, integrity-protected clock and keep its window narrow ({{clock-skew}}).
+
+Cross-checking base MTC revocation:
+: A relying party that also supports the base MTC revoked-ranges mechanism SHOULD check both; a certificate is revoked if either indicates so ({{interaction-with-base-mtc-revocation}}).
+
+Resumption and long-lived connections:
+: The tick is checked only at full-handshake certificate validation.
+  A relying party that wants revocation to take effect within about one revocation_period SHOULD cap session-ticket reuse and force periodic full handshakes, so that a fresh tick is re-checked ({{enforcement-latency}}).
+
+Enforcement and criticality:
+: A relying party that implements this mechanism MUST enforce hash chain verification whenever the id-pe-hashChainAnchor extension is present; an ecosystem MAY additionally mark the extension critical for hard enforcement ({{extension-criticality}}).
+
+Fixed, not a lever:
+: Relying parties MUST NOT fetch ticks or use the distribution endpoint as an online responder ({{rp-no-fetch}}); this is a constraint, not a configurable choice.
+
+If the base specification adopts the general proof_extensions field ({{mtcproof-extensibility}}), further relying-party handling applies -- size-budget enforcement, committed admissibility, and unknown-type handling ({{proof-extensions-considerations}}).
+
+The resilience levers that involve holding certificates from multiple CAs, operating redundant tick distribution, and choosing revocation_period are authenticating-party or CA decisions, not relying-party policy ({{availability-considerations}}, {{construction}}).
 
 # IANA Considerations {#iana-considerations}
 
