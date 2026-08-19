@@ -1471,6 +1471,7 @@ Several differences lower the deployment barrier relative to stapling:
   Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see {{extension-criticality}}), avoiding the transition that stapling never completed.
 
 The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
+This is the failure mode OCSP Must-Staple has, but MTCRS carries a smaller version of it and, unlike Must-Staple, an escape from it: the refresh is a static unsigned 36-byte fetch rather than a time-bounded signed response with a responder certificate and validity window, and where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current ({{availability-considerations}}).
 {{availability-considerations}} discusses this availability dependency and its mitigations.
 
 ### Operational Simplicity and Resilience {#operational-resilience}
