@@ -144,7 +144,7 @@ This mechanism adds a proof of non-revocation to the same structure, so that tog
 
 This approach achieves the following properties:
 
-- **Timely revocation:** Revocation takes effect within one period (e.g., one hour), regardless of when the relying party last updated its trusted subtrees.
+- **Timely revocation:** Revocation takes effect within at most two periods (e.g., two hours), regardless of when the relying party last updated its trusted subtrees.
 
 - **No per-check signatures:** Unlike OCSP {{RFC6960}}, verification requires only hash computations, not signature verification.
   The CA incurs no signing load for revocation status.
@@ -881,7 +881,7 @@ It is intrinsic to enforceable revocation rather than a defect: a mechanism that
 The goal is therefore to bound the dependency, not to eliminate it; several factors and mitigations limit its impact:
 
 - **The revocation period is the outage-tolerance budget.**
-  A one-hour period lets an authenticating party tolerate up to one hour of tick-distribution unavailability before its certificate becomes unusable; a one-day period provides 24 hours of buffer but delays revocation enforcement proportionally.
+  A one-hour period gives on the order of one period of tolerance for tick-distribution unavailability before a certificate becomes unusable -- up to about two periods from a single successful fetch (see below) -- and a one-day period scales that to the order of a day, at the cost of proportionally delayed revocation enforcement.
   Deployments choose revocation_period to balance revocation latency against their realistic availability expectations for tick distribution.
 
 - **The dependency is on a lightweight service.**
@@ -1273,12 +1273,6 @@ Of these controls, the size budget and committed admissibility are the ones an M
 
 This section provides rationale for the choices made in this document.
 
-## Rationale for This Approach
-
-Several alternative revocation mechanisms were considered and rejected.
-{{alternatives}} provides detailed analysis of each.
-The hash chain approach was selected because it uniquely combines mandatory enforcement (the value is structurally required for certificate validity), zero signing overhead, self-authentication against an already-trusted anchor, and minimal bandwidth cost.
-
 ## Why Functional Revocation Is Superior to Passive Expiry {#revocation-vs-expiry}
 
 A common argument holds that sufficiently short certificate lifetimes eliminate the need for revocation: if a certificate expires in one day, the window of exposure after key compromise or misissuance is bounded by that day.
@@ -1300,7 +1294,7 @@ The worst-case exposure time after a problem occurs is:
 
     exposure = min(remaining_lifetime, detection_time + revocation_latency)
 
-Without revocation, detection_time is irrelevant — the certificate remains valid until it expires regardless of what the CA knows.
+Without revocation, detection_time is irrelevant -- the certificate remains valid until it expires regardless of what the CA knows.
 With revocation, the CA can act as soon as it detects the problem, and the certificate becomes unusable within the revocation latency.
 
 This has a counterintuitive consequence: a certificate with a long lifetime but active revocation can provide *shorter* exposure than a certificate with a short lifetime but no revocation.
@@ -1314,7 +1308,7 @@ By substituting expensive asymmetric signatures with incredibly cheap symmetric 
 Rather than re-signing and re-logging every certificate each hour, the CA reveals a single precomputed hash value per period, and the relying party verifies it with a single hash computation.
 
 The critical difference is that passive expiry provides no mechanism for the CA to act on new information.
-A hash chain tick is a *continuous assertion of non-revocation* — each tick is an active statement by the CA that, as of this period, it has not revoked the certificate.
+A hash chain tick is a *continuous assertion of non-revocation* -- each tick is an active statement by the CA that, as of this period, it has not revoked the certificate.
 Absence of the tick is immediately detectable and enforced by the relying party.
 
 ### The Role of CA Validation Frequency
@@ -1326,12 +1320,13 @@ Without revocation, validation frequency is largely irrelevant: even if the CA d
 The only recourse is to publish the revocation via an external mechanism (CRLite, CRLSets) that may or may not reach all relying parties.
 
 With hash chain revocation, frequent CA validation translates directly into security improvement: the CA can revoke within one period of detecting any problem.
-This creates an incentive structure where CAs that validate more frequently provide measurably better security — an incentive that does not exist in a pure short-lived-certificate model without revocation.
+This creates an incentive structure where CAs that validate more frequently provide measurably better security -- an incentive that does not exist in a pure short-lived-certificate model without revocation.
 
 Root program policies can leverage this by requiring both short revocation periods and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.
 
 ## Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
 
+Several alternative revocation mechanisms were considered and rejected; {{alternatives}} analyses each.
 Hash chains {{MICALI}} were selected because they are the only known mechanism that simultaneously provides:
 
 1. **Self-authentication:** The tick is verified against data already committed in the Merkle Tree (the anchor).
@@ -1422,7 +1417,7 @@ It is embedded directly in the MTCProof (the certificate's signatureValue) rathe
 2. **No new protocol machinery:** No TLS CertificateEntry extension or other signaling mechanism is needed.
    The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support.
 
-3. **Safe to update dynamically:** The MTCProof is not committed to the Merkle Tree — only the TBSCertificateLogEntry is.
+3. **Safe to update dynamically:** The MTCProof is not committed to the Merkle Tree -- only the TBSCertificateLogEntry is.
    The authenticating party can freely replace the signatureValue each period without invalidating the inclusion proof or cosignatures.
 
 4. **No additional round-trips:** The tick travels with the certificate in the same TLS message.
@@ -1673,7 +1668,7 @@ However, this mechanism is fundamentally simpler than traditional revocation.
 It requires no new PKI infrastructure (no responder certificates, no separate signing keys), no new protocols (no OCSP request/response), and no per-check signatures.
 The entire mechanism is a single hash function applied iteratively.
 The complexity budget is closer to "one additional hash computation per handshake" than to "deploy and operate an OCSP responder fleet."
-The alternative — living with up to 47-day exposure windows after key compromise — is a concrete security cost, not a simplification.
+The alternative -- living with up to 47-day exposure windows after key compromise -- is a concrete security cost, not a simplification.
 
 ## "This Creates a New Availability Dependency"
 
@@ -1736,7 +1731,7 @@ If an attacker compromises the CA's stored hash chain seeds, they can compute va
 
 This is true, and is acknowledged in {{security-considerations}}.
 However, the threat model is no worse than the status quo: a CA whose signing key is compromised can issue arbitrary certificates.
-Seeds require confidentiality and integrity protection — for example, encrypted-at-rest storage with strong access controls and monitoring — but their operational profile differs from signing keys: a CA with millions of active certificates must store and retrieve seeds in bulk, which is better suited to encrypted database storage than to HSMs designed for a small number of high-value keys.
+Seeds require confidentiality and integrity protection -- for example, encrypted-at-rest storage with strong access controls and monitoring -- but their operational profile differs from signing keys: a CA with millions of active certificates must store and retrieve seeds in bulk, which is better suited to encrypted database storage than to HSMs designed for a small number of high-value keys.
 The recovery path for a detected compromise -- revoking the affected serial-number ranges via the base MTC mechanism -- is described in {{seed-confidentiality}} and {{interaction-with-base-mtc-revocation}}.
 
 ## "Modifying MTCProof Breaks Existing Implementations"
@@ -1749,7 +1744,7 @@ The addition is conceptually natural -- the tick is not foreign data but the non
 Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} explicitly requires relying parties to reject an MTCProof if the signatureValue contains "extra data after the MTCProof."
 The current MTCProof structure has no extensibility mechanism: it is a fixed sequence of fields with no trailing extensions block or version indicator.
 
-Consequently, appending a status_tick to the MTCProof will cause any existing MTC implementation to reject the certificate — regardless of whether the X.509 extension is marked critical or non-critical.
+Consequently, appending a status_tick to the MTCProof will cause any existing MTC implementation to reject the certificate -- regardless of whether the X.509 extension is marked critical or non-critical.
 An unaware relying party will ignore the non-critical id-pe-hashChainAnchor extension, proceed to parse the MTCProof, find 36 unexpected trailing bytes, and fail verification.
 
 This means that, in practice, deploying this mechanism requires one of the following:
@@ -1774,7 +1769,7 @@ The reason the change is worth foregrounding is timing, not size: MTC is greenfi
 ## "Hourly Tick Refresh Adds Operational Burden to Servers"
 
 Authenticating parties already perform periodic certificate management: renewing certificates before expiry (recommended at 75% of lifetime, per Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}) and optionally fetching landmark-relative certificates as new landmarks are allocated.
-Adding an hourly tick refresh introduces a new operational loop with a tighter cadence than certificate renewal and — unlike the landmark-relative fetch, which is optional and best-effort — a hard deadline: if the tick is not refreshed in a timely manner, the certificate becomes unusable.
+Adding an hourly tick refresh introduces a new operational loop with a tighter cadence than certificate renewal and -- unlike the landmark-relative fetch, which is optional and best-effort -- a hard deadline: if the tick is not refreshed in a timely manner, the certificate becomes unusable.
 
 The refresh is a single HTTP GET returning 36 bytes, with no cryptographic operations required on the authenticating party's side.
 This is orders of magnitude simpler than ACME certificate renewal (which involves key generation, CSR construction, challenge completion, and certificate installation).
@@ -1794,7 +1789,7 @@ It is addressed in {{dos-withholding}}.
 A relying party verifying a tick near the end of a 47-day certificate's lifetime must compute up to 1,127 hashes.
 This linear cost may be unacceptable for constrained devices.
 
-On modern hardware, 1,127 SHA-256 operations take approximately 10-20 microseconds — negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
+On modern hardware, 1,127 SHA-256 operations take approximately 10-20 microseconds -- negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
 Even on constrained IoT devices, SHA-256 is typically hardware-accelerated and the computation completes in under a millisecond.
 For comparison, verifying a single Ed25519 signature costs roughly the same as hundreds of SHA-256 operations.
 If the linear cost is nonetheless a concern for a specific deployment, choosing a shorter certificate lifetime (reducing chain_length) or a longer revocation_period (also reducing chain_length) provides a direct mitigation.
