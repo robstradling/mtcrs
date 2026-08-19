@@ -1782,6 +1782,13 @@ First, the hashing is a small fraction of work each full handshake already perfo
 Second, most connections do not pay it at all: a resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection, so the cost is incurred once per full handshake, not once per asset.
 Third, beyond the lifetime and revocation_period levers above, a relying party that revalidates the same certificate and period -- for example a third-party CDN origin recurring across sites -- MAY cache the verified (entry, period) result and skip the forward hashing on repeat.
 
+The same reasoning answers the energy cost on a battery-powered device (a sensor or wearable) making many connections a day.
+Even in software, one verification is on the order of tens of milliseconds of CPU and a fraction of a millijoule; at thousands of verifications a day this is a small fraction of a percent of a typical wearable battery, and it is near-free where the device has a hardware SHA engine, as many sensor and wearable SoCs do.
+Whatever hashing remains is dominated by the asymmetric key exchange and signature verification the same full handshake performs, which cost far more energy on a constrained CPU.
+Two effects shrink it further.
+A newly issued certificate is the cheapest to verify, not the most expensive: the number of forward hashes equals the current period, so it is near zero just after issuance and reaches its maximum only near end-of-life at fine granularity.
+And because a device typically talks to a stable, small set of servers, most of its connections resume without verifying any tick ({{enforcement-latency}}), and with the (entry, period) caching above it computes each server's chain at most once per period -- a handful of times a day -- however many connections it opens, so connection count does not multiply the cost.
+
 ## "Symmetric Hash Chains Are a Post-Quantum Distraction"
 
 With the IETF focused on migrating to post-quantum cryptography, investing in symmetric hash-chain machinery may look like a distraction from adopting standard post-quantum primitives.
