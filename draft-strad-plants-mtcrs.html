@@ -2394,6 +2394,9 @@ Two points nonetheless bear noting:<a href="#section-10-3" class="pilcrow">¶</a
           <p id="section-10-4.2.1">Unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>) are an addressing and access-control measure, not a confidentiality one: the tick_token appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch. Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).<a href="#section-10-4.2.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
+<p id="section-10-5">Compared with pushed revocation lists such as <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> and <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span>, which the client checks entirely offline, this mechanism preserves the same relying-party privacy -- the client fetches nothing either way -- and does so universally, for any TLS client rather than only browsers that ship the list.
+Its one difference is the authenticating party's own fetch, and that metadata concerns the server's own public certificate (whose liveness a public server already exposes by answering connections), not any relying party.
+It also need not reach the CA at all: because ticks are self-authenticating, distribution can be delegated to CDNs, mirrors, or other distributors (<a href="#delegated-distribution" class="auto internal xref">Section 9.8</a>), so the server fetches from a distributor rather than the CA and the CA observes no per-server fetch pattern, while caching leaves the origin seeing aggregated cache-miss traffic rather than every server's every-period fetch.<a href="#section-10-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="security-considerations">
@@ -2542,7 +2545,12 @@ This is ordinary certificate selection driven by a background tick refresh, not 
 Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.<a href="#section-11.8-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-11.8-3">The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.<a href="#section-11.8-3" class="pilcrow">¶</a></p>
+<p id="section-11.8-3">Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
+A single successful fetch gives more runway than one period: because a relying party also accepts the immediately preceding period's tick (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>), a tick fetched for one period stays acceptable through the end of the next, so a distribution outage breaks a certificate only after it outlasts that certificate's last-fetch runway -- up to about two periods -- not the instant it passes one.
+Short-lived certificates do not remove the dependency on CA availability; they relocate it: such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
+The difference is cadence and weight -- MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly 36-byte GET with no cryptography (<a href="#operational-resilience" class="auto internal xref">Appendix D.7.4</a>), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on -- and multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
+A longer revocation_period trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.<a href="#section-11.8-3" class="pilcrow">¶</a></p>
+<p id="section-11.8-4">The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.<a href="#section-11.8-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="enforcement-latency">
@@ -3514,6 +3522,7 @@ Within an MTC ecosystem, enforcement can be mandatory from day one (or made so b
 </li>
           </ul>
 <p id="appendix-D.7.3-3">The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
+This is the failure mode OCSP Must-Staple has, but MTCRS carries a smaller version of it and, unlike Must-Staple, an escape from it: the refresh is a static unsigned 36-byte fetch rather than a time-bounded signed response with a responder certificate and validity window, and where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current (<a href="#availability-considerations" class="auto internal xref">Section 11.8</a>).
 <a href="#availability-considerations" class="auto internal xref">Section 11.8</a> discusses this availability dependency and its mitigations.<a href="#appendix-D.7.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -3902,6 +3911,10 @@ Early implementations can adopt the extended MTCProof structure from the start.<
         </ol>
 <p id="appendix-F.8-6">Both encodings this document describes take option 1 (<a href="#cert-format" class="auto internal xref">Section 6</a>): each amends the base MTC specification so that conforming parsers accept the tick, the <span class="bcp14">RECOMMENDED</span> trailing status_tick field being the minimal such amendment (<a href="#tick-trailing-field" class="auto internal xref">Section 6.1.1</a>).
 Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.<a href="#appendix-F.8-6" class="pilcrow">¶</a></p>
+<p id="appendix-F.8-7">The required change is nonetheless narrow, not a rewrite of the MTC validation lifecycle.
+It is a single localized amendment to the Section 7.2 "extra data" check, and it is backward-compatible: the trailing status_tick is a variant selected by the presence of the anchor extension, occupying zero bytes when absent, so a certificate that does not use this mechanism is byte-identical to a base MTCProof (<a href="#tick-trailing-field" class="auto internal xref">Section 6.1.1</a>).
+Base MTC verification, the Merkle tree, the cosigner, and the log are unchanged; the anchor rides as an ordinary X.509 extension so the cosigner-recognition gate never fires (<a href="#anchor-entry-extension" class="auto internal xref">Section 5.3</a>), and hash chain verification is purely additive -- skipped entirely when the anchor extension is absent (<a href="#verification" class="auto internal xref">Section 8</a>).
+The reason the change is worth foregrounding is timing, not size: MTC is greenfield, so folding the trailing field into the base specification now avoids any lasting split between aware and unaware parsers (<a href="#base-spec-amendments" class="auto internal xref">Section 7</a>), whereas retrofitting it after wide deployment would be far harder.<a href="#appendix-F.8-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="hourly-tick-refresh-adds-operational-burden-to-servers">
