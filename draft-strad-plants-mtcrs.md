@@ -873,6 +873,13 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
 Relying parties that support both mechanisms SHOULD check both: a certificate is considered revoked if either mechanism indicates revocation.
 Whether to check the base MTC revoked ranges in addition to the hash chain is a relying-party policy choice ({{rp-policy}}).
 
+This composition is one-directional.
+Other revocation signals -- the base MTC revoked ranges, or external systems such as CRLite {{CRLite}} or CRLSets {{CRLSets}} -- may only add grounds for revocation: a relying party MAY consult them and MUST reject if any reports the certificate revoked.
+A relying party MUST NOT, however, treat a "not revoked" result from any such mechanism as licence to accept a certificate whose tick is absent, stale, or fails verification; doing so would reduce this mechanism's hard-fail to the strippable soft-fail it is designed to prevent ({{ocsp-stapling-comparison}}).
+A missing tick is thus a rejection in its own right.
+Consulting another mechanism can nonetheless serve two diagnostic purposes when a tick is absent: distinguishing an actual revocation from a mere distribution outage, which a 404 does not ({{revocation-transparency}}); and, because a tick's absence carries no reason code, recovering the revocation reason (keyCompromise, cessationOfOperation, and so on) from a mechanism that does convey one ({{revocation-transparency}}).
+Neither changes the safe action for an unproven tick, which remains rejection, subject only to the availability levers of {{availability-considerations}}.
+
 ## Revocation Transparency and Auditability {#revocation-transparency}
 
 Revocation in this mechanism is the *absence* of a tick: the CA stops revealing chain values ({{revealing-values}}) and the certificate becomes unusable within at most two periods.
