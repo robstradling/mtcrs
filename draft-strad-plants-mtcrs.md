@@ -600,17 +600,20 @@ A CA MUST make the tick base URL available through at least one of the following
 
 - **Provisioning channel (primary).**
   The base URL is delivered when the certificate is provisioned.
-  {{acme-integration}} defines this for ACME.
-  CAs using other issuance protocols MUST provide an equivalent mechanism; the details are out of scope for this document.
+  {{acme-integration}} defines this binding for ACME.
+  Each other issuance protocol needs an analogous binding, which this document does not define: a CA issuing over such a protocol MUST either specify one (for example, in a short companion document registering the equivalent of the ACME order field of {{acme-integration}}) or publish the base URL through the CA certificate SIA below.
+  A provisioning binding is moreover required for unguessable tick URLs ({{unguessable-urls}}), which the SIA cannot carry; a protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.
 
 - **CA certificate SIA (optional).**
   The base URL MAY additionally be published in the CA's certificate representation (Section 5.5 of {{I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent record that an authenticating party (or its tooling) can read once.
   When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
   This mechanism carries only the base URL, so it does not apply when unguessable tick URLs ({{unguessable-urls}}) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA SHOULD NOT be published.
+  A deployment that uses unguessable tick URLs therefore has a single discovery channel -- the provisioning channel -- with no SIA fallback, so the CA MUST ensure that channel reliably delivers the complete per-certificate URL.
 
 Keeping the base URL out of the certificate is not a secrecy measure -- the URL is derivable by anyone holding the certificate ({{rp-no-fetch}}) -- but a way to avoid standardizing a per-certificate fetch affordance in a field relying parties routinely parse.
 Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents; relying parties verify the embedded tick offline ({{verification}}) and MUST NOT fetch ticks ({{rp-no-fetch}}).
+The base URL (or, for unguessable tick URLs, the full per-certificate URL) is delivered once at provisioning; the authenticating party MUST retain it for as long as it presents the certificate and reuse it to refresh the tick each period ({{distribution}}), rather than rediscovering it per fetch.
 
 Because MTC certificates are renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
 
