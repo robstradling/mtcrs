@@ -291,11 +291,14 @@ Because period 0's value is the public anchor, the earliest period for which the
 
 ## Security of the Hash Chain
 
-The security of this mechanism relies on the preimage resistance of the hash function.
+The non-revocation proof relies only on the preimage resistance of the hash function, not on collision resistance.
 Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would be needed to forge a future validity proof).
 The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.
 
 The label in HashChainInput ({{encoding}}) domain-separates chain values from other uses of the hash function in MTC, and the per-entry issuer_id, log_number, and index salt each certificate's chain into its own hash domain ({{encoding}}).
+
+The one hash whose distinctness matters for a different reason is entry_hash, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
+A collision there would merely cause two entries to share a URL and misroute a fetch; the authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
 
 ## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
 
@@ -800,7 +803,7 @@ With a one-hour revocation_period and a 47-day lifetime, the chain length is 1,1
 
 This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
 Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up: against SHA-256 that leaves work on the order of 2^128, an ample margin for all foreseeable certificate lifetimes.
-The mechanism relies on no collision resistance -- a revealed value is bound to a specific chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply.
+The non-revocation proof relies on no collision resistance -- a revealed value is bound to a specific chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply (entry_hash, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{security-considerations}}).
 It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
 
 Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
