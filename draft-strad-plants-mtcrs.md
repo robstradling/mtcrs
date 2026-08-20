@@ -738,6 +738,20 @@ The deterministic per-entry offset above and edge caching together flatten perio
 At large scale these are required rather than merely recommended, as the Operational Model ({{distribution}}) notes.
 This document nonetheless specifies them as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification; a specific load-shaping or availability target is left to root-program or CA operational policy.
 
+## Bulk Retrieval for Large Deployments {#bulk-retrieval}
+
+The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates -- a large hosting provider or CDN -- fetches one tick per certificate per period.
+The per-entry offset ({{load-distribution}}) spreads these fetches across the period but does not reduce their number: for N certificates the operator issues on the order of N fetches per period.
+Several properties keep this inexpensive, and an operator that still prefers fewer requests has options.
+
+Each tick is a 36-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
+An operator retrieving ticks for its own certificates can also front them with its own cache, or act as a delegated distributor ({{delegated-distribution}}) fed the per-period bundle: the CA-to-distributor bundle is exactly a bulk transfer of one period's ticks keyed by entry_hash, so an operator that takes that feed obtains all of its ticks in one exchange rather than per-certificate fetches.
+
+A CA MAY additionally offer a batch endpoint that returns many ticks in a single response, keyed by a list of entry_hashes (or tokens; {{unguessable-urls}}), for operators that prefer to reduce request count directly.
+The trade-off is cacheability: a batch response is specific to the set of entries requested and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs, which each address an immutable per-period resource; a batch endpoint therefore suits an operator fetching from the CA or from a mirror it controls rather than from a shared edge cache.
+This document does not standardize a batch wire format.
+Like the choice of distribution channel generally ({{distribution}}), any batch mechanism is an agreement between a CA and its authenticating parties layered on the single-tick interface, which remains the interoperable baseline; it does not affect relying parties, who never fetch ({{rp-no-fetch}}).
+
 ## Delegated Tick Distribution {#delegated-distribution}
 
 Because a tick is self-authenticating -- a relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree ({{verification}}) -- the party that serves ticks need not be trusted for integrity or authenticity.
