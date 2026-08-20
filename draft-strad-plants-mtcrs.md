@@ -606,9 +606,10 @@ A CA MUST make the tick base URL available through at least one of the following
 
 - **CA certificate SIA (optional).**
   The base URL MAY additionally be published in the CA's certificate representation (Section 5.5 of {{I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
-  This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent record that an authenticating party (or its tooling) can read once.
-  When both mechanisms are present and disagree, the provisioning-channel value takes precedence.
-  This mechanism carries only the base URL, so it does not apply when unguessable tick URLs ({{unguessable-urls}}) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA SHOULD NOT be published.
+  This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
+  Because it is per-CA and lives only on the CA's certificate representation -- which is distributed out of band, not presented in the TLS handshake -- it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}): it does not enlarge log entries, is not frozen per certificate, and gives relying parties nothing to fetch (they MUST NOT anyway; {{rp-no-fetch}}).
+  Its value is therefore as a published fallback and tooling record: where a provisioning binding exists (for example ACME; {{acme-integration}}) it is redundant with that channel, which takes precedence when the two disagree; where none exists, it is the only interoperable carrier of the base URL.
+  It carries only the base URL, so it does not apply when unguessable tick URLs ({{unguessable-urls}}) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA SHOULD NOT be published.
   A deployment that uses unguessable tick URLs therefore has a single discovery channel -- the provisioning channel -- with no SIA fallback, so the CA MUST ensure that channel reliably delivers the complete per-certificate URL.
 
 Keeping the base URL out of the certificate is not a secrecy measure -- the URL is derivable by anyone holding the certificate ({{rp-no-fetch}}) -- but a way to avoid standardizing a per-certificate fetch affordance in a field relying parties routinely parse.
@@ -1664,7 +1665,7 @@ This approach was rejected because:
 
 Because the relying party only ever sees the embedded tick, the CA-to-authenticating-party transport is a bilateral choice; a CA MAY tunnel ticks over any transport it and its authenticating parties support, including OCSP, but this document neither standardizes nor recommends an OCSP encoding for it.
 
-## AIA-Based Tick URL Discovery
+## AIA-Based Tick URL Discovery {#aia-discovery}
 
 Another alternative is to convey the tick distribution URL via a new Authority Information Access (AIA) access method in the certificate, following the established pattern used for OCSP responder URLs in {{RFC5280}}.
 
