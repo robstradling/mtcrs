@@ -552,11 +552,17 @@ This document defines an HTTP interface for this purpose.
 The CA (or a mirror) serves ticks over HTTP.
 Given a tick base URL for the CA (see {{discovery}}), the tick for a particular certificate is fetched from:
 
-    GET {tick_base_url}/.well-known/mtcrs/tick/{entry_hash}
+    GET {tick_base_url}/.well-known/mtcrs/v1/tick/{entry_hash}
 
 where {entry_hash} is the lowercase hex-encoded SHA-256 hash of the certificate's TBSCertificateLogEntry, computed over exactly the same octets that the base specification commits to the Merkle Tree for that entry (the tbs_cert_entry_data byte string defined by {{I-D.ietf-plants-merkle-tree-certs}}, i.e. the encoded contents of the entry with no enclosing tag or length prefix), so that the CA and the authenticating party derive an identical value.
-entry_hash is always computed with SHA-256, even for a CA whose Merkle Tree uses a different hash function: it is only a stable identifier for the tick URL, not a tree leaf hash.
 The authenticating party computes {entry_hash} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
+
+**Note:** entry_hash is the only value defined in this document that uses a fixed hash function -- SHA-256 -- rather than the CA's tree HASH.
+The hash chain, anchor, and tick all use the tree HASH ({{construction}}), which equals SHA-256 for a SHA-256 CA but differs for any other CA.
+entry_hash is fixed to SHA-256 independent of the tree hash because it is only a stable identifier for the tick URL -- a distribution-layer addressing value, not a tree leaf hash and not part of the non-revocation proof.
+No security property depends on it: it is never verified as a proof, and the sole property it needs is collision resistance so that two entries do not share a URL, which SHA-256 amply provides and which is not load-bearing in any case, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches ({{verification}}).
+Fixing the addressing hash keeps tick distribution, caching, and CDN infrastructure independent of whichever hash a CA chose for its tree.
+Algorithm agility is provided where it matters -- the security-relevant hashing follows the agile tree HASH ({{post-quantum}}) -- and the `v1` path segment provides a clean migration lever should the addressing hash itself ever need to change.
 
 The tick base URL is not derived from the CA's identifier.
 A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
@@ -570,10 +576,13 @@ CAs whose deployments consider this metadata sensitive SHOULD publish an `https:
 
 For example, if a CA's tick base URL is `http://mtcrs.ca.example`, ticks are served at:
 
-    http://mtcrs.ca.example/.well-known/mtcrs/tick/a1b2c3...f0
+    http://mtcrs.ca.example/.well-known/mtcrs/v1/tick/a1b2c3...f0
 
-The base URL is an origin (scheme, host, and optional port); the `.well-known/mtcrs/tick/{entry_hash}` path is rooted at that origin.
+The base URL is an origin (scheme, host, and optional port); the `.well-known/mtcrs/v1/tick/{entry_hash}` path is rooted at that origin.
 A CA MAY point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.
+
+The `v1` segment versions the MTCRS HTTP interface as a whole -- the SHA-256 addressing of {entry_hash} and the response format ({{response-format}}).
+It is a migration lever, not a per-request parameter: a future revision needing a different addressing hash or wire format would define a `v2` namespace, which a CA MAY serve alongside `v1` during a transition, without affecting the Merkle Tree, the non-revocation proof, or already-issued certificates.
 
 ## Discovering the Tick Base URL {#discovery}
 
@@ -604,7 +613,7 @@ When the CA issues certificates via ACME, it SHOULD convey the tick base URL in 
 
     "tickBaseURL": "https://mtcrs.cdn.ca.example"
 
-The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/tick/{entry_hash}` ({{distribution}}).
+The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{entry_hash}` ({{distribution}}).
 A single value covers all of the CA's certificates and lets the CA direct authenticating parties to a CDN, regional mirror, or any origin, without adding bytes to the certificate or log entry.
 
 If the `tickBaseURL` field is absent from the ACME order, the authenticating party obtains the base URL through another mechanism in {{discovery}} (for example, the CA certificate SIA).
@@ -613,11 +622,11 @@ CAs using issuance protocols other than ACME SHOULD provide an equivalent mechan
 
 ## Unguessable Tick URLs {#unguessable-urls}
 
-The tick fetch path described above is `.well-known/mtcrs/tick/{entry_hash}`, and {entry_hash} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
+The tick fetch path described above is `.well-known/mtcrs/v1/tick/{entry_hash}`, and {entry_hash} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
 Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
 A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, MAY replace the derivable path component with an unguessable per-certificate capability token:
 
-    {tick_base_url}/.well-known/mtcrs/tick/{tick_token}
+    {tick_base_url}/.well-known/mtcrs/v1/tick/{tick_token}
 
 tick_token:
 : A high-entropy (at least 128-bit) value that does not appear anywhere in the certificate.
@@ -837,7 +846,7 @@ The current tick is embedded in the MTCProof presented during the handshake and 
 A relying party therefore has no need to contact the CA, and MUST NOT fetch ticks or otherwise use the tick distribution endpoint as an online revocation responder.
 
 This is a privacy and availability protection, not a secrecy one.
-The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/tick/{entry_hash}` with {entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
+The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/v1/tick/{entry_hash}` with {entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
 By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
 A CA that wishes to remove this derivability entirely MAY use the optional per-certificate capability-token hardening in {{unguessable-urls}}, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick -- the authenticating party already presents the current value -- while reintroducing the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{RFC6960}} problematic.
@@ -1010,7 +1019,7 @@ IANA is requested to register the following entry in the "Well-Known URIs" regis
 | Change Controller | IETF |
 | Reference | This document |
 | Status | permanent |
-| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/tick/{entry_hash}` ({{distribution}}) |
+| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/tick/{entry_hash}` ({{distribution}}) |
 
 ## ACME Order Object Fields
 
