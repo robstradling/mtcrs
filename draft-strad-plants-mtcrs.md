@@ -160,6 +160,25 @@ This approach achieves the following properties:
 This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with a single required change; {{base-spec-amendments}} collects what this document asks of the base specification.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
 
+# Amendments Requested of the Base Specification {#base-spec-amendments}
+
+For convenience, this section collects the amendments this document asks of the base specification; each is specified in full in the section cited.
+
+Exactly one change to the base specification is required:
+
+- **Amend the Section 7.2 "extra data" check** so that, when a certificate carries the hash chain anchor, the MTCProof in its signatureValue may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
+  The RECOMMENDED realization appends a trailing status_tick field ({{tick-trailing-field}}); a base specification that instead adopts the general proof_extensions field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends Section 7.2 accordingly.
+
+The following item is optional; a base specification MAY adopt it but need not:
+
+- **Register a hash_chain_anchor entry-extension type** in the MerkleTreeCertEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
+
+Everything else this document defines -- the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}) -- layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
+
+The MTCProof changes themselves -- the trailing status_tick field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the proof_extensions field ({{mtcproof-extensibility}}) -- are edits to a structure that the base specification owns.
+This document specifies them in full so that the required change is concrete and reviewable, but the intent is to hand them to the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
+If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
+
 # Conventions and Definitions
 
 {::boilerplate bcp14-tagged}
@@ -442,26 +461,6 @@ Hash chain revocation is keyed by the log entry, not by the certificate profile:
 
 An authenticating party that holds both a standalone and a landmark-relative certificate for the same entry -- for example, during the renewal overlap described in Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} -- fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
 Refreshing the tick is independent of profile selection: the authenticating party selects between the two certificates using the base MTC mechanism (Section 8 of {{I-D.ietf-plants-merkle-tree-certs}}), and updates the HashChainTick in whichever MTCProof it sends.
-
-# Amendments Requested of the Base Specification {#base-spec-amendments}
-
-This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with as little change to it as possible.
-For convenience, this section collects the amendments this document asks of the base specification; each is specified in full in the section cited.
-
-Exactly one change to the base specification is required:
-
-- **Amend the Section 7.2 "extra data" check** so that, when a certificate carries the hash chain anchor, the MTCProof in its signatureValue may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
-  The RECOMMENDED realization appends a trailing status_tick field ({{tick-trailing-field}}); a base specification that instead adopts the general proof_extensions field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends Section 7.2 accordingly.
-
-The following item is optional; a base specification MAY adopt it but need not:
-
-- **Register a hash_chain_anchor entry-extension type** in the MerkleTreeCertEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
-
-Everything else this document defines -- the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}) -- layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
-
-The MTCProof changes themselves -- the trailing status_tick field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the proof_extensions field ({{mtcproof-extensibility}}) -- are edits to a structure that the base specification owns.
-This document specifies them in full so that the required change is concrete and reviewable, but the intent is to hand them to the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
-If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
 
 # Verification {#verification}
 
