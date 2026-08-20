@@ -1,5 +1,5 @@
 ---
-title: "Merkle Tree Certificate Revocation Status (MTCRS)"
+title: "Merkle Tree Certificates: Revocation Status"
 abbrev: "MTCRS"
 category: exp
 
