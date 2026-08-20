@@ -521,6 +521,7 @@ Using these inputs, the verifier performs the following steps:
 
 4. Check that `tick.period` is equal to expected_period, expected_period - 1, or expected_period + 1 ({{clock-skew}}).
    If not, reject the certificate with a certificate_expired error (this alert also covers a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see).
+   There is no period below 0, so when expected_period is 0 the lower neighbor is simply absent and the accepted set is {0, 1}; a verifier MUST NOT compute expected_period - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
 
