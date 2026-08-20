@@ -190,6 +190,10 @@ Hash chain values, the anchor, and the tick all use this hash.
 The HashChainTick that this mechanism embeds in the MTCProof ({{cert-format}}) is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of the current period, complementing the inclusion proof and cosignatures that attest authenticity.
 The separate entry_hash used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
 
+Every hash chain value in this mechanism is *self-authenticating*: a relying party verifies it offline by hashing it forward to the anchor committed in the certificate ({{verification}}), needing no signature over the value and no trust beyond the CA's existing trust anchor.
+Because a tampered or forged value cannot reach the committed anchor in the number of steps its claimed period implies, this holds even though the MTCProof that carries the tick is itself unsigned and mutable.
+Later sections use the term in this sense.
+
 # Overview {#overview}
 
 This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in {{construction}} through {{distribution}}.
@@ -578,7 +582,7 @@ A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object id
 The base URL is instead conveyed to the authenticating party out of band, as described in {{discovery}}.
 
 The scheme (`http://` or `https://`) is whatever the CA specifies as part of the base URL.
-Because each tick is self-authenticating (the relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree), the tick fetch does not require transport-layer integrity, and because the tick value is public, it does not require transport-layer confidentiality of the response body.
+Because each tick is self-authenticating, the tick fetch does not require transport-layer integrity, and because the tick value is public, it does not require transport-layer confidentiality of the response body.
 CAs MAY therefore publish an `http://` base URL, which eliminates TLS handshake overhead and permits caching by any HTTP intermediary.
 The one property plain HTTP does not provide is confidentiality of the request itself: an on-path observer can see which {entry_hash} is being requested.
 CAs whose deployments consider this metadata sensitive SHOULD publish an `https://` base URL instead.
@@ -767,7 +771,7 @@ Like the choice of distribution channel generally ({{distribution}}), any batch 
 
 ## Delegated Tick Distribution {#delegated-distribution}
 
-Because a tick is self-authenticating -- a relying party verifies it by hashing it forward to the anchor committed in the Merkle Tree ({{verification}}) -- the party that serves ticks need not be trusted for integrity or authenticity.
+Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity or authenticity.
 A distributor cannot forge a tick for a period the CA has not revealed (preimage resistance; {{security-considerations}}), and cannot serve a tampered value that verifies.
 Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
 
@@ -1647,8 +1651,7 @@ Deployments MAY use DNS-based distribution as an alternative or complement to HT
 The choice does not affect interoperability, since the relying party only sees the tick in the MTCProof.
 
 DNSSEC is not required for DNS-based tick distribution and SHOULD NOT be used.
-Each tick is self-authenticating: the relying party verifies it by hashing it forward to the anchor already committed in the Merkle Tree.
-An attacker who modifies a tick in transit cannot produce a value that passes this verification without inverting the hash function.
+Each tick is self-authenticating ({{verification}}): an attacker who modifies a tick in transit cannot produce a value that passes verification without inverting the hash function.
 An attacker who suppresses a tick only prevents the authenticating party from obtaining a fresh tick, which is equivalent to a network-level denial of service against any distribution channel.
 Adding DNSSEC would introduce unnecessary operational complexity (key management, signature generation for frequently changing records) and increase DNS response sizes, without improving the security of the revocation mechanism.
 
