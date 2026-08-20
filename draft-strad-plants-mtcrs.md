@@ -1746,10 +1746,8 @@ Additionally, `status_request` carries `OCSPResponse` semantics (a signed assert
 ## Proof-Extension Encoding for the Tick {#tick-proof-extension}
 
 This document carries the tick in the RECOMMENDED trailing status_tick field ({{tick-trailing-field}}).
-Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the `proof_extensions` structure defined in {{mtcproof-extensibility}} and carry the HashChainTick as one of its entries.
-
-The HashChainTick is then encoded as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized HashChainTick (4 + HASH_SIZE bytes), as described in {{mtcproof-extensibility}}.
-When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one hash_chain_tick proof extension.
+Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the `proof_extensions` structure and carry the HashChainTick as one of its entries.
+{{mtcproof-extensibility}} defines that field and the exact hash_chain_tick encoding; when the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one hash_chain_tick proof extension.
 
 This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
 Those benefits come at a cost: as a general, unauthenticated, "ignore if unknown" channel it introduces the abuse surface -- bloat, covert channels, and a strippable soft-fail for any misuse -- discussed in {{proof-extensions-considerations}}.
