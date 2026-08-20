@@ -418,7 +418,7 @@ A relying party SHOULD accept ticks for the current period, the immediately prec
 This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
 Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding ({{tick-trailing-field}}) is RECOMMENDED: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
-The proof-extension encoding ({{tick-proof-extension}}) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point ({{mtcproof-extensibility}}); as a general "ignore if unknown" channel it carries the abuse surface discussed in {{proof-extensions-considerations}}, which for a single 36-byte use is not otherwise justified.
+The proof-extension encoding ({{tick-proof-extension}}) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point ({{mtcproof-extensibility}}); as a general "ignore if unknown" channel it carries the abuse surface discussed in {{proof-extensions-considerations}}, which for a single tick is not otherwise justified.
 Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded.
 
 ### Preferred Encoding: Trailing status_tick Field {#tick-trailing-field}
@@ -842,7 +842,7 @@ This is analogous to a CA refusing to issue OCSP responses, or refusing to issue
 - **Third-party observability.** The tick distribution endpoint can be monitored externally (CT-style auditing), making selective withholding observable.
 - **Market pressure.** An authenticating party that cannot reliably obtain ticks will switch CAs.
 
-Because ticks are small (36 bytes) and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
+Because ticks are small and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
 
 ## Relying Parties Do Not Fetch Ticks {#rp-no-fetch}
 
@@ -886,7 +886,7 @@ Neither changes the safe action for an unproven tick, which remains rejection, s
 
 ## Revocation Transparency and Auditability {#revocation-transparency}
 
-Revocation in this mechanism is the *absence* of a tick: the CA stops revealing chain values ({{revealing-values}}) and the certificate becomes unusable within at most two periods.
+Revocation in this mechanism is the *absence* of a tick: the CA stops revealing chain values ({{revealing-values}}) and the certificate becomes unusable within two periods.
 There is deliberately no positive, signed, non-repudiable artifact asserting "the CA revoked entry X as of period T."
 This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts, and from the base MTC revoked-ranges mechanism, whose revoked ranges are committed to the log.
 The transparency here is asymmetric: opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{assertion-integration}}), but the per-period revocation *state* is neither signed nor committed, so a monitor cannot observe it in the log.
@@ -930,7 +930,7 @@ The goal is therefore to bound the dependency, not to eliminate it; several fact
   Deployments choose revocation_period to balance revocation latency against their realistic availability expectations for tick distribution.
 
 - **The dependency is on a lightweight service.**
-  Fetching a tick is a single HTTP GET returning 36 bytes with no per-request cryptography -- far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
+  Fetching a tick is a single lightweight HTTP GET with no per-request cryptography -- far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
   Because the authenticating party retains a full period of buffer, brief outages are invisible to relying parties.
 
 - **The acceptance window can be widened, deliberately.**
@@ -950,7 +950,7 @@ Compared with relying on short lifetimes alone, this is a shift in the availabil
 A single successful fetch gives more runway than one period: because a relying party also accepts the immediately preceding period's tick ({{clock-skew}}), a tick fetched for one period stays acceptable through the end of the next, so a distribution outage breaks a certificate only after it outlasts that certificate's last-fetch runway -- up to about two periods -- not the instant it passes one.
 Short-lived certificates do not remove the dependency on CA availability; they relocate it: such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
 The difference is cadence and weight.
-MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly 36-byte GET with no cryptography ({{operational-resilience}}), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
+MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly GET with no cryptography ({{operational-resilience}}), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
 Multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
 A longer revocation_period trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
 
@@ -1389,7 +1389,7 @@ A one-hour revocation_period provides a good balance:
 - **Revocation latency:** A compromised key is unusable within at most two hours (current period + grace period).
 
 - **Operational feasibility:** Authenticating parties must fetch a new tick once per hour.
-  This is a trivial HTTP request for a 36-byte response.
+  This is a trivial HTTP request for a small response.
 
 - **Chain length:** For 47-day certificates, the chain length is 1,128.
   Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
@@ -1508,7 +1508,7 @@ The stapled response remains a separate TLS signal with its own failure modes, l
 The hash chain tick is not a separate, optional signal: it is carried inside the MTCProof, which is part of the certificate presentation itself ({{cert-format}}).
 A relying party that parses the certificate necessarily encounters the tick; there is no request step to omit, and nothing a middlebox or misconfigured server can strip while leaving a valid certificate.
 A relying party can therefore hard-fail on a missing or invalid tick from the outset -- precisely what stapling could never achieve.
-In effect this mechanism provides the property Must-Staple aimed at, a certificate that cannot be presented without current status, but makes it un-strippable by construction rather than by a policy flag, and does so with no per-response CA signature.
+In effect this mechanism provides the property Must-Staple aimed at, a certificate that cannot be presented without current status, but makes it un-strippable by construction rather than by a policy flag.
 
 ### Why It Is More Readily Deployable
 
@@ -1523,14 +1523,14 @@ Several differences lower the deployment barrier relative to stapling:
   Stapling requires status_request support on both ends.
 
 - **A small, cacheable refresh instead of stapling machinery.**
-  A server refreshes a 36-byte value once per period ({{distribution}}), with no cryptographic operations, rather than fetching, validating, and stapling CA-signed OCSP responses with their own validity windows.
+  A server refreshes a small value once per period ({{distribution}}), with no cryptographic operations, rather than fetching, validating, and stapling CA-signed OCSP responses with their own validity windows.
 
 - **Greenfield enforcement.**
   MTC is new, so there is no legacy soft-fail install base to accommodate.
   Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see {{extension-criticality}}), avoiding the transition that stapling never completed.
 
 The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
-This is the failure mode OCSP Must-Staple has, but MTCRS carries a smaller version of it and, unlike Must-Staple, an escape from it: the refresh is a static unsigned 36-byte fetch rather than a time-bounded signed response with a responder certificate and validity window, and where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current ({{availability-considerations}}).
+This is the failure mode OCSP Must-Staple has, but MTCRS carries a smaller version of it and, unlike Must-Staple, an escape from it: the refresh is a static unsigned fetch rather than a time-bounded signed response with a responder certificate and validity window, and where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current ({{availability-considerations}}).
 {{availability-considerations}} discusses this availability dependency and its mitigations.
 
 ### Operational Simplicity and Resilience {#operational-resilience}
@@ -1560,7 +1560,7 @@ It is not: the reasons for that move are specific, and this mechanism is designe
 
 - **Operator and responder fragility.**
   Must-Staple saw negligible adoption because a stapling-pipeline failure caused self-inflicted outages, and clients could not hard-fail until coverage was universal.
-  Here the refresh is a trivial cacheable 36-byte GET with no signing, backed by a full period of buffer and multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
+  Here the refresh is a trivial cacheable GET with no signing, backed by a full period of buffer and multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
 
 The pushed-list systems remain valuable and complementary -- comprehensive and fail-closed, but vendor-controlled and effective only for relying parties that ship the feed ({{alternatives}}).
 This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients and IoT devices with no external feed.
@@ -1655,7 +1655,7 @@ This approach was rejected because:
   An OCSP response is a responder-signed status.
   Signing each tick reintroduces exactly the per-response signing load this mechanism is designed to avoid (the OCSP-like per-certificate signatures alternative below; {{operational-resilience}}); leaving it unsigned is not really an OCSP response.
 
-- **It is heavier and less cacheable than a 36-byte GET.**
+- **It is heavier and less cacheable than a plain GET.**
   The HTTP interface is a static, plain-HTTP, CDN-cacheable key-value fetch with no per-request cryptography; OCSP adds DER request construction, a responder, nonce handling, and signature validation, contradicting the operational-simplicity argument ({{operational-resilience}}).
 
 - **Addressing and semantics do not fit.**
@@ -1751,7 +1751,7 @@ Alternatively, if the base MTC specification wants a general, reusable proof-lev
 
 This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
 Those benefits come at a cost: as a general, unauthenticated, "ignore if unknown" channel it introduces the abuse surface -- bloat, covert channels, and a strippable soft-fail for any misuse -- discussed in {{proof-extensions-considerations}}.
-This document treats that surface as unjustified for a single 36-byte use, and therefore recommends the trailing field ({{tick-trailing-field}}) unless a concrete need for general extensibility exists.
+This document treats that surface as unjustified for a single tick, and therefore recommends the trailing field ({{tick-trailing-field}}) unless a concrete need for general extensibility exists.
 
 ## Shorter Certificate Lifetimes
 
@@ -1773,7 +1773,7 @@ Matching a one-hour period's revocation latency with lifetime alone would mean i
 That attains comparable worst-case exposure, but it does not remove the cost -- it moves it, and to heavier places than a hash computation.
 A relying party's "no extra hashes" is paid instead in trusted-subtree state: it must keep its trusted tree heads fresh enough to validate certificates minted in the last two hours, a recurring network-and-state sync that dwarfs the microseconds of hashing it saves.
 The CA pays it in issuance, tree cosigning, and log growth on a two-hourly cadence -- the issuance-scaling and trusted-subtree costs above, now some hundredfold larger than a 47-day cadence, discarding the batched compactness MTC exists to provide.
-And the availability dependency becomes stricter rather than absent: a two-hour certificate strands its server whenever the CA's issuance pipeline is unavailable for two hours, and re-issuance (key generation, CSR, challenge, log inclusion) is a far heavier operation to keep continuously live than the 36-byte tick fetch that a long-lived certificate tolerates outages against.
+And the availability dependency becomes stricter rather than absent: a two-hour certificate strands its server whenever the CA's issuance pipeline is unavailable for two hours, and re-issuance (key generation, CSR, challenge, log inclusion) is a far heavier operation to keep continuously live than the lightweight tick fetch that a long-lived certificate tolerates outages against.
 Hash chain revocation buys the same fine-grained revocation for a few microseconds of hashing instead of that few-hundredfold increase in issuance and relying-party sync, which is why the microseconds are the cheap side of the trade, not over-engineering.
 
 Hash chain revocation provides the revocation latency benefits of short-lived certificates while retaining the operational advantages of longer lifetimes.
