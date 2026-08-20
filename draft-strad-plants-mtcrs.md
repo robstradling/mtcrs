@@ -564,6 +564,13 @@ No security property depends on it: it is never verified as a proof, and the sol
 Fixing the addressing hash keeps tick distribution, caching, and CDN infrastructure independent of whichever hash a CA chose for its tree.
 Algorithm agility is provided where it matters -- the security-relevant hashing follows the agile tree HASH ({{post-quantum}}) -- and the `v1` path segment provides a clean migration lever should the addressing hash itself ever need to change.
 
+The tick URL is keyed by entry_hash rather than by the certificate's serial number, even though the serial (`(log_number << 48) | index`; Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}) also uniquely identifies the entry, is shorter, and needs no hashing.
+The serial's index component is assigned sequentially, so a serial-keyed URL would let anyone enumerate a CA's whole certificate population and probe each certificate's revocation status simply by counting indices -- with no certificate and no log data in hand.
+entry_hash raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter, and -- being a derived value that need not appear in the certificate -- it can be replaced by the unguessable per-certificate capability token of {{unguessable-urls}} when a CA wants to remove URL derivability entirely; a serial carried in the certificate offers no such option.
+Keying on entry_hash therefore aligns with the design's preference that the tick endpoint not be treated as an enumerable status oracle ({{rp-no-fetch}}).
+Its one cost -- a reliance on the addressing hash's collision resistance to keep entries' URLs distinct -- is amply met and non-load-bearing (the Note above).
+Where positive, monitorable revocation transparency is wanted, it is provided deliberately and separately ({{revocation-transparency}}), not as a side effect of an enumerable endpoint.
+
 The tick base URL is not derived from the CA's identifier.
 A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
 The base URL is instead conveyed to the authenticating party out of band, as described in {{discovery}}.
