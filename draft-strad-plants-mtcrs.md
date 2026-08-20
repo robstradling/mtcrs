@@ -873,6 +873,32 @@ Revoked ranges provide a fallback for scenarios where the hash chain mechanism i
 Relying parties that support both mechanisms SHOULD check both: a certificate is considered revoked if either mechanism indicates revocation.
 Whether to check the base MTC revoked ranges in addition to the hash chain is a relying-party policy choice ({{rp-policy}}).
 
+## Revocation Transparency and Auditability {#revocation-transparency}
+
+Revocation in this mechanism is the *absence* of a tick: the CA stops revealing chain values ({{revealing-values}}) and the certificate becomes unusable within at most two periods.
+There is deliberately no positive, signed, non-repudiable artifact asserting "the CA revoked entry X as of period T."
+This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts, and from the base MTC revoked-ranges mechanism, whose revoked ranges are committed to the log.
+The transparency here is asymmetric: opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{assertion-integration}}), but the per-period revocation *state* is neither signed nor committed, so a monitor cannot observe it in the log.
+
+Three consequences follow, each bounded:
+
+- **Revocation is observable but not provable.**
+  A monitor watching a certificate's tick endpoint can detect that ticks have stopped, but cannot by that alone prove the CA revoked it rather than suffered a distribution outage: a 404 does not distinguish the two ({{response-format}}).
+  The mechanism therefore provides detection of withheld ticks ({{dos-withholding}}), not a non-repudiable revocation record -- enough to discipline selective or covert withholding, which is externally observable and bounded by the same forces that discipline any CA, but not an audit trail of revocation decisions.
+
+- **No revocation-event transparency in the log.**
+  Because revealed ticks are not committed to the tree, the fact and time of a revocation are not recorded there.
+  A deployment that requires a committed, monitorable revocation record MUST use the base MTC revoked-ranges mechanism ({{interaction-with-base-mtc-revocation}}), which places the revocation in the log; the two compose, and a CA MAY revoke a certificate through both.
+
+- **No revocation reason codes.**
+  A tick's absence carries no reason (keyCompromise, cessationOfOperation, and so on).
+  Conveying a reason is out of scope here; a deployment that needs machine-readable reasons uses the base MTC revoked-ranges mechanism or an external revocation system that carries them.
+
+None of this weakens enforcement, which is what the mechanism exists to provide.
+A revoked certificate stops verifying at every relying party within the two-period bound whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
+Auditability, where a deployment needs it, is obtained by pairing hash chain revocation with the committed revoked-ranges mechanism ({{interaction-with-base-mtc-revocation}}) rather than from the hash chain itself.
+A CA that wants positive, monitorable revocation records without invoking revoked ranges MAY additionally publish a signed revocation feed, but this document neither defines nor requires one.
+
 ## Availability Considerations {#availability-considerations}
 
 Because an authenticating party must fetch a fresh tick at least once per revocation_period ({{distribution}}), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
