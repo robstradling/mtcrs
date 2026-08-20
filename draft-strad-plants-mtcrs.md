@@ -57,6 +57,7 @@ normative:
     target: https://datatracker.ietf.org/doc/draft-ietf-plants-merkle-tree-certs/
 
 informative:
+  RFC4086:
   RFC5297:
   RFC6960:
   RFC6962:
@@ -246,7 +247,8 @@ A CA MAY of course use the same revocation_period for every certificate it issue
 
 At certificate issuance time, for each log entry, the CA generates a hash chain as follows:
 
-1. Generate a cryptographically random seed of HASH_SIZE bytes (32 bytes for SHA-256).
+1. Generate a seed of HASH_SIZE bytes (32 bytes for SHA-256) using a cryptographically secure random number generator ({{RFC4086}}) or an approved deterministic random bit generator.
+   The seed MUST be unpredictable: an adversary who can guess or recover it can compute the whole chain and forge ticks for a revoked certificate, so it carries the same unpredictability and confidentiality requirement as a secret key ({{seed-confidentiality}}).
 
 2. Compute the chain_length + 1 values of the hash chain:
 
@@ -930,6 +932,14 @@ None of this weakens enforcement, which is what the mechanism exists to provide.
 A revoked certificate stops verifying at every relying party within the two-period bound whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
 Auditability, where a deployment needs it, is obtained by pairing hash chain revocation with the committed revoked-ranges mechanism ({{interaction-with-base-mtc-revocation}}) rather than from the hash chain itself.
 A CA that wants positive, monitorable revocation records without invoking revoked ranges MAY additionally publish a signed revocation feed, but this document neither defines nor requires one.
+
+## Downgrade to a Non-MTCRS Certificate {#downgrade}
+
+Hash chain revocation applies per certificate -- more precisely, per log entry carrying the id-pe-hashChainAnchor extension -- not per key.
+An attacker who holds a private key (the only party who can use any certificate for that key) could therefore present a different, still-valid certificate for the same key that does not carry the anchor extension, escaping tick enforcement.
+Such certificates are outside this mechanism's scope and are handled exactly as in base MTC: by the per-serial revoked-ranges mechanism, which is independent of hash chain revocation, and bounded by the short lifetimes and trusted-validity windows of the base model.
+A CA revoking a compromised key MUST therefore revoke all of that key's certificates -- withholding ticks for those that use this mechanism ({{revealing-values}}) and revoking the serial ranges of the rest ({{interaction-with-base-mtc-revocation}}) -- because withholding ticks alone would revoke only the certificates that carry an anchor.
+This is the general property that revocation targets certificates rather than keys; it is not specific to this mechanism.
 
 ## Availability Considerations {#availability-considerations}
 
