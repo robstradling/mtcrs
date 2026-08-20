@@ -525,7 +525,9 @@ Using these inputs, the verifier performs the following steps:
        for i = 1 to tick.period:
            v = Hash(HashChainInput(v))
 
-   Because step 4 has already constrained `tick.period` to within one of expected_period (and hence to at most chain_length + 1), the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
+   Because step 4 has already constrained `tick.period` to within one period of expected_period, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
+   The largest legitimate `tick.period` is `chain_length - 1`, the certificate's final period, which requires `chain_length - 1` forward hashes (1,127 for the 1,128-period chain of a 47-day, one-hour-period certificate; {{why-one-hour}}).
+   The acceptance window's expected_period + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `chain_length`.
 
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
@@ -1329,7 +1331,7 @@ Hash chains {{MICALI}} were selected because they are the only known mechanism t
 5. **Simple implementation:** The mechanism requires only a hash function and basic arithmetic.
    No new cryptographic primitives are introduced.
 
-## Why One Hour (or One Day) Periods
+## Why One Hour (or One Day) Periods {#why-one-hour}
 
 A one-hour revocation_period provides a good balance:
 
