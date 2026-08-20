@@ -189,6 +189,34 @@ Hash chain values, the anchor, and the tick all use this hash.
 The HashChainTick that this mechanism embeds in the MTCProof ({{cert-format}}) is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of the current period, complementing the inclusion proof and cosignatures that attest authenticity.
 The separate entry_hash used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
 
+# Overview {#overview}
+
+This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in {{construction}} through {{distribution}}.
+It reuses the small example of {{test-vectors}}: a chain of length `chain_length = 5` (a real certificate uses a much longer chain -- for example 1,128 for a 47-day lifetime with a one-hour period).
+
+1. **Issuance.**
+   For each log entry, the CA generates a secret random seed `h[0]` and hashes it forward `chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
+   The final value `h[5]` is the *anchor*.
+   The CA commits it into the certificate as the id-pe-hashChainAnchor extension ({{assertion-integration}}); because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.
+
+2. **Per-period reveal.**
+   Time after the certificate's notBefore is divided into periods of `revocation_period` seconds (one hour by default).
+   At the start of period `t`, the CA reveals `h[chain_length - t]` for every certificate it has not revoked ({{revealing-values}}) -- for period 2, that is `h[3]`.
+   The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
+
+3. **Server refresh.**
+   Once per period, the authenticating party (server) fetches its current value as a *tick* `{period, value}` -- for period 2, `{2, h[3]}` -- with a single plain HTTP GET ({{distribution}}), and writes it into the MTCProof it presents in TLS handshakes ({{cert-format}}).
+   The MTCProof is not committed to the tree, so refreshing the tick each period does not disturb the inclusion proof or cosignatures.
+
+4. **Relying-party verification.**
+   A relying party reads the tick and the committed anchor from the certificate, hashes `tick.value` forward `tick.period` times, and checks that the result equals the anchor ({{verification}}) -- hashing `h[3]` twice yields `h[5]`.
+   It also checks that `tick.period` agrees with its own clock to within one period.
+   Verification is entirely offline: the relying party fetches nothing ({{rp-no-fetch}}).
+
+5. **Revocation = withholding.**
+   To revoke a certificate, the CA simply stops revealing its chain values ({{revealing-values}}).
+   Once the last revealed tick's period ends, no party can produce a valid tick -- doing so would require inverting the hash -- so the certificate becomes unusable within at most two periods.
+
 # Hash Chain Construction {#construction}
 
 ## Parameters
