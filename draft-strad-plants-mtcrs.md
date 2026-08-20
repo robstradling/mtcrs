@@ -1362,6 +1362,13 @@ This creates an incentive structure where CAs that validate more frequently prov
 
 Root program policies can leverage this by requiring both short revocation periods and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.
 
+This reframes where certificate lifetime sits in the security argument.
+Much of the pressure to shorten certificate lifetimes is a substitute for revocation: with no reliable in-band revocation, expiry is the only enforceable bound on exposure after key compromise or misissuance.
+Fine-grained hash chain revocation supplies that bound directly -- within about two periods rather than a lifetime -- and so removes revocation latency as a rationale for reducing lifetimes further: once revocation is measured in hours, shrinking a lifetime from weeks to days barely changes the worst-case exposure to a *detected* problem, while still incurring the issuance, logging, and relying-party trusted-subtree costs that shorter lifetimes carry ({{alternatives}}).
+This document does not argue that certificates should therefore be longer.
+The residual reasons to bound lifetime are real and are not addressed by revocation: exposure to problems the CA never detects (which revocation cannot act on, and which re-validation frequency, above, bounds instead), and the agility and hygiene benefits of forced rotation -- rapid algorithm migration, retirement of stale certificates, and keeping certificates aligned with current domain control.
+The narrower point is that, with enforceable revocation in place, lifetime and revocation become independent levers that a root program can set on their own merits, rather than using lifetime as a proxy for a revocation mechanism it did not have.
+
 ## Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
 
 Several alternative revocation mechanisms were considered and rejected; {{alternatives}} analyses each.
