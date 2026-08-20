@@ -293,7 +293,7 @@ This is an intentional design choice; see {{period-zero-rationale}} for the rati
 
 To revoke a certificate, the CA stops revealing new values.
 Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed chain elements, which requires inverting the hash function.
-Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1; a certificate therefore cannot be revoked during period 0.
+Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1; a certificate therefore cannot be revoked during period 0, and one the CA wishes to revoke from the moment of issuance becomes unusable at the start of period 2 ({{period-zero-rationale}}).
 
 ## Security of the Hash Chain
 
@@ -305,30 +305,6 @@ The label in HashChainInput ({{encoding}}) domain-separates chain values from ot
 
 The one hash whose distinctness matters for a different reason is entry_hash, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
 A collision there would merely cause two entries to share a URL and misroute a fetch; the authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
-
-## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
-
-Revealing the anchor `h[chain_length]` as the period 0 tick means the mechanism does not enforce revocation during period 0.
-The earliest period for which the CA can withhold a secret value is period 1, and, because a relying party accepts the tick for the current or the immediately preceding period (the acceptance window of {{verification}} also allows the immediately following period, but that does not extend acceptance of the period 0 anchor), the public anchor remains acceptable throughout period 1.
-A certificate that the CA wishes to revoke from the moment of issuance thus becomes unusable at the start of period 2.
-This is the same worst-case bound of at most two revocation periods that applies to any revocation decision ({{revocation-vs-expiry}}); the only capability given up is the ability to revoke a certificate faster than that bound in the first moments after issuance.
-This trade-off is deliberate and has two advantages.
-
-Operational grace period at issuance:
-: The CA's tick distribution service ({{distribution}}) does not need to have computed and begun serving a certificate's first secret tick at the exact instant of issuance.
-  It has until the start of period 1 -- one full revocation_period -- to make the certificate's chain available.
-  This mirrors established practice for OCSP {{RFC6960}}, where a newly issued certificate's first status response is permitted to be briefly unavailable after issuance (the CA/Browser Forum Baseline Requirements, for example, allow up to 15 minutes).
-  Revocation infrastructure need not be instantaneously ready for brand-new certificates.
-
-Narrow, low-value window:
-: The only capability lost is revoking a certificate within the first revocation_period after it was issued.
-  A certificate that must be revoked within, for example, one hour of issuance is an unusual case, and the CA directly controls the relevant decision: if it already knows at issuance time that a certificate should not be trusted, it simply does not issue it.
-  That an arbitrary party can present the public anchor as a period 0 tick confers no additional capability on an attacker, because presenting the certificate in a TLS handshake still requires possession of the corresponding private key.
-  It means only that the CA's revocation signal does not take effect until period 1.
-
-A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret chain element: compute the chain one element longer, use `h[chain_length + 1]` as the anchor, and hash the revealed value `period + 1` times (rather than `period` times) during verification.
-The period 0 tick is then the secret value `h[chain_length]`, which the CA can withhold.
-This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.
 
 # Hash Chain Input Encoding {#encoding}
 
@@ -801,12 +777,9 @@ For a buffer of N periods the CA need send each distributor only a single value 
 One value per certificate thus covers the whole buffer, and it confers no power beyond period t+N, since serving any later period would require inverting the hash.
 A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}) with a distributor: unlike a bounded buffer of already-revealed values, that secret would grant the unbounded ability to forge non-revocation for the entire certificate population.
 
-This prohibition holds even in disaster recovery: a CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret (or its per-certificate seeds) to a successor operator as a continuity measure.
-That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event -- not a lightweight recovery step -- and it destroys the mechanism's forward security while transferring unbounded forging power and revocation authority over the entire population.
-It is also unnecessary.
-Continuity for already-issued certificates is provided by the bounded pre-provisioned buffer above, which keeps them usable through the outage without conferring any power beyond period t+N; and because MTC certificates are short-lived and renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}), the failing CA's population ages out within the buffer and remaining-lifetime window while subscribers migrate to a successor that issues fresh certificates under its own key and its own seed -- which never requires the old seed.
-If the disaster is itself a seed or key compromise, the correct response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which contains the damage, rather than widening custody of a possibly-tainted forging secret.
-The only scenario in which seed handover is even coherent is a full corporate succession that also transfers the signing key and trust anchors, governed by the same ceremony and root-program rules; even then, letting the old population expire under the buffer is cleaner than importing another CA's forging secret.
+This prohibition holds even in disaster recovery: a CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret or per-certificate seeds to a successor operator as a continuity measure.
+That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event that destroys forward security and hands over unbounded forging power -- and it is unnecessary: the bounded buffer above keeps already-issued certificates usable through the outage, and because MTC certificates are short-lived (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
+If the disaster is itself a seed or key compromise, the response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), not wider custody of a possibly-tainted secret.
 
 The feed from CA to distributor SHOULD be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
 
@@ -976,7 +949,9 @@ The goal is therefore to bound the dependency, not to eliminate it; several fact
 Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
 A single successful fetch gives more runway than one period: because a relying party also accepts the immediately preceding period's tick ({{clock-skew}}), a tick fetched for one period stays acceptable through the end of the next, so a distribution outage breaks a certificate only after it outlasts that certificate's last-fetch runway -- up to about two periods -- not the instant it passes one.
 Short-lived certificates do not remove the dependency on CA availability; they relocate it: such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
-The difference is cadence and weight -- MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly 36-byte GET with no cryptography ({{operational-resilience}}), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on -- and multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
+The difference is cadence and weight.
+MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly 36-byte GET with no cryptography ({{operational-resilience}}), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
+Multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
 A longer revocation_period trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
 
 The alternative -- no in-band revocation at all -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
@@ -1016,7 +991,9 @@ The direction that matters for revocation is a clock that runs behind true time:
 An attacker able to move a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded for small offsets by the window width and otherwise by notAfter, which is checked against the same clock.
 The forward direction, and the immediately-following-period allowance in particular, adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the value accepted is always genuine; the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
 This is the trusted-time dependency shared by every time-based validity and revocation check -- notAfter, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- and is not specific to this mechanism.
-Two consequences follow: the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure; and a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short revocation_period, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
+Two consequences follow.
+First, the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure.
+Second, a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short revocation_period, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
 A relying party that requires tight revocation SHOULD therefore source time from a trusted, integrity-protected clock; both this and the window width are relying-party policy choices ({{rp-policy}}).
 
 ## Relying-Party Policy Levers {#rp-policy}
@@ -1291,55 +1268,28 @@ For the transition period, ecosystems have two options:
 
 ## Considerations for the proof_extensions Field {#proof-extensions-considerations}
 
-The `proof_extensions` field is, by design, an unauthenticated and freely mutable region: it is not committed to the Merkle Tree, no cosignature covers the MTCProof, and relying parties ignore unrecognized types.
-These properties are what let the hash chain tick be updated each period, but as a general-purpose extension point they also let an authenticating party, or any intermediary that relays the certificate, add, alter, or strip proof extensions undetectably, and insert arbitrary data that relying parties silently ignore ("stuffing").
-This does not affect hash chain revocation itself -- the tick is self-authenticating and its presence is mandated by the id-pe-hashChainAnchor extension, which is committed to the tree, so stuffed or stripped data can neither forge nor suppress a tick.
-But if the base MTC specification adopts `proof_extensions` as a general mechanism, the following constraints SHOULD apply so that the field is not abused or misused:
+The `proof_extensions` field is, by design, unauthenticated and freely mutable: it is not committed to the Merkle Tree, no cosignature covers the MTCProof, and relying parties ignore unrecognized types.
+These properties are what let the tick be updated each period, but as a general-purpose extension point they also let an authenticating party, or any relaying intermediary, add, alter, or strip proof extensions undetectably and insert data that relying parties silently ignore ("stuffing").
+This does not affect hash chain revocation itself -- the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension, so stuffed or stripped data can neither forge nor suppress a tick.
+If the base MTC specification adopts `proof_extensions` as a general mechanism, three controls matter most; a relying party can enforce the first two without understanding any extension's contents:
 
 Bounded size and count:
-: `proof_extensions` is transmitted in every handshake, so an unbounded ignored field undercuts the compactness that motivates MTC and creates a bloat and denial-of-service surface.
+: `proof_extensions` is transmitted in every handshake, so an unbounded ignored field undercuts MTC's compactness and creates a bloat and denial-of-service surface.
   The base specification MUST set a small maximum total size and extension count, well below the 2^16-1 the length prefix permits, and relying parties MUST reject certificates that exceed it.
-  This bound is enforceable by any MTC relying party without understanding any extension's contents.
 
-Strict, canonical encoding:
-: Proof extensions SHOULD appear in ascending order by `extension_type` with no duplicate types, and parsers SHOULD require the declared lengths to consume the field exactly, with no trailing bytes.
-  This mirrors the ordering discipline the base specification already applies to cosignatures and limits ambiguity and abuse through many or malformed extensions.
-
-Registration:
-: `MTCProofExtensionType` values SHOULD be administered by an IANA registry with a defined allocation policy and a delimited private-use range, rather than left as an open channel.
+Committed admissibility:
+: The strongest control on stuffing is to make the permissible extensions a function of committed data.
+  The base specification SHOULD commit, per entry, an allow-list of permitted (extension_type, length) pairs -- in the tree-committed entry data ({{assertion-integration}}) -- and require relying parties to reject any proof extension absent from that list or disagreeing with it on length.
+  This is enforceable by a relying party that does not implement the specific mechanism, and, being committed and therefore logged, it also makes the presence of each proof-level mechanism transparent to monitors (though not its per-period value).
 
 Security-relevant extensions must be anchored:
 : Because unrecognized or absent proof extensions are ignored, any future proof extension carrying security-relevant data MUST make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{assertion-integration}}).
-  Otherwise "ignore if unknown" becomes a strippable soft-fail -- exactly the failure mode described in {{ocsp-stapling-comparison}}.
+  Otherwise "ignore if unknown" becomes a strippable soft-fail ({{ocsp-stapling-comparison}}).
 
-Committed admissibility:
-: The strongest control on stuffing is to make the set of permissible proof extensions a function of committed data rather than an open channel.
-  The base specification SHOULD commit, per entry, a generic allow-list of permitted (extension_type, length) pairs -- carried in the tree-committed entry data as an entry extension or X.509 extension ({{assertion-integration}}) -- and require relying parties to reject any proof extension whose type is absent from that allow-list or whose length disagrees with it.
-  This generalizes the per-mechanism anchoring above into a structural rule, and has two properties the other controls lack.
-  First, it is enforceable by an MTC relying party that does not implement the specific mechanism: checking type-and-length membership against the committed list needs no understanding of what an extension means, so a client unaware of, for example, hash chain revocation can still confirm that every proof extension present was authorized by the CA at issuance and reject anything stuffed in addition, while still accepting the certificate.
-  Second, because the allow-list is committed and therefore logged, the presence of each proof-level mechanism becomes transparent to monitors even though its per-period value is not, narrowing the transparency gap noted below.
+A base specification SHOULD also consider: a canonical encoding (ascending `extension_type`, no duplicate types, exact-length consumption); an IANA registry for `MTCProofExtensionType` with a private-use range; fail-closed rejection of unknown types, optionally softened by a per-extension criticality bit, which closes the ignore channel but trades incremental deployability for hard enforcement -- the same trade-off as marking the anchor extension critical ({{extension-criticality}}); and a deterministic fixed-length region, where each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
+Two properties are inherent and MUST be respected: proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{assertion-integration}}); and because `proof_extensions` widen signatureValue malleability (Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}), applications MUST derive any certificate identifier from the TBSCertificate, never from the MTCProof.
 
-Fail-closed on unknown types:
-: The entire stuffing surface stems from the rule that relying parties ignore unrecognized types.
-  A base specification MAY instead require relying parties to reject a proof extension whose type they do not recognize, optionally softened by a per-extension criticality bit (unknown-but-critical rejected, unknown-non-critical ignored) on the model of X.509 criticality.
-  Rejecting unknown types closes the ignore channel entirely, but at a cost that is acute precisely for a relying party unaware of a given mechanism: to such a client every certificate using that mechanism carries an unknown type and is rejected outright, so this control trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical ({{extension-criticality}}).
-  The non-critical path does not protect an unaware client, which still silently ignores.
-
-Deterministic, fixed-length region:
-: If each permitted extension_type carries a fixed-length value implied by its type, and the region is required to be the canonical concatenation of exactly the permitted extensions in type order, a relying party can recompute the expected byte layout and reject any deviation -- extra bytes, padding, wrong length, or a stray entry.
-  For values that are themselves self-authenticating, such as the hash chain tick, the region then contains no unauthenticated free space at all.
-  This control is strong but requires a parser that knows each present type's length; a relying party unaware of a type does not know its length and cannot validate, or even skip, it, so unlike committed admissibility it does not protect a mechanism-unaware client and, for a genuinely unknown type, degrades into fail-closed.
-
-No transparency:
-: Unlike `entry_extensions`, the proof-extension values themselves are neither logged nor committed to the tree, so monitors never observe them; a committed admissibility allow-list, above, exposes only which types are present, not their per-period values.
-  Mechanisms that require transparency of their contents MUST use `entry_extensions` instead; `proof_extensions` MUST NOT be treated as a transparent or auditable channel for values.
-
-Identity:
-: `proof_extensions` widen the malleability of the signatureValue already noted in Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}.
-  Applications that derive a unique identifier from a certificate MUST derive it from the TBSCertificate, never from the MTCProof.
-
-Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots -- which is much of why this document RECOMMENDS the fixed trailing status_tick field ({{tick-trailing-field}}) for the single use it needs.
-Of these controls, the size budget and committed admissibility are the ones an MTC relying party can enforce without understanding the specific extension, and are therefore the mitigations that protect a relying party unaware of hash chain revocation from stuffing while still allowing it to accept the certificate.
+Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots -- much of why this document RECOMMENDS the fixed trailing status_tick field ({{tick-trailing-field}}) for the single use it needs.
 
 # Design Rationale {#rationale}
 
@@ -1435,6 +1385,28 @@ A one-day period is also viable, reducing operational frequency at the cost of u
 At day-scale periods the chain is short enough (chain_length on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation -- whose worst-case exposure is the full remaining lifetime -- not against a one-day short-lived certificate: its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
 The fine-grained-revocation advantage over short lifetimes ({{revocation-vs-expiry}}) is precisely what a short period buys, so deployments SHOULD choose the shortest period operationally feasible.
+
+## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
+
+The period 0 tick is the public anchor, so the mechanism does not enforce revocation during period 0.
+The earliest period for which the CA can withhold a secret value is period 1, and because the acceptance window keeps the anchor acceptable throughout period 1 ({{verification}}), a certificate the CA wishes to revoke from issuance becomes unusable only at the start of period 2 -- the same worst-case bound of at most two revocation periods that applies to any revocation decision ({{revocation-vs-expiry}}).
+The only capability given up is revoking a certificate faster than that bound in the first moments after issuance, and this trade-off is deliberate and has two advantages.
+
+Operational grace period at issuance:
+: The CA's tick distribution service ({{distribution}}) does not need to have computed and begun serving a certificate's first secret tick at the exact instant of issuance.
+  It has until the start of period 1 -- one full revocation_period -- to make the certificate's chain available.
+  This mirrors established practice for OCSP {{RFC6960}}, where a newly issued certificate's first status response is permitted to be briefly unavailable after issuance (the CA/Browser Forum Baseline Requirements, for example, allow up to 15 minutes).
+  Revocation infrastructure need not be instantaneously ready for brand-new certificates.
+
+Narrow, low-value window:
+: The only capability lost is revoking a certificate within the first revocation_period after it was issued.
+  A certificate that must be revoked within, for example, one hour of issuance is an unusual case, and the CA directly controls the relevant decision: if it already knows at issuance time that a certificate should not be trusted, it simply does not issue it.
+  That an arbitrary party can present the public anchor as a period 0 tick confers no additional capability on an attacker, because presenting the certificate in a TLS handshake still requires possession of the corresponding private key.
+  It means only that the CA's revocation signal does not take effect until period 1.
+
+A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret chain element: compute the chain one element longer, use `h[chain_length + 1]` as the anchor, and hash the revealed value `period + 1` times (rather than `period` times) during verification.
+The period 0 tick is then the secret value `h[chain_length]`, which the CA can withhold.
+This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.
 
 ## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
 
