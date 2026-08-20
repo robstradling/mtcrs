@@ -1469,6 +1469,65 @@ Two qualifications apply.
 First, the new cost is on the generation side: the CA must produce the current tick for every non-revoked certificate each period, a precompute workload ({{storage-tradeoff}}) rather than OCSP's sign-on-demand.
 Second, the failure mode differs by design: an OCSP responder outage fails open (relying parties soft-fail and proceed), whereas a tick-distribution outage lasting longer than one period fails closed for the affected certificate -- bounded by the one-period buffer and mitigated by caching, multi-CA operation, and window-widening ({{availability-considerations}}).
 
+## Relationship to the Browser Move Away from Online Revocation {#browser-revocation-history}
+
+The major browsers disabled live OCSP checking and never pushed OCSP stapling to ubiquity; instead they moved to client-side pushed revocation (Chrome's CRLSets {{CRLSets}}, Mozilla's OneCRL and CRLite {{CRLite}}, and Apple's on-device revocation data).
+A handshake-carried status mechanism might therefore look like a return to an approach the ecosystem already rejected.
+It is not: the reasons for that move are specific, and this mechanism is designed around each of them.
+
+- **Soft-fail.**
+  Online OCSP had to treat an unreachable responder as "not revoked," so an active attacker could simply suppress the check, making enforcement impossible.
+  The non-revocation proof here is structurally part of the certificate presentation and cannot be stripped while leaving a usable certificate, so relying parties hard-fail by construction ({{ocsp-stapling-comparison}}) -- the property OCSP Must-Staple ({{RFC7633}}) aimed at but never achieved at scale.
+
+- **Relying-party privacy.**
+  Client-driven OCSP leaked relying-party browsing to CAs.
+  Relying parties here never contact the CA ({{rp-no-fetch}}); the only fetch is server-side.
+
+- **Operator and responder fragility.**
+  Must-Staple saw negligible adoption because a stapling-pipeline failure caused self-inflicted outages, and clients could not hard-fail until coverage was universal.
+  Here the refresh is a trivial cacheable 36-byte GET with no signing, backed by a full period of buffer and multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
+
+The pushed-list systems remain valuable and complementary -- comprehensive and fail-closed, but vendor-controlled and effective only for relying parties that ship the feed ({{alternatives}}).
+This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients and IoT devices with no external feed.
+The browser move in fact validates the design choices adopted here: fail-closed enforcement with no handshake-time relying-party network dependency.
+
+## Incremental Deployment and Transition {#deployment-transition}
+
+Two aspects of this design are shaped by the need to deploy into an ecosystem where not every relying party will support hash chain revocation at once.
+
+Marking id-pe-hashChainAnchor non-critical ({{extension-criticality}}) lets CAs begin issuing certificates with hash chain anchors before every relying party enforces them: aware relying parties act on the extension, unaware ones proceed without it, and during the transition the base MTC revoked-ranges mechanism and external revocation systems continue to provide coverage.
+This mirrors how many X.509 extensions are specified as non-critical (Authority Information Access, Authority Key Identifier, CRL Distribution Points per {{RFC5280}}).
+Because the marking is SHOULD rather than MUST, an ecosystem in which all relying parties are known to support the mechanism -- or a root program, once adoption is sufficient -- MAY mark it critical for hard enforcement from day one.
+
+Amending MTCProof needs more care, because the base MTCProof has no extensibility point and Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} rejects any trailing bytes.
+Appending the tick therefore causes an unaware relying party to reject the certificate regardless of the anchor extension's criticality: it ignores the non-critical extension, parses the MTCProof, finds unexpected trailing bytes, and fails.
+Deploying the mechanism thus requires one of:
+
+1. **Amend the base MTC specification** so conforming parsers accept the tick -- the RECOMMENDED trailing status_tick field ({{tick-trailing-field}}) or the general proof_extensions field ({{mtcproof-extensibility}}). This is the approach this document proposes ({{base-spec-amendments}}).
+2. **Mark the anchor extension critical**, so unaware implementations reject at the X.509 stage rather than on an opaque parse failure, at the cost of incremental deployment.
+3. **Deploy concurrently**, adopting the extended MTCProof from the start while MTC is still greenfield.
+
+The required amendment is narrow and backward-compatible: the trailing status_tick occupies zero bytes when the anchor extension is absent, so a certificate not using this mechanism is byte-identical to a base MTCProof, and base MTC verification, the tree, the cosigner, and the log are unchanged ({{tick-trailing-field}}, {{anchor-entry-extension}}).
+Folding it into the base specification now, while MTC is greenfield, avoids any lasting split between aware and unaware parsers; retrofitting it after wide deployment would be far harder.
+
+## Verification Cost {#verification-cost}
+
+A relying party verifies a tick by hashing tick.value forward tick.period times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
+This linear cost is small in every setting that has been raised as a concern.
+
+On modern hardware, 1,127 SHA-256 operations take roughly 10 to 20 microseconds -- negligible beside the handshake's asymmetric cryptography (one signature verification is worth hundreds of SHA-256 operations), which is itself dwarfed by the network round-trip.
+On constrained IoT devices SHA-256 is usually hardware-accelerated and the computation finishes in under a millisecond.
+A shorter certificate lifetime or a longer revocation_period both reduce chain_length and so bound the cost directly.
+
+Across the many connections a page load opens, three effects keep the total small.
+The hashing is a small fraction of what each full handshake already spends on asymmetric cryptography, so summing it across several origins remains a small fraction of that cryptography summed across the same handshakes.
+Most connections pay nothing: a resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
+And a relying party that revalidates the same (entry, period) -- for example a recurring third-party CDN origin -- MAY cache the verified result and skip the forward hashing on repeat.
+
+The same reasoning covers energy on a battery-powered sensor or wearable.
+One verification is on the order of tens of milliseconds of CPU and a fraction of a millijoule in software, and near-free with a hardware SHA engine; at thousands of verifications a day it is a small fraction of a percent of a typical wearable battery, and it is dominated by the asymmetric key exchange and signature verification the same handshake performs.
+Two effects shrink it further: a newly issued certificate is the cheapest to verify (the forward-hash count equals the current period, near zero just after issuance), and because such a device talks to a small, stable set of servers, most connections resume without verifying any tick and the (entry, period) cache computes each server's chain at most once per period however many connections it opens.
+
 # Alternatives Considered {#alternatives}
 
 ## DNS-Based Tick Distribution
@@ -1679,173 +1738,6 @@ This approach was rejected because:
 
 - **Complexity:** OCSP requires its own responder infrastructure, certificate chain, and protocol.
   Hash chains require only a hash function.
-
-# Anticipated Objections {#objections}
-
-This appendix has a deliberately limited lifetime.
-It is working-group material: its purpose is to support discussion and adoption of this mechanism in the PLANTS community by gathering, in one place, the objections the design anticipates together with the responses to them.
-It is advocacy and FAQ rather than specification -- nothing in it is normative, and the substantive points it makes also appear in the normative body or in the other appendices it cites.
-The editors expect to trim or remove this appendix before publication, once the working group has worked through these points; it is retained until then only as a convenience for reviewers.
-
-This section gives concise answers to objections likely to arise in the PLANTS community.
-Where an objection touches a topic developed at length elsewhere, the answer summarizes and points to the fuller treatment (for example {{rationale}} or {{alternatives}}) rather than repeating it.
-
-## "MTC Was Designed to Avoid Revocation Complexity"
-
-The base MTC specification deliberately uses short-lived certificates to sidestep the complexity of traditional revocation mechanisms (CRLs, OCSP).
-Adding a revocation layer may appear to reintroduce the very complexity MTC was designed to eliminate.
-
-However, this mechanism is fundamentally simpler than traditional revocation.
-It requires no new PKI infrastructure (no responder certificates, no separate signing keys), no new protocols (no OCSP request/response), and no per-check signatures.
-The entire mechanism is a single hash function applied iteratively.
-The complexity budget is closer to "one additional hash computation per handshake" than to "deploy and operate an OCSP responder fleet."
-The alternative -- living with up to 47-day exposure windows after key compromise -- is a concrete security cost, not a simplification.
-
-## "This Creates a New Availability Dependency"
-
-Authenticating parties must fetch a fresh tick at least once per revocation_period.
-If the CA's tick distribution infrastructure is unavailable for longer than one period, the certificate becomes unusable.
-This may be seen as undermining MTC's advantage of decoupling certificate validity from real-time CA availability.
-
-This concern is real but bounded, and is addressed in {{availability-considerations}}: the revocation period is the outage-tolerance budget, the dependency is on a trivial cacheable 36-byte GET rather than a signing responder, the acceptance window can be widened to ride out longer outages ({{clock-skew}}), and holding certificates from multiple independent CAs removes the single point of failure.
-The alternative -- no in-band revocation -- instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
-
-## "Just Use Shorter Certificate Lifetimes"
-
-If revocation latency is the concern, reducing certificate lifetimes (e.g., to one day) achieves similar bounds without new mechanism complexity.
-
-Shorter lifetimes and hash chain revocation are not mutually exclusive, but shorter lifetimes alone impose issuance-scaling and availability costs and cannot act on what the CA learns mid-lifetime.
-This is argued in full in {{revocation-vs-expiry}}, with the concrete operational trade-offs catalogued in the Shorter Certificate Lifetimes entry of {{alternatives}}.
-
-## "CRLite/CRLSets Already Solve This Problem"
-
-Browser vendors already push compressed revocation data to relying parties, so an in-band mechanism may appear redundant.
-
-The two are complementary and serve different roles, as the CRLite / CRLSets / External Revocation entry in {{alternatives}} details.
-The distinguishing point is reach and control: external revocation is vendor-controlled, best-effort, and reaches only relying parties that subscribe to the feed, whereas hash chain revocation is CA-operated, has a deterministic one-period latency bound, and is enforced by every relying party that validates the certificate -- including non-browser TLS clients and IoT devices with no external feed.
-External revocation is defense-in-depth; hash chains provide a universal baseline.
-
-## "Browsers Already Abandoned Handshake and Online Revocation"
-
-The major browsers disabled live OCSP checking and never pushed OCSP stapling to ubiquity; instead they moved to client-side pushed revocation (Chrome's CRLSets {{CRLSets}}, Mozilla's OneCRL and CRLite {{CRLite}}, and Apple's on-device revocation data).
-A handshake-carried status mechanism may look like a return to an approach the ecosystem already rejected.
-
-The reasons for that move are specific, and this mechanism is designed around each of them:
-
-- **Soft-fail.** Online OCSP had to treat an unreachable responder as "not revoked," so an active attacker could simply suppress the check, making enforcement impossible.
-  The non-revocation proof here is structurally part of the certificate presentation and cannot be stripped while leaving a usable certificate, so relying parties hard-fail by construction ({{ocsp-stapling-comparison}}) -- the property OCSP Must-Staple ({{RFC7633}}) aimed at but never achieved at scale.
-- **Relying-party privacy.** Client-driven OCSP leaked relying-party browsing to CAs. Relying parties here never contact the CA ({{rp-no-fetch}}); the only fetch is server-side.
-- **Operator and responder fragility.** Must-Staple saw negligible adoption because a stapling-pipeline failure caused self-inflicted outages, and clients could not hard-fail until coverage was universal.
-  Here the refresh is a trivial cacheable 36-byte GET with no signing, backed by a full period of buffer and multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
-
-The pushed-list systems remain valuable and complementary -- comprehensive and fail-closed, but vendor-controlled and effective only for relying parties that ship the feed.
-This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients with no external feed (see the CRLite / CRLSets objection above).
-Their success in fact validates the design choices adopted here: fail-closed enforcement with no handshake-time relying-party network dependency.
-
-## "The Non-Critical Extension Means Split Enforcement"
-
-Since id-pe-hashChainAnchor is marked non-critical, relying parties that have not implemented this mechanism will ignore it.
-This creates a transition period where revocation via hash chains is enforced by some relying parties but not others.
-
-This is an intentional deployment strategy, not a design flaw.
-Marking the extension non-critical enables incremental deployment: CAs can begin issuing certificates with hash chain anchors today, and relying parties can adopt enforcement as implementations mature.
-During the transition, the base MTC revoked-ranges mechanism and external revocation systems continue to provide coverage.
-This is consistent with how many X.509 extensions are specified as non-critical (e.g., Authority Information Access, Authority Key Identifier, CRL Distribution Points per {{RFC5280}}): the extension carries useful information that aware implementations act on, while unaware implementations can safely proceed without it.
-
-Furthermore, this document specifies SHOULD rather than MUST for the non-critical marking.
-An MTC ecosystem in which all relying parties are known to support hash chain revocation MAY mark the extension critical, providing hard enforcement from day one within that ecosystem.
-A root program policy could similarly mandate critical marking once adoption is deemed sufficient.
-
-## "CA Seed Compromise Is Catastrophic"
-
-If an attacker compromises the CA's stored hash chain seeds, they can compute valid ticks for revoked certificates, completely defeating the mechanism.
-
-This is true, and is acknowledged in {{security-considerations}}.
-However, the threat model is no worse than the status quo: a CA whose signing key is compromised can issue arbitrary certificates.
-Seeds require confidentiality and integrity protection -- for example, encrypted-at-rest storage with strong access controls and monitoring -- but their operational profile differs from signing keys: a CA with millions of active certificates must store and retrieve seeds in bulk, which is better suited to encrypted database storage than to HSMs designed for a small number of high-value keys.
-The recovery path for a detected compromise -- revoking the affected serial-number ranges via the base MTC mechanism -- is described in {{seed-confidentiality}} and {{interaction-with-base-mtc-revocation}}.
-
-## "Modifying MTCProof Breaks Existing Implementations"
-
-Adding a status_tick field to MTCProof requires changes to every MTC implementation.
-The base MTC specification may not have anticipated this kind of extension.
-
-This objection is well-founded.
-The addition is conceptually natural -- the tick is not foreign data but the non-revocation component of the MTCProof ({{cert-format}}), so the amendment extends the proof's meaning rather than repurposing the structure -- but it is a structural change that the base specification must accommodate.
-Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} explicitly requires relying parties to reject an MTCProof if the signatureValue contains "extra data after the MTCProof."
-The current MTCProof structure has no extensibility mechanism: it is a fixed sequence of fields with no trailing extensions block or version indicator.
-
-Consequently, appending a status_tick to the MTCProof will cause any existing MTC implementation to reject the certificate -- regardless of whether the X.509 extension is marked critical or non-critical.
-An unaware relying party will ignore the non-critical id-pe-hashChainAnchor extension, proceed to parse the MTCProof, find 36 unexpected trailing bytes, and fail verification.
-
-This means that, in practice, deploying this mechanism requires one of the following:
-
-1. **Amendment to the base MTC specification:** The MTCProof structure is amended so that conforming parsers accept the tick -- either by appending the fixed status_tick field ({{tick-trailing-field}}) or by adding the general proof_extensions field (see {{mtcproof-extensibility}}).
-   This is the preferred approach and is proposed by this document.
-
-2. **Critical extension only:** The id-pe-hashChainAnchor extension is marked critical, so unaware implementations reject at the X.509 extension stage (before reaching MTCProof parsing).
-   This sacrifices incremental deployment.
-
-3. **Concurrent deployment:** Since MTC is not yet deployed at scale, both the base spec and this extension can be implemented together before the ecosystem ossifies.
-   Early implementations can adopt the extended MTCProof structure from the start.
-
-Both encodings this document describes take option 1 ({{cert-format}}): each amends the base MTC specification so that conforming parsers accept the tick, the RECOMMENDED trailing status_tick field being the minimal such amendment ({{tick-trailing-field}}).
-Options 2 and 3 remain available as transition strategies for an ecosystem that deploys before the chosen amendment is widely implemented.
-
-The required change is nonetheless narrow, not a rewrite of the MTC validation lifecycle.
-It is a single localized amendment to the Section 7.2 "extra data" check, and it is backward-compatible: the trailing status_tick is a variant selected by the presence of the anchor extension, occupying zero bytes when absent, so a certificate that does not use this mechanism is byte-identical to a base MTCProof ({{tick-trailing-field}}).
-Base MTC verification, the Merkle tree, the cosigner, and the log are unchanged; the anchor rides as an ordinary X.509 extension so the cosigner-recognition gate never fires ({{anchor-entry-extension}}), and hash chain verification is purely additive -- skipped entirely when the anchor extension is absent ({{verification}}).
-The reason the change is worth foregrounding is timing, not size: MTC is greenfield, so folding the trailing field into the base specification now avoids any lasting split between aware and unaware parsers ({{base-spec-amendments}}), whereas retrofitting it after wide deployment would be far harder.
-
-## "Hourly Tick Refresh Adds Operational Burden to Servers"
-
-Authenticating parties already perform periodic certificate management: renewing certificates before expiry (recommended at 75% of lifetime, per Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}) and optionally fetching landmark-relative certificates as new landmarks are allocated.
-Adding an hourly tick refresh introduces a new operational loop with a tighter cadence than certificate renewal and -- unlike the landmark-relative fetch, which is optional and best-effort -- a hard deadline: if the tick is not refreshed in a timely manner, the certificate becomes unusable.
-
-The refresh is a single HTTP GET returning 36 bytes, with no cryptographic operations required on the authenticating party's side.
-This is orders of magnitude simpler than ACME certificate renewal (which involves key generation, CSR construction, challenge completion, and certificate installation).
-The authenticating party can implement tick refresh as a lightweight background process with retry logic and local caching.
-If the period is set to one day instead of one hour, the operational cadence matches what servers already do for DNS record TTL refreshes.
-
-## "This Introduces a Covert Denial-of-Service Vector"
-
-A CA can selectively withhold ticks from a specific subscriber, effectively revoking their certificate without any auditable signal.
-This weaponizes the revocation mechanism as a censorship tool.
-
-This threat is real but neither novel nor unmitigated: selective tick withholding is no more powerful than a CA's existing ability to refuse issuance or renewal, and it is detectable, externally observable (CT-style auditing), and disciplined by market pressure and CA switching.
-It is addressed in {{dos-withholding}}.
-
-## "Verification Cost Grows Linearly with Certificate Age"
-
-A relying party verifying a tick near the end of a 47-day certificate's lifetime must compute up to 1,127 hashes.
-This linear cost may be unacceptable for constrained devices.
-
-On modern hardware, 1,127 SHA-256 operations take approximately 10-20 microseconds -- negligible compared to the TLS handshake's asymmetric cryptography (ECDHE key exchange, signature verification).
-Even on constrained IoT devices, SHA-256 is typically hardware-accelerated and the computation completes in under a millisecond.
-For comparison, verifying a single Ed25519 signature costs roughly the same as hundreds of SHA-256 operations.
-If the linear cost is nonetheless a concern for a specific deployment, choosing a shorter certificate lifetime (reducing chain_length) or a longer revocation_period (also reducing chain_length) provides a direct mitigation.
-
-The same holds when the cost is budgeted in aggregate across the many connections a page load opens, rather than per handshake.
-Three effects keep the total small.
-First, the hashing is a small fraction of work each full handshake already performs -- the asymmetric key exchange and signature verification cost far more (one signature verification is worth hundreds of SHA-256 operations), and both are dwarfed by the network round-trip that dominates time-to-first-byte -- so summing the hashing across, say, ten origins on a page is still a small fraction of the asymmetric crypto summed across the same ten handshakes.
-Second, most connections do not pay it at all: a resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection, so the cost is incurred once per full handshake, not once per asset.
-Third, beyond the lifetime and revocation_period levers above, a relying party that revalidates the same certificate and period -- for example a third-party CDN origin recurring across sites -- MAY cache the verified (entry, period) result and skip the forward hashing on repeat.
-
-The same reasoning answers the energy cost on a battery-powered device (a sensor or wearable) making many connections a day.
-Even in software, one verification is on the order of tens of milliseconds of CPU and a fraction of a millijoule; at thousands of verifications a day this is a small fraction of a percent of a typical wearable battery, and it is near-free where the device has a hardware SHA engine, as many sensor and wearable SoCs do.
-Whatever hashing remains is dominated by the asymmetric key exchange and signature verification the same full handshake performs, which cost far more energy on a constrained CPU.
-Two effects shrink it further.
-A newly issued certificate is the cheapest to verify, not the most expensive: the number of forward hashes equals the current period, so it is near zero just after issuance and reaches its maximum only near end-of-life at fine granularity.
-And because a device typically talks to a stable, small set of servers, most of its connections resume without verifying any tick ({{enforcement-latency}}), and with the (entry, period) caching above it computes each server's chain at most once per period -- a handful of times a day -- however many connections it opens, so connection count does not multiply the cost.
-
-## "Symmetric Hash Chains Are a Post-Quantum Distraction"
-
-With the IETF focused on migrating to post-quantum cryptography, investing in symmetric hash-chain machinery may look like a distraction from adopting standard post-quantum primitives.
-
-This is backwards.
-Hash chains are already post-quantum robust -- they rest only on preimage resistance, which Grover's algorithm weakens merely quadratically -- and use a standard, long-established primitive rather than custom cryptography.
-More to the point, this mechanism keeps post-quantum signatures off the revocation path entirely: the post-quantum-expensive alternative is signed per-certificate status, whose signatures run to thousands of bytes, whereas a tick is 36 unsigned bytes.
-Hash-chain revocation is thus aligned with the post-quantum transition, not a distraction from it; see {{post-quantum}}.
 
 # Acknowledgments
 {:numbered="false"}
