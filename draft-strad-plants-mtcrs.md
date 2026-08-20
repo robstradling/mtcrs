@@ -1191,6 +1191,22 @@ To verify, a relying party hashes tick.value forward tick.period (2) times ({{ve
 
 v2 equals the anchor h\[5\], so verification succeeds.
 
+The certificate's id-pe-hashChainAnchor extension carries the DER encoding of a HashChainAnchorInfo ({{assertion-integration}}) whose anchor is h\[5\].
+The two encodings below pin the DEFAULT handling of revocationPeriod.
+
+With the default revocation_period of 3600, DER omits the field (X.690, Section 11.5), so the HashChainAnchorInfo is a SEQUENCE carrying only the anchor OCTET STRING (36 bytes):
+
+    30220420
+    f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+
+With a non-default revocation_period -- for example 86400 (one day) -- the field is present as an INTEGER preceding the anchor (41 bytes):
+
+    302702030151800420
+    f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+
+Here `30` is SEQUENCE, `04 20` the 32-byte anchor OCTET STRING, and `02 03 015180` the INTEGER 86400.
+A relying party that finds revocationPeriod absent MUST use the default of 3600 ({{assertion-integration}}).
+
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
 The RECOMMENDED way to carry the tick is the fixed trailing status_tick field ({{tick-trailing-field}}), which needs no general extensibility mechanism.
