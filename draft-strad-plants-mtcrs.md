@@ -116,7 +116,7 @@ informative:
 --- abstract
 
 This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC) {{I-D.ietf-plants-merkle-tree-certs}}.
-A Merkle Tree CA includes a hash chain anchor (the "target") in the certificate at issuance time.
+A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
 Periodically, the CA reveals hash chain values ("ticks") that serve as proofs of non-revocation.
 The authenticating party embeds the current tick in the certificate's MTCProof as the certificate's non-revocation proof -- alongside the inclusion proof that establishes authenticity -- enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as one hour, or finer.
 
@@ -317,7 +317,7 @@ At certificate issuance time, for each log entry, the CA generates a hash chain 
 
    Where HashChainInput is defined in {{encoding}}.
 
-3. The anchor (target) is `h[chain_length]`, the final value in the chain.
+3. The anchor is `h[chain_length]`, the final value in the chain.
 
 The anchor is included in the certificate as an X.509 extension (see {{assertion-integration}}).
 
@@ -1465,7 +1465,7 @@ At day-scale periods the chain is short enough (`chain_length` on the order of t
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation -- whose worst-case exposure is the full remaining lifetime -- not against a one-day short-lived certificate: its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
 The fine-grained-revocation advantage over short lifetimes ({{revocation-vs-expiry}}) is precisely what a short period buys, so deployments SHOULD choose the shortest period operationally feasible.
 
-## Rationale for Using the Target as the Period 0 Tick {#period-zero-rationale}
+## Rationale for Using the Anchor as the Period 0 Tick {#period-zero-rationale}
 
 The period 0 tick is the public anchor, so the mechanism does not enforce revocation during period 0.
 The earliest period for which the CA can withhold a secret value is period 1, and because the acceptance window keeps the anchor acceptable throughout period 1 ({{verification}}), a certificate the CA wishes to revoke from issuance becomes unusable only at the start of period 2 -- the same worst-case bound of at most two revocation periods that applies to any revocation decision ({{revocation-vs-expiry}}).
