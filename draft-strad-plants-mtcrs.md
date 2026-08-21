@@ -931,7 +931,7 @@ A compromised or malicious CA could withhold ticks from a legitimate authenticat
 This is analogous to a CA refusing to issue OCSP responses, or refusing to issue or renew certificates at all: it is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behaviour today:
 
 - **Detectability.** The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
-- **Third-party observability.** The tick distribution endpoint can be monitored externally (CT-style auditing), making selective withholding observable.
+- **Third-party observability.** The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{RFC6962}}), making selective withholding observable.
 - **Market pressure.** An authenticating party that cannot reliably obtain ticks will switch CAs.
 
 Because ticks are small and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
