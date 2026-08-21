@@ -179,7 +179,38 @@ Later sections use the term in this sense.
 
 This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in {{construction}} through {{distribution}}.
 It reuses the small example of {{test-vectors}}: a chain of length `chain_length = 5` (a real certificate uses a much longer chain -- for example 1,128 for a 47-day lifetime with a one-hour period).
-{{fig-hash-chain}} depicts the lifecycle that the five steps below trace.
+{{fig-actors}} shows how the parties interact, and {{fig-hash-chain}} depicts the hash chain lifecycle that the five steps below trace.
+
+~~~aasvg
+   +-------------------+
+   |        CA         |
+   |     (issuer)      |
+   +-------------------+
+     |                 |
+     | (1) issuance:   | (2) each period: reveal one chain
+     |     commit      |     value as a tick and publish it
+     |     anchor in   |     over HTTP  (to revoke, withhold)
+     |     log entry   |               |
+     v                 |               |
+   +---------------+   |               v
+   |    MTC log    |   |   +-------------------------+
+   |  Merkle Tree, |   |   |  Authenticating party   |
+   |  cosigners    |   +-->|      (TLS server)       |
+   +---------------+ GET   | staples tick into the   |
+     |                     | certificate's MTCProof  |
+     | (3) cert:           +-------------------------+
+     |     inclusion proof,            |
+     |     cosignatures,               | (4) TLS handshake:
+     |     committed anchor            v     cert + MTCProof(tick)
+     +------------------------>+-------------------------+
+                               |    Relying party        |
+                               |      (client)           |
+                               | verifies OFFLINE:       |
+                               | proof, cosignatures,    |
+                               | tick --> anchor         |
+                               +-------------------------+
+~~~
+{: #fig-actors title="MTCRS actors and their interactions: the CA commits an anchor at issuance and publishes a tick each period, the authenticating party staples the current tick into the MTCProof, and the relying party verifies everything offline"}
 
 ~~~aasvg
    Issuance: the CA hashes a secret seed forward to the anchor,
