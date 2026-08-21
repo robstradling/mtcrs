@@ -451,6 +451,9 @@ The DEFAULT encoding of `revocationPeriod` keeps that field off the wire wheneve
 
 This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension), so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
 The entry-extension alternative -- more compact and symmetric with the tick's encoding, but requiring MTCRS-aware cosigner software and lacking a criticality lever -- is described in {{anchor-entry-extension}}.
+The anchor's home is the one design choice this document explicitly refers to the working group.
+This document's preference is the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment ({{base-spec-amendments}}); a base specification willing to make its entry-extension registry and cosigners MTCRS-aware MAY instead adopt the entry-extension encoding, gaining the compactness and committed/uncommitted symmetry noted above.
+The two are mutually exclusive: whichever the base specification selects becomes the single anchor home for the ecosystem, and the verification procedure ({{verification}}) is identical either way.
 
 ## Criticality and Incremental Deployment {#extension-criticality}
 
