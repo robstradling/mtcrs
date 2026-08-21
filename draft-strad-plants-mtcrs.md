@@ -134,11 +134,10 @@ This mechanism provides timely revocation without requiring signatures per revoc
 # Introduction
 
 Merkle Tree Certificates {{I-D.ietf-plants-merkle-tree-certs}} authenticate TLS connections using compact inclusion proofs into a Merkle Tree maintained by a certification authority (CA).
-The base MTC specification is designed around short-lived certificates and does not define a certificate-level revocation mechanism; it states that existing mechanisms such as CRLs and OCSP apply unchanged (Section 12.7 of {{I-D.ietf-plants-merkle-tree-certs}}).
+The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope: it notes that existing mechanisms such as CRLs and OCSP apply unchanged (Section 12.7 of {{I-D.ietf-plants-merkle-tree-certs}}), and its own serial-range revocation (Section 7.5) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.
 
 However, deployments such as Chrome's draft MTC policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days.
 At this timescale, key compromise or certificate misissuance can cause significant harm before natural expiry.
-The base specification leaves certificate-level revocation out of scope, noting only that existing CRL and OCSP mechanisms apply unchanged and that its serial-range revocation (Section 7.5) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.
 Relying parties that have them may fall back to out-of-band systems such as {{CRLite}} or {{CRLSets}}, but these are vendor-controlled and not universal, and no in-band mechanism exists.
 
 This document defines such a mechanism based on hash chains {{MICALI}}.
