@@ -495,9 +495,9 @@ value:
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
 
-The authenticating party MUST include a HashChainTick whose period falls within the acceptance window the relying party applies ({{clock-skew}}); in practice this is the most recent tick it has fetched and verified ({{distribution}}).
+The authenticating party MUST include a HashChainTick whose period falls within the acceptance window the relying party applies (step 4 of {{verification}}); in practice this is the most recent tick it has fetched and verified ({{distribution}}).
 It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary: the deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
-A relying party SHOULD accept ticks for the current period, the immediately preceding period, or the immediately following period, to allow for clock skew and caching ({{clock-skew}}).
+The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification}}.
 
 This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
 Both are amendments to the base MTCProof structure and differ in generality.
@@ -589,9 +589,10 @@ Using these inputs, the verifier performs the following steps:
 
        expected_period = floor((current_time - not_before) / revocation_period)
 
-4. Check that `tick.period` is equal to `expected_period`, `expected_period` - 1, or `expected_period` + 1 ({{clock-skew}}).
-   If not, reject the certificate with a certificate_expired error (this alert also covers a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see).
-   There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the accepted set is {0, 1}; a verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
+4. Check that `tick.period` lies within the *acceptance window*.
+   The default acceptance window is `expected_period` - 1, `expected_period`, and `expected_period` + 1; a relying party MAY widen it in either direction as a matter of policy, with the consequences described in {{clock-skew}} and collected in {{rp-policy}}.
+   A relying party MUST reject a certificate whose `tick.period` falls outside the acceptance window it applies, with a certificate_expired error (this alert also covers a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see).
+   There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}; a verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
 
@@ -599,9 +600,9 @@ Using these inputs, the verifier performs the following steps:
        for i = 1 to tick.period:
            v = Hash(HashChainInput(v))
 
-   Because step 4 has already constrained `tick.period` to within one period of `expected_period`, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
+   Because step 4 has already constrained `tick.period` to the acceptance window, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
    The largest legitimate `tick.period` is `chain_length - 1`, the certificate's final period, which requires `chain_length - 1` forward hashes (1,127 for the 1,128-period chain of a 47-day, one-hour-period certificate; {{why-one-hour}}).
-   The acceptance window's `expected_period` + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `chain_length`.
+   Under the default acceptance window, the `expected_period` + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `chain_length`; a relying party that widens the window raises that bound correspondingly.
 
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
@@ -1017,14 +1018,14 @@ This is the general property that revocation targets certificates rather than ke
 
 ## Clock Skew {#clock-skew}
 
-Verification step 4 accepts a tick whose period is the verifier's `expected_period`, the immediately preceding period (`expected_period` - 1), or the immediately following period (`expected_period` + 1).
+The default acceptance window of verification step 4 accepts a tick whose period is the verifier's `expected_period`, the immediately preceding period (`expected_period` - 1), or the immediately following period (`expected_period` + 1).
 This tolerates a verifier clock that is behind or ahead of the authenticating party's by up to one full `revocation_period` in either direction, and also an authenticating party that is still serving the previous period's tick for caching or staggered refresh ({{load-distribution}}).
 
 The two directions are not equivalent in cost.
 Accepting the immediately following period -- what a verifier whose clock is behind will see -- costs nothing in revocation terms: that tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; {{security-considerations}}).
 Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one `revocation_period` old, which is the intended one-period grace.
 
-Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
+Deployments with known clock-skew or availability concerns MAY widen the window, as step 4 permits: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
 
 The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on that clock's integrity.
 A clock running behind true time shifts the window toward the past, so a genuine but stale tick -- one the CA revealed before it stopped revealing -- can fall inside the window and be accepted; an attacker who moves a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded by the window width and ultimately by `notAfter`, checked against the same clock.
