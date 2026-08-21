@@ -578,6 +578,7 @@ Using these inputs, the verifier performs the following steps:
 
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
+   If the extension value does not DER-decode as a well-formed HashChainAnchorInfo -- for example, a malformed SEQUENCE, a `revocationPeriod` outside INTEGER (1..MAX), or trailing data after the structure -- reject the certificate with a bad_certificate error.
    If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
 
 2. Extract the HashChainTick from the MTCProof (in the certificate's `signatureValue`), according to the encoding fixed by the base MTC specification: the trailing `status_tick` field ({{tick-trailing-field}}) or, if the general `proof_extensions` amendment was adopted instead, the `hash_chain_tick` proof extension ({{tick-proof-extension}}).
