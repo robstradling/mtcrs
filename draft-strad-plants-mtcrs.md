@@ -1462,6 +1462,33 @@ Hash chains {{MICALI}} were selected because they are the only known mechanism t
 5. **Simple implementation:** The mechanism requires only a hash function and basic arithmetic.
    No new cryptographic primitives are introduced.
 
+## Why This Succeeds Where Micali's CRS Did Not {#why-crs-succeeds}
+
+Micali's certificate revocation system {{MICALI}} introduced the hash chain primitive this document builds on, yet it never saw wide deployment in the Web PKI.
+The reason was not the cryptography, which is sound, but delivery.
+The scheme made proving non-revocation cheap to *verify*, but it did not change how the per-period token *reached* the relying party: a verifier still had to obtain a fresh per-certificate value each period, and classic X.509 offered no low-cost, enforceable place to carry it.
+A relying party therefore had to fetch it, which reintroduced the distribution, latency, privacy, and soft-fail problems of OCSP {{RFC6960}}.
+Cheap verification did not translate into cheap, enforceable delivery, so the ecosystem standardized on OCSP and CRLs and later moved to pushed revocation lists ({{browser-revocation-history}}).
+
+Merkle Tree Certificates remove that barrier, which is what lets the same primitive become deployable here:
+
+- **Delivery is free.**
+  The tick rides inside the MTCProof the authenticating party already presents in the handshake ({{cert-format}}), so the relying party receives it with the certificate and fetches nothing ({{rp-no-fetch}}).
+  The only fetch is the server's own once-per-period refresh, a static cacheable GET that can be delegated to CDNs and mirrors ({{delegated-distribution}}).
+
+- **The commitment is free.**
+  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{assertion-integration}}), so the tick is self-authenticating with no new signature, responder, or trust relationship -- where classic CRS needed the CA to sign the chain's target into each certificate.
+
+- **Enforcement is hard-fail by construction.**
+  Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale ({{ocsp-stapling-comparison}}); it cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.
+
+- **The remaining costs are tractable at scale.**
+  Zero per-period signing keeps post-quantum signatures off the revocation path ({{post-quantum}}), precomputation is bounded by fractal traversal ({{chain-traversal}}), and distribution is delegable ({{delegated-distribution}}) -- addressing the generation-and-distribution load that also burdened CRS.
+  MTC is moreover greenfield, so enforcement can be mandatory from the outset rather than accommodating a soft-fail install base.
+
+In short, CRS's limitation was delivery and enforcement, not the hash chain.
+MTC supplies the missing delivery channel -- the certificate presentation itself, committed in a Merkle Tree -- which turns the same primitive into a fetch-free, hard-fail mechanism.
+
 ## Why One Hour (or One Day) Periods {#why-one-hour}
 
 A one-hour `revocation_period` provides a good balance:
