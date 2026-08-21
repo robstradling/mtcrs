@@ -495,7 +495,8 @@ value:
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
 
-The authenticating party MUST include a HashChainTick with a period value that is current at the time of the TLS handshake.
+The authenticating party MUST include a HashChainTick whose period falls within the acceptance window the relying party applies ({{clock-skew}}); in practice this is the most recent tick it has fetched and verified ({{distribution}}).
+It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary: the deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
 A relying party SHOULD accept ticks for the current period, the immediately preceding period, or the immediately following period, to allow for clock skew and caching ({{clock-skew}}).
 
 This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
