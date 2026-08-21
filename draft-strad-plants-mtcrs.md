@@ -1015,14 +1015,11 @@ Accepting the immediately preceding period -- a verifier clock that is ahead, or
 
 Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
 
-The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on the integrity of that clock.
-The direction that matters for revocation is a clock that runs behind true time: it shifts the whole window toward the past, so that a genuine but stale tick -- one the CA revealed before it stopped revealing, and which a correctly-clocked verifier would reject as too old -- can fall within the window and be accepted.
-An attacker able to move a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded for small offsets by the window width and otherwise by `notAfter`, which is checked against the same clock.
-The forward direction, and the immediately-following-period allowance in particular, adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the value accepted is always genuine; the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
-This is the trusted-time dependency shared by every time-based validity and revocation check -- `notAfter`, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- and is not specific to this mechanism.
-Two consequences follow.
-First, the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure.
-Second, a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short `revocation_period`, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
+The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on that clock's integrity.
+A clock running behind true time shifts the window toward the past, so a genuine but stale tick -- one the CA revealed before it stopped revealing -- can fall inside the window and be accepted; an attacker who moves a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded by the window width and ultimately by `notAfter`, checked against the same clock.
+The forward direction adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
+This is the trusted-time dependency shared by every time-based validity and revocation check -- `notAfter`, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- not something specific to this mechanism.
+Two consequences follow: the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance enlarges this exposure; and a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short `revocation_period`, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
 A relying party that requires tight revocation SHOULD therefore source time from a trusted, integrity-protected clock; both this and the window width are relying-party policy choices ({{rp-policy}}).
 
 ## Relying-Party Policy Levers {#rp-policy}
@@ -1089,9 +1086,7 @@ The goal is therefore to bound the dependency, not to eliminate it; several fact
   Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
 Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
-A single successful fetch gives more runway than one period.
-Because a relying party also accepts the immediately preceding period's tick ({{clock-skew}}), a tick fetched for one period stays acceptable through the end of the next.
-A distribution outage therefore breaks a certificate only after it outlasts that certificate's last-fetch runway -- up to about two periods -- not the instant it passes one.
+A single successful fetch gives more than one period of runway: because a relying party also accepts the immediately preceding period's tick ({{clock-skew}}), a tick fetched for one period stays acceptable through the end of the next, so a distribution outage breaks a certificate only after it outlasts that runway -- up to about two periods -- not the instant it passes one.
 Short-lived certificates do not remove the dependency on CA availability; they relocate it: such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
 The difference is cadence and weight.
 MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly GET with no cryptography ({{operational-resilience}}), which is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
