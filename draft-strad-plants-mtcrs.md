@@ -511,7 +511,10 @@ The field is not a bare optional field -- the base MTCProof has no discriminant 
     } MTCProof;
 
 certificate_has_hashChainAnchor is the contextual boolean "the entry carries a hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}) -- read from whichever home the deployment uses.
-Like the base specification's select on the certificate context (for example, Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}) and the analogous contextual selects in TLS ({{RFC8446}}), the discriminant is not a field of the structure; it is always available where an MTCProof is parsed, because an MTCProof is only ever decoded as the `signatureValue` of a specific certificate whose entry and extensions are known.
+This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` of Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
+It is instead a property of the enclosing certificate, and it is well-defined for the same reason the base verifier can already read it: an MTCProof is never decoded standalone.
+It is only ever parsed as the `signatureValue` of a specific certificate, and Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} already parses it strictly in that certificate context -- indeed it reconstructs the entry and its extensions from the certificate to check the inclusion proof -- so whether the anchor is present is known before `status_tick` is read, from exactly the data the base procedure already has in hand.
+No new parsing capability is introduced; this is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears ({{RFC8446}}).
 The false case uses the Empty type (an empty structure), so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
 
 This resolves precisely the "extra data after the MTCProof" check in Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
