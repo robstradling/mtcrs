@@ -402,6 +402,8 @@ index:
 preimage:
 : The previous hash chain value being hashed.
 
+All fields are encoded with the TLS presentation language ({{RFC8446}}): the integer fields `log_number` and index are in network byte order (big-endian), and `issuer_id` is the binary TrustAnchorID carried with its one-byte length prefix as the `<1..2^8-1>` vector -- for TrustAnchorID 32473.1, the five bytes 04 81fd5901 ({{test-vectors}}).
+
 The `issuer_id`, `log_number`, and index fields together identify the log entry and act as a per-entry salt, placing each certificate's chain in a distinct hash domain.
 This salting is not load-bearing for the core guarantee: each chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific chain.
 Its contribution is defense in depth.
