@@ -117,7 +117,7 @@ informative:
 
 This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC) {{I-D.ietf-plants-merkle-tree-certs}}.
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
-Periodically, the CA reveals the next hash chain value for each non-revoked certificate.
+Periodically, the CA reveals the previous hash chain value for each non-revoked certificate.
 The authenticating party packages the current value with its period as a *tick* and embeds it in the certificate's MTCProof as the certificate's non-revocation proof -- alongside the inclusion proof that establishes authenticity -- enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as a fraction of a day.
 
 This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA.
