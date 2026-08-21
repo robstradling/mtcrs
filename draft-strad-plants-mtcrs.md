@@ -39,6 +39,12 @@ normative:
   RFC8555:
   RFC8615:
   RFC9110:
+  X.690:
+    title: "Information technology - ASN.1 encoding rules: Specification of Basic Encoding Rules (BER), Canonical Encoding Rules (CER) and Distinguished Encoding Rules (DER)"
+    author:
+      org: ITU-T
+    date: 2021
+    target: https://www.itu.int/rec/T-REC-X.690
   SHS:
     title: "Secure Hash Standard"
     author:
@@ -431,7 +437,7 @@ The extension value contains the DER encoding of the following ASN.1 structure:
 
 `revocationPeriod`:
 : The revocation period in seconds for this certificate ({{construction}}), with a default of 3600 (one hour).
-  Under DER, a certificate using the default value MUST omit this field (X.690, Section 11.5), so the common one-hour case adds no per-entry bytes; a relying party that finds the field absent MUST use the default of 3600.
+  Under DER, a certificate using the default value MUST omit this field (Section 11.5 of {{X.690}}), so the common one-hour case adds no per-entry bytes; a relying party that finds the field absent MUST use the default of 3600.
   The relying party reads this value (or the default) from here; it is used to number periods and to compute the expected period during verification ({{verification}}).
 
 anchor:
@@ -1281,7 +1287,7 @@ v2 equals the anchor h\[5\], so verification succeeds.
 The certificate's id-pe-hashChainAnchor extension carries the DER encoding of a HashChainAnchorInfo ({{assertion-integration}}) whose anchor is h\[5\].
 The two encodings below pin the DEFAULT handling of `revocationPeriod`.
 
-With the default `revocation_period` of 3600, DER omits the field (X.690, Section 11.5), so the HashChainAnchorInfo is a SEQUENCE carrying only the anchor OCTET STRING (36 bytes):
+With the default `revocation_period` of 3600, DER omits the field (Section 11.5 of {{X.690}}), so the HashChainAnchorInfo is a SEQUENCE carrying only the anchor OCTET STRING (36 bytes):
 
     30220420
     f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
