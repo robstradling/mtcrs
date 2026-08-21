@@ -403,7 +403,7 @@ The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 
 ## Hash Chain Anchor Extension
 
 This document defines a new X.509 certificate extension for carrying the hash chain anchor.
-This extension is included in the TBSCertificateLogEntry's extensions field, and thus appears in the TBSCertificate of the resulting Merkle Tree Certificate.
+This extension is included in the TBSCertificateLogEntry's extensions field (Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}), and thus appears in the TBSCertificate of the resulting Merkle Tree Certificate and in the entry's `tbs_cert_entry_data` that the base specification commits to the Merkle Tree.
 
     id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
         iso(1) identified-organization(3) dod(6) internet(1)
