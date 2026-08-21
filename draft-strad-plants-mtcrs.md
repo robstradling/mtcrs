@@ -985,6 +985,62 @@ Such certificates are outside this mechanism's scope and are handled exactly as 
 A CA revoking a compromised key MUST therefore revoke all of that key's certificates -- withholding ticks for those that use this mechanism ({{revealing-values}}) and revoking the serial ranges of the rest ({{interaction-with-base-mtc-revocation}}) -- because withholding ticks alone would revoke only the certificates that carry an anchor.
 This is the general property that revocation targets certificates rather than keys; it is not specific to this mechanism.
 
+## Clock Skew {#clock-skew}
+
+Verification step 4 accepts a tick whose period is the verifier's `expected_period`, the immediately preceding period (`expected_period` - 1), or the immediately following period (`expected_period` + 1).
+This tolerates a verifier clock that is behind or ahead of the authenticating party's by up to one full `revocation_period` in either direction, and also an authenticating party that is still serving the previous period's tick for caching or staggered refresh ({{load-distribution}}).
+
+The two directions are not equivalent in cost.
+Accepting the immediately following period -- what a verifier whose clock is behind will see -- costs nothing in revocation terms: that tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; {{security-considerations}}).
+Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one `revocation_period` old, which is the intended one-period grace.
+
+Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
+
+The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on the integrity of that clock.
+The direction that matters for revocation is a clock that runs behind true time: it shifts the whole window toward the past, so that a genuine but stale tick -- one the CA revealed before it stopped revealing, and which a correctly-clocked verifier would reject as too old -- can fall within the window and be accepted.
+An attacker able to move a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded for small offsets by the window width and otherwise by `notAfter`, which is checked against the same clock.
+The forward direction, and the immediately-following-period allowance in particular, adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the value accepted is always genuine; the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
+This is the trusted-time dependency shared by every time-based validity and revocation check -- `notAfter`, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- and is not specific to this mechanism.
+Two consequences follow.
+First, the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure.
+Second, a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short `revocation_period`, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
+A relying party that requires tight revocation SHOULD therefore source time from a trusted, integrity-protected clock; both this and the window width are relying-party policy choices ({{rp-policy}}).
+
+## Relying-Party Policy Levers {#rp-policy}
+
+Several behaviours of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
+This section collects them for convenience; each is specified in full in the section cited, and nothing here is a new requirement.
+
+Acceptance window:
+: The default accepts a tick for the current, immediately preceding, or immediately following period.
+  A relying party MAY widen the preceding side to tolerate a tick-distribution outage, at the cost of correspondingly delayed revocation, or the following side to tolerate a clock that runs behind, at no revocation cost.
+  Widening applies to every certificate the relying party validates ({{clock-skew}}, {{availability-considerations}}).
+
+Trusted time:
+: The acceptance window is anchored to the relying party's clock, so revocation timeliness is bounded by clock integrity.
+  A relying party that requires tight revocation SHOULD source time from a trusted, integrity-protected clock and keep its window narrow ({{clock-skew}}).
+
+Cross-checking base MTC revocation:
+: A relying party that also supports the base MTC revoked-ranges mechanism SHOULD check both; a certificate is revoked if either indicates so ({{interaction-with-base-mtc-revocation}}).
+
+Resumption and long-lived connections:
+: The tick is checked only at full-handshake certificate validation.
+  A relying party that wants revocation to take effect within about one `revocation_period` SHOULD cap session-ticket reuse and force periodic full handshakes, so that a fresh tick is re-checked ({{enforcement-latency}}).
+
+Enforcement and criticality:
+: A relying party that implements this mechanism MUST enforce hash chain verification whenever the id-pe-hashChainAnchor extension is present; an ecosystem MAY additionally mark the extension critical for hard enforcement ({{extension-criticality}}).
+
+Fixed, not a lever:
+: Relying parties MUST NOT fetch ticks or use the distribution endpoint as an online responder ({{rp-no-fetch}}); this is a constraint, not a configurable choice.
+
+If the base specification adopts the general `proof_extensions` field ({{mtcproof-extensibility}}), further relying-party handling applies -- size-budget enforcement, committed admissibility, and unknown-type handling ({{proof-extensions-considerations}}).
+
+The resilience levers that involve holding certificates from multiple CAs, operating redundant tick distribution, and choosing `revocation_period` are authenticating-party or CA decisions, not relying-party policy ({{availability-considerations}}, {{construction}}).
+
+# Operational and Availability Considerations {#operational-considerations}
+
+This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, and the client-side latency of handshake-time revocation checks.
+
 ## Availability Considerations {#availability-considerations}
 
 Because an authenticating party must fetch a fresh tick at least once per `revocation_period` ({{distribution}}), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
@@ -1043,58 +1099,6 @@ On the relying-party side this is a policy choice ({{rp-policy}}): a client MAY 
 This limitation is not specific to this mechanism.
 Every handshake-time revocation mechanism (OCSP {{RFC6960}}, CRLite {{CRLite}}, CRLSets {{CRLSets}}) is likewise consulted only when the certificate is validated, and the base MTC short-lived-certificate model has the same property: a revoked-but-unexpired certificate is equally accepted on a resumed session.
 Relative to passive expiry, this mechanism still improves matters, because every full handshake re-checks a per-period non-revocation proof rather than trusting a static `notAfter`.
-
-## Clock Skew {#clock-skew}
-
-Verification step 4 accepts a tick whose period is the verifier's `expected_period`, the immediately preceding period (`expected_period` - 1), or the immediately following period (`expected_period` + 1).
-This tolerates a verifier clock that is behind or ahead of the authenticating party's by up to one full `revocation_period` in either direction, and also an authenticating party that is still serving the previous period's tick for caching or staggered refresh ({{load-distribution}}).
-
-The two directions are not equivalent in cost.
-Accepting the immediately following period -- what a verifier whose clock is behind will see -- costs nothing in revocation terms: that tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; {{security-considerations}}).
-Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one `revocation_period` old, which is the intended one-period grace.
-
-Deployments with known clock-skew or availability concerns MAY widen the window: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
-
-The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on the integrity of that clock.
-The direction that matters for revocation is a clock that runs behind true time: it shifts the whole window toward the past, so that a genuine but stale tick -- one the CA revealed before it stopped revealing, and which a correctly-clocked verifier would reject as too old -- can fall within the window and be accepted.
-An attacker able to move a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded for small offsets by the window width and otherwise by `notAfter`, which is checked against the same clock.
-The forward direction, and the immediately-following-period allowance in particular, adds no forgery avenue: a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{security-considerations}}), so the value accepted is always genuine; the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
-This is the trusted-time dependency shared by every time-based validity and revocation check -- `notAfter`, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself -- and is not specific to this mechanism.
-Two consequences follow.
-First, the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance correspondingly enlarges this exposure.
-Second, a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short `revocation_period`, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
-A relying party that requires tight revocation SHOULD therefore source time from a trusted, integrity-protected clock; both this and the window width are relying-party policy choices ({{rp-policy}}).
-
-## Relying-Party Policy Levers {#rp-policy}
-
-Several behaviours of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
-This section collects them for convenience; each is specified in full in the section cited, and nothing here is a new requirement.
-
-Acceptance window:
-: The default accepts a tick for the current, immediately preceding, or immediately following period.
-  A relying party MAY widen the preceding side to tolerate a tick-distribution outage, at the cost of correspondingly delayed revocation, or the following side to tolerate a clock that runs behind, at no revocation cost.
-  Widening applies to every certificate the relying party validates ({{clock-skew}}, {{availability-considerations}}).
-
-Trusted time:
-: The acceptance window is anchored to the relying party's clock, so revocation timeliness is bounded by clock integrity.
-  A relying party that requires tight revocation SHOULD source time from a trusted, integrity-protected clock and keep its window narrow ({{clock-skew}}).
-
-Cross-checking base MTC revocation:
-: A relying party that also supports the base MTC revoked-ranges mechanism SHOULD check both; a certificate is revoked if either indicates so ({{interaction-with-base-mtc-revocation}}).
-
-Resumption and long-lived connections:
-: The tick is checked only at full-handshake certificate validation.
-  A relying party that wants revocation to take effect within about one `revocation_period` SHOULD cap session-ticket reuse and force periodic full handshakes, so that a fresh tick is re-checked ({{enforcement-latency}}).
-
-Enforcement and criticality:
-: A relying party that implements this mechanism MUST enforce hash chain verification whenever the id-pe-hashChainAnchor extension is present; an ecosystem MAY additionally mark the extension critical for hard enforcement ({{extension-criticality}}).
-
-Fixed, not a lever:
-: Relying parties MUST NOT fetch ticks or use the distribution endpoint as an online responder ({{rp-no-fetch}}); this is a constraint, not a configurable choice.
-
-If the base specification adopts the general `proof_extensions` field ({{mtcproof-extensibility}}), further relying-party handling applies -- size-budget enforcement, committed admissibility, and unknown-type handling ({{proof-extensions-considerations}}).
-
-The resilience levers that involve holding certificates from multiple CAs, operating redundant tick distribution, and choosing `revocation_period` are authenticating-party or CA decisions, not relying-party policy ({{availability-considerations}}, {{construction}}).
 
 # IANA Considerations {#iana-considerations}
 
