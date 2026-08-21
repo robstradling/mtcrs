@@ -1793,10 +1793,8 @@ Another alternative was carrying the hash chain tick in a TLS CertificateEntry e
 
 This approach was rejected because:
 
-- **Strippable:** A TLS extension can potentially be omitted by middleboxes or misconfigured servers, with the relying party unable to tell an omitted extension from one that was never sent, so it must soft-fail.
-  Embedding the tick in the MTCProof does not make the bytes physically immovable -- they are covered by no signature -- but it makes the tick inseparable from the certificate's acceptance: when the committed anchor is present, an aware relying party rejects the certificate if the tick is missing ({{tick-trailing-field}}), so stripping forces a hard failure rather than a silent soft-fail.
-
-- **The OCSP stapling lesson:** any mechanism carried in a separate, optional signalling channel is strippable and forces relying parties to soft-fail -- exactly the failure mode analysed in {{ocsp-stapling-comparison}}. Embedding the tick in the MTCProof avoids it.
+- **Strippable soft-fail:** A separate, optional TLS extension can be omitted by a middlebox or misconfigured server with no signal that one was expected, forcing relying parties to soft-fail -- exactly the failure mode analysed in {{ocsp-stapling-comparison}}.
+  Embedding the tick in the MTCProof instead makes it inseparable from the certificate's acceptance: with the committed anchor present, an aware relying party rejects the certificate if the tick is missing ({{tick-trailing-field}}), so stripping forces a hard failure rather than a silent soft-fail. The bytes are not physically immovable -- they are covered by no signature -- but they cannot be removed while leaving a certificate that still verifies.
 
 - **Unnecessary complexity:** Defining a new TLS extension type requires IANA registration and implementation changes in TLS stacks.
   Embedding in the MTCProof requires no TLS-layer changes beyond MTC support itself.
