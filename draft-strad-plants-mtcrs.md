@@ -298,7 +298,7 @@ The hash chain mechanism introduces the following additional parameter:
   This MUST be greater than zero.
   The RECOMMENDED and default value is 3600 (one hour); {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no `revocation_period` bytes.
   The number of periods in a certificate's lifetime is `chain_length = ceil(lifetime / revocation_period)`.
-  Because a tick carries its period in a 32-bit field ({{cert-format}}), `chain_length` MUST NOT exceed 2^32, so that every period is representable; this is not a practical constraint, as reaching it would require, for example, a one-second period sustained over more than a century.
+  Because a tick carries its period in a 32-bit field ({{cert-format}}), `chain_length` MUST be less than 2^32, so that every period number (0 through `chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable; this is not a practical constraint, as reaching it would require, for example, a one-second period sustained over more than a century.
   `revocation_period` need not evenly divide the lifetime; if it does not, the final period is shorter than `revocation_period`, ending when the certificate expires.
   This is harmless: the verifier computes the period from `not_before` ({{construction}}) and the base MTC validity check bounds the certificate at `notAfter`, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
 
