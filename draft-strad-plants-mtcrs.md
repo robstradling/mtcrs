@@ -152,7 +152,7 @@ This mechanism adds a proof of non-revocation to the same structure, so that tog
 
 This approach achieves the following properties:
 
-- **Timely revocation:** Revocation takes effect within at most two periods (e.g., two hours), regardless of when the relying party last updated its trusted subtrees.
+- **Timely revocation:** Revocation takes effect within at most two periods (e.g., two hours) under the default acceptance window ({{clock-skew}}), regardless of when the relying party last updated its trusted subtrees.
 
 - **No per-check signatures:** Unlike OCSP {{RFC6960}}, verification requires only hash computations, not signature verification.
   The CA incurs no signing load for revocation status.
@@ -1010,7 +1010,7 @@ Three consequences follow, each bounded:
   Conveying a reason is out of scope here; a deployment that needs machine-readable reasons uses the base MTC revoked-ranges mechanism or an external revocation system that carries them.
 
 None of this weakens enforcement, which is what the mechanism exists to provide.
-A revoked certificate stops verifying at every relying party within the two-period bound whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
+A revoked certificate stops verifying at every relying party within the two-period bound ({{clock-skew}}) whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
 Auditability, where a deployment needs it, is obtained by pairing hash chain revocation with the committed revoked-ranges mechanism ({{interaction-with-base-mtc-revocation}}) rather than from the hash chain itself.
 A CA that wants positive, monitorable revocation records without invoking revoked ranges MAY additionally publish a signed revocation feed, but this document neither defines nor requires one.
 
@@ -1032,6 +1032,10 @@ Accepting the immediately following period -- what a verifier whose clock is beh
 Accepting the immediately preceding period -- a verifier clock that is ahead, or a deliberately stale tick -- accepts a non-revocation proof up to one `revocation_period` old, which is the intended one-period grace.
 
 Deployments with known clock-skew or availability concerns MAY widen the window, as step 4 permits: accepting further preceding periods tolerates a tick-distribution outage ({{availability-considerations}}) at the cost of correspondingly delayed revocation enforcement, while accepting further following periods tolerates a verifier clock that runs further behind and carries no revocation cost.
+
+Widening the preceding side relaxes the revocation bound one-for-one: a relying party that accepts the k immediately preceding periods keeps a withheld certificate usable for up to k + 1 periods after the CA stops revealing values, in place of the two periods the default window gives ({{revealing-values}}).
+The worst-case revocation latency stated elsewhere in this document -- at most two periods -- therefore assumes the default window.
+How quickly revocation takes effect at a given relying party is a property of that relying party's policy, not of the hash chain; this is why widening is a deliberate, ecosystem-wide trade-off rather than a per-server option ({{rp-policy}}).
 
 The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on that clock's integrity.
 A clock running behind true time shifts the window toward the past, so a genuine but stale tick -- one the CA revealed before it stopped revealing -- can fall inside the window and be accepted; an attacker who moves a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded by the window width and ultimately by `notAfter`, checked against the same clock.
@@ -1462,7 +1466,7 @@ The frequency of CA re-validation therefore determines the effective security bo
 Without revocation, validation frequency is largely irrelevant: even if the CA discovers a problem mid-lifetime, it cannot shorten the certificate's validity.
 The only recourse is to publish the revocation via an external mechanism (CRLite, CRLSets) that may or may not reach all relying parties.
 
-With hash chain revocation, frequent CA validation translates directly into security improvement: the CA can revoke within one period of detecting any problem.
+With hash chain revocation, frequent CA validation translates directly into security improvement: the CA can act on a detected problem at the very next period boundary, by withholding that certificate's tick, and the certificate stops verifying within at most two periods of the decision ({{revealing-values}}, {{clock-skew}}).
 This creates an incentive structure where CAs that validate more frequently provide measurably better security -- an incentive that does not exist in a pure short-lived-certificate model without revocation.
 
 Root program policies can leverage this by requiring both short revocation periods and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.
