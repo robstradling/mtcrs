@@ -441,8 +441,13 @@ The extension MUST NOT be present in a certificate whose validity period is not 
 
 Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
 With the default `revocation_period`, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing -- on the order of 40 to 50 bytes per entry.
-This is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
-The DEFAULT encoding of `revocationPeriod` keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
+Relative to a TBSCertificateLogEntry, typically a few hundred bytes (a subject name, validity, a hashed SubjectPublicKeyInfo, and any other extensions), this is a modest increase, and -- being a fixed-size hash -- it does not grow with post-quantum key or signature sizes, unlike much of what MTC was designed to keep out of the log.
+The cost lands in two bounded places.
+The first is monitor bandwidth: monitors download every entry, so the ecosystem-wide cost is those bytes times the number of participating entries -- on the order of tens of gigabytes at 10^9 entries, incurred once per entry rather than per period, and far below the per-certificate signatures ({{alternatives}}) this mechanism avoids.
+The second is the certificate presentation, where the same anchor bytes travel in each handshake as ordinary TBSCertificate content.
+The inclusion proof is unaffected: its size depends on tree depth, not entry size, so the anchor adds no hashes to the proof path.
+This committed cost is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
+The DEFAULT encoding of `revocationPeriod` keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself; the more compact entry-extension encoding ({{anchor-entry-extension}}) trims the framing further.
 
 This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension), so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
 The entry-extension alternative -- more compact and symmetric with the tick's encoding, but requiring MTCRS-aware cosigner software and lacking a criticality lever -- is described in {{anchor-entry-extension}}.
