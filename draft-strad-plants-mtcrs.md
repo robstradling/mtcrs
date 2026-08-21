@@ -210,7 +210,7 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
    |    MTC log    |   |   +-------------------------+
    |  Merkle Tree, |   |   |  Authenticating party   |
    |  cosigners    |   +-->|      (TLS server)       |
-   +---------------+ GET   | staples tick into the   |
+   +---------------+ GET   | writes tick into the    |
      |                     | certificate's MTCProof  |
      | (3) cert:           +-------------------------+
      |     inclusion proof,            |
@@ -224,7 +224,7 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
                                | tick --> anchor         |
                                +-------------------------+
 ~~~
-{: #fig-actors title="MTCRS actors and their interactions: the CA commits an anchor at issuance and publishes a tick each period, the authenticating party staples the current tick into the MTCProof, and the relying party verifies everything offline"}
+{: #fig-actors title="MTCRS actors and their interactions: the CA commits an anchor at issuance and publishes a tick each period, the authenticating party writes the current tick into the MTCProof, and the relying party verifies everything offline"}
 
 ~~~aasvg
    Issuance: the CA hashes a secret seed forward to the anchor,
@@ -333,9 +333,12 @@ The hash chain mechanism introduces the following additional parameter:
   This MUST be greater than zero.
   The RECOMMENDED and default value is 3600 (one hour); {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no `revocation_period` bytes.
   The number of periods in a certificate's lifetime is `chain_length = ceil(lifetime / revocation_period)`.
-  Because a tick carries its period in a 32-bit field ({{cert-format}}), `chain_length` MUST be less than 2^32, so that every period number (0 through `chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable; this is not a practical constraint, as reaching it would require, for example, a one-second period sustained over more than a century.
-  `revocation_period` need not evenly divide the lifetime; if it does not, the final period is shorter than `revocation_period`, ending when the certificate expires.
-  This is harmless: the verifier computes the period from `not_before` ({{construction}}) and the base MTC validity check bounds the certificate at `notAfter`, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
+
+Because a tick carries its period in a 32-bit field ({{cert-format}}), `chain_length` MUST be less than 2^32, so that every period number (0 through `chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
+This is not a practical constraint: reaching it would require, for example, a one-second period sustained over more than a century.
+
+`revocation_period` need not evenly divide the lifetime; if it does not, the final period is shorter than `revocation_period`, ending when the certificate expires.
+This is harmless: the verifier computes the period from `not_before` ({{construction}}) and the base MTC validity check bounds the certificate at `notAfter`, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
 
 The certificate's validity period MUST be longer than `revocation_period`.
 A certificate whose validity period is not longer than `revocation_period` would have `chain_length = 1`: its only tick is the public period-0 anchor, which enforces nothing (revocation is only enforceable from period 1 onwards; see {{period-zero-rationale}}).
@@ -549,7 +552,7 @@ The authenticating party MUST include a HashChainTick whose period falls within 
 It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary: the deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
 The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification}}.
 
-This document describes two possible ways to carry the HashChainTick inside the MTCProof, but only one is used in practice: the encoding is fixed by the base MTC specification, not chosen per deployment.
+This document describes two possible ways to carry the HashChainTick inside the MTCProof, but exactly one is used: the encoding is fixed by the base MTC specification, not chosen per deployment or per certificate.
 Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding ({{tick-trailing-field}}) is RECOMMENDED: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
 The proof-extension encoding ({{tick-proof-extension}}) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point ({{mtcproof-extensibility}}); as a general "ignore if unknown" channel it carries the abuse surface discussed in {{proof-extensions-considerations}}, which for a single tick is not otherwise justified.
@@ -566,13 +569,13 @@ The field is not a bare optional field -- the base MTCProof has no discriminant 
         uint48 end;
         HashValue inclusion_proof<0..2^16-1>;
         MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
-        select (certificate_has_hashChainAnchor) {
+        select (certificate_has_anchor) {
             case false: Empty;
             case true:  HashChainTick;
         } status_tick;
     } MTCProof;
 
-certificate_has_hashChainAnchor is the contextual boolean "the entry carries a hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}) -- read from whichever home the deployment uses.
+certificate_has_anchor is the contextual boolean "the entry carries a hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}) -- read from whichever home the deployment uses.
 This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` of Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
 It is instead a property of the enclosing certificate, and it is well-defined for the same reason the base verifier can already read it: an MTCProof is never decoded standalone.
 It is only ever parsed as the `signatureValue` of a specific certificate, and Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} already parses it strictly in that certificate context -- indeed it reconstructs the entry and its extensions from the certificate to check the inclusion proof -- so whether the anchor is present is known before `status_tick` is read, from exactly the data the base procedure already has in hand.
@@ -641,7 +644,8 @@ Using these inputs, the verifier performs the following steps:
 
 4. Check that `tick.period` lies within the *acceptance window*.
    The default acceptance window is `expected_period` - 1, `expected_period`, and `expected_period` + 1; a relying party MAY widen it in either direction as a matter of policy, with the consequences described in {{clock-skew}} and collected in {{rp-policy}}.
-   A relying party MUST reject a certificate whose `tick.period` falls outside the acceptance window it applies, with a certificate_expired error (this alert also covers a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see).
+   A relying party MUST reject a certificate whose `tick.period` falls outside the acceptance window it applies, with a certificate_expired error.
+   That alert covers both directions, because {{RFC8446}} defines it as "a certificate has expired or is not currently valid": a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}; a verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
@@ -1782,8 +1786,8 @@ Most connections pay nothing: a resumed session carries no Certificate message a
 And a relying party that revalidates the same (entry, period) -- for example a recurring third-party CDN origin -- MAY cache the verified result and skip the forward hashing on repeat.
 
 The same reasoning covers energy on a battery-powered sensor or wearable.
-One verification is on the order of tens of milliseconds of CPU and a fraction of a millijoule in software, and near-free with a hardware SHA engine; at thousands of verifications a day it is a small fraction of a percent of a typical wearable battery, and it is dominated by the asymmetric key exchange and signature verification the same handshake performs.
-Two effects shrink it further: a newly issued certificate is the cheapest to verify (the forward-hash count equals the current period, near zero just after issuance), and because such a device talks to a small, stable set of servers, most connections resume without verifying any tick and the (entry, period) cache computes each server's chain at most once per period however many connections it opens.
+One verification costs a fraction of a millijoule in software and is near-free with a hardware SHA engine, so it is dominated by the asymmetric key exchange and signature verification the same handshake performs.
+The effects above apply equally, and a newly issued certificate is the cheapest of all to verify, since the forward-hash count equals the current period and so is near zero just after issuance.
 
 # Alternatives Considered {#alternatives}
 
