@@ -790,6 +790,7 @@ Rather than fetching at the start of each period, an authenticating party SHOULD
     offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
 where `tbs_cert_entry_hash` is the binary (pre-hex-encoding) SHA-256 hash of the entry's `tbs_cert_entry_data` ({{distribution}}), UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
+The authenticating party computes this from its own entry, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by `tbs_cert_entry_hash`.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
 During the first offset seconds of the period it continues to serve the preceding period's tick.
 The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}): a verifier whose clock is ahead by more than (`revocation_period` - offset) already expects the following period and rejects a tick two periods behind its expectation.
