@@ -693,6 +693,9 @@ A single value covers all of the CA's certificates and lets the CA direct authen
 
 If the `tickBaseURL` field is absent from the ACME order, the authenticating party obtains the base URL through another mechanism in {{discovery}} (for example, the CA certificate SIA).
 
+A CA using the unguessable-URL scheme ({{unguessable-urls}}) instead carries the complete per-certificate URL in a `tickURL` field in place of `tickBaseURL`.
+The two fields are mutually exclusive for a given order: an order carries `tickBaseURL` (derivable scheme) or `tickURL` (unguessable scheme), never both.
+
 CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL during certificate provisioning.
 
 ## Unguessable Tick URLs {#unguessable-urls}
