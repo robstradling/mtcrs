@@ -280,7 +280,41 @@ Table of Contents
    Section 10.  It reuses the small example of Appendix B: a chain of
    length chain_length = 5 (a real certificate uses a much longer chain
    -- for example 1,128 for a 47-day lifetime with a one-hour period).
-   Figure 1 depicts the lifecycle that the five steps below trace.
+   Figure 1 shows how the parties interact, and Figure 2 depicts the
+   hash chain lifecycle that the five steps below trace.
+
+      +-------------------+
+      |        CA         |
+      |     (issuer)      |
+      +-------------------+
+        |                 |
+        | (1) issuance:   | (2) each period: reveal one chain
+        |     commit      |     value as a tick and publish it
+        |     anchor in   |     over HTTP  (to revoke, withhold)
+        |     log entry   |               |
+        v                 |               |
+      +---------------+   |               v
+      |    MTC log    |   |   +-------------------------+
+      |  Merkle Tree, |   |   |  Authenticating party   |
+      |  cosigners    |   +-->|      (TLS server)       |
+      +---------------+ GET   | staples tick into the   |
+        |                     | certificate's MTCProof  |
+        | (3) cert:           +-------------------------+
+        |     inclusion proof,            |
+        |     cosignatures,               | (4) TLS handshake:
+        |     committed anchor            v     cert + MTCProof(tick)
+        +------------------------>+-------------------------+
+                                  |    Relying party        |
+                                  |      (client)           |
+                                  | verifies OFFLINE:       |
+                                  | proof, cosignatures,    |
+                                  | tick --> anchor         |
+                                  +-------------------------+
+
+      Figure 1: MTCRS actors and their interactions: the CA commits an
+          anchor at issuance and publishes a tick each period, the
+      authenticating party staples the current tick into the MTCProof,
+             and the relying party verifies everything offline
 
       Issuance: the CA hashes a secret seed forward to the anchor,
       then commits the anchor in the certificate.
@@ -303,7 +337,7 @@ Table of Contents
       Verify a tick for period t: hash it forward t times and check
       it equals the anchor.  Period 2:  h[3] --> h[4] --> h[5].
 
-         Figure 1: MTCRS hash chain lifecycle: generated forward at
+         Figure 2: MTCRS hash chain lifecycle: generated forward at
       issuance, revealed in reverse each period, and verified forward
                           to the committed anchor
 

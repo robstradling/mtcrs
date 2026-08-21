@@ -1542,11 +1542,118 @@ Later sections use the term in this sense.<a href="#section-2-4" class="pilcrow"
       </h2>
 <p id="section-3-1">This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in <a href="#construction" class="auto internal xref">Section 5</a> through <a href="#distribution" class="auto internal xref">Section 10</a>.
 It reuses the small example of <a href="#test-vectors" class="auto internal xref">Appendix B</a>: a chain of length <code>chain_length = 5</code> (a real certificate uses a much longer chain -- for example 1,128 for a 47-day lifetime with a one-hour period).
-<a href="#fig-hash-chain" class="auto internal xref">Figure 1</a> depicts the lifecycle that the five steps below trace.<a href="#section-3-1" class="pilcrow">¶</a></p>
-<span id="name-mtcrs-hash-chain-lifecycle-"></span><div id="fig-hash-chain">
+<a href="#fig-actors" class="auto internal xref">Figure 1</a> shows how the parties interact, and <a href="#fig-hash-chain" class="auto internal xref">Figure 2</a> depicts the hash chain lifecycle that the five steps below trace.<a href="#section-3-1" class="pilcrow">¶</a></p>
+<span id="name-mtcrs-actors-and-their-inte"></span><div id="fig-actors">
 <figure id="figure-1">
         <div id="section-3-2.1">
           <div class="alignLeft art-svg artwork" id="section-3-2.1.1">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="480" width="512" viewBox="0 0 512 480" class="diagram" text-anchor="middle" font-family="monospace" font-size="13px" stroke-linecap="round">
+              <path d="M 8,32 L 8,80" fill="none" stroke="black"></path>
+              <path d="M 8,192 L 8,256" fill="none" stroke="black"></path>
+              <path d="M 24,88 L 24,184" fill="none" stroke="black"></path>
+              <path d="M 24,264 L 24,352" fill="none" stroke="black"></path>
+              <path d="M 136,192 L 136,256" fill="none" stroke="black"></path>
+              <path d="M 168,32 L 168,240" fill="none" stroke="black"></path>
+              <path d="M 200,208 L 200,288" fill="none" stroke="black"></path>
+              <path d="M 232,352 L 232,448" fill="none" stroke="black"></path>
+              <path d="M 296,160 L 296,200" fill="none" stroke="black"></path>
+              <path d="M 296,296 L 296,344" fill="none" stroke="black"></path>
+              <path d="M 408,208 L 408,288" fill="none" stroke="black"></path>
+              <path d="M 440,352 L 440,448" fill="none" stroke="black"></path>
+              <path d="M 8,32 L 168,32" fill="none" stroke="black"></path>
+              <path d="M 8,80 L 168,80" fill="none" stroke="black"></path>
+              <path d="M 8,192 L 136,192" fill="none" stroke="black"></path>
+              <path d="M 200,208 L 408,208" fill="none" stroke="black"></path>
+              <path d="M 168,240 L 192,240" fill="none" stroke="black"></path>
+              <path d="M 8,256 L 136,256" fill="none" stroke="black"></path>
+              <path d="M 200,288 L 408,288" fill="none" stroke="black"></path>
+              <path d="M 24,352 L 440,352" fill="none" stroke="black"></path>
+              <path d="M 288,432 L 304,432" fill="none" stroke="black"></path>
+              <path d="M 232,448 L 440,448" fill="none" stroke="black"></path>
+              <polygon class="arrowhead" points="312,432 300,426.4 300,437.6" fill="black" transform="rotate(0,304,432)"></polygon>
+              <polygon class="arrowhead" points="304,344 292,338.4 292,349.6" fill="black" transform="rotate(90,296,344)"></polygon>
+              <polygon class="arrowhead" points="304,200 292,194.4 292,205.6" fill="black" transform="rotate(90,296,200)"></polygon>
+              <polygon class="arrowhead" points="232,352 220,346.4 220,357.6" fill="black" transform="rotate(0,224,352)"></polygon>
+              <polygon class="arrowhead" points="200,240 188,234.4 188,245.6" fill="black" transform="rotate(0,192,240)"></polygon>
+              <polygon class="arrowhead" points="32,184 20,178.4 20,189.6" fill="black" transform="rotate(90,24,184)"></polygon>
+              <g class="text">
+                <text x="84" y="52">CA</text>
+                <text x="84" y="68">(issuer)</text>
+                <text x="48" y="116">(1)</text>
+                <text x="104" y="116">issuance:</text>
+                <text x="192" y="116">(2)</text>
+                <text x="228" y="116">each</text>
+                <text x="280" y="116">period:</text>
+                <text x="340" y="116">reveal</text>
+                <text x="384" y="116">one</text>
+                <text x="424" y="116">chain</text>
+                <text x="92" y="132">commit</text>
+                <text x="232" y="132">value</text>
+                <text x="268" y="132">as</text>
+                <text x="288" y="132">a</text>
+                <text x="316" y="132">tick</text>
+                <text x="352" y="132">and</text>
+                <text x="400" y="132">publish</text>
+                <text x="444" y="132">it</text>
+                <text x="92" y="148">anchor</text>
+                <text x="132" y="148">in</text>
+                <text x="228" y="148">over</text>
+                <text x="268" y="148">HTTP</text>
+                <text x="312" y="148">(to</text>
+                <text x="360" y="148">revoke,</text>
+                <text x="432" y="148">withhold)</text>
+                <text x="80" y="164">log</text>
+                <text x="120" y="164">entry</text>
+                <text x="56" y="212">MTC</text>
+                <text x="88" y="212">log</text>
+                <text x="52" y="228">Merkle</text>
+                <text x="104" y="228">Tree,</text>
+                <text x="276" y="228">Authenticating</text>
+                <text x="360" y="228">party</text>
+                <text x="64" y="244">cosigners</text>
+                <text x="268" y="244">(TLS</text>
+                <text x="320" y="244">server)</text>
+                <text x="160" y="260">GET</text>
+                <text x="240" y="260">staples</text>
+                <text x="292" y="260">tick</text>
+                <text x="332" y="260">into</text>
+                <text x="368" y="260">the</text>
+                <text x="264" y="276">certificate's</text>
+                <text x="356" y="276">MTCProof</text>
+                <text x="48" y="292">(3)</text>
+                <text x="88" y="292">cert:</text>
+                <text x="104" y="308">inclusion</text>
+                <text x="172" y="308">proof,</text>
+                <text x="120" y="324">cosignatures,</text>
+                <text x="320" y="324">(4)</text>
+                <text x="352" y="324">TLS</text>
+                <text x="412" y="324">handshake:</text>
+                <text x="104" y="340">committed</text>
+                <text x="172" y="340">anchor</text>
+                <text x="356" y="340">cert</text>
+                <text x="384" y="340">+</text>
+                <text x="452" y="340">MTCProof(tick)</text>
+                <text x="296" y="372">Relying</text>
+                <text x="352" y="372">party</text>
+                <text x="316" y="388">(client)</text>
+                <text x="276" y="404">verifies</text>
+                <text x="348" y="404">OFFLINE:</text>
+                <text x="268" y="420">proof,</text>
+                <text x="352" y="420">cosignatures,</text>
+                <text x="260" y="436">tick</text>
+                <text x="340" y="436">anchor</text>
+              </g>
+            </svg><a href="#section-3-2.1.1" class="pilcrow">¶</a>
+</div>
+</div>
+<figcaption><a href="#figure-1" class="selfRef">Figure 1</a>:
+<a href="#name-mtcrs-actors-and-their-inte" class="selfRef">MTCRS actors and their interactions: the CA commits an anchor at issuance and publishes a tick each period, the authenticating party staples the current tick into the MTCProof, and the relying party verifies everything offline</a>
+        </figcaption></figure>
+</div>
+<span id="name-mtcrs-hash-chain-lifecycle-"></span><div id="fig-hash-chain">
+<figure id="figure-2">
+        <div id="section-3-3.1">
+          <div class="alignLeft art-svg artwork" id="section-3-3.1.1">
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="368" width="520" viewBox="0 0 520 368" class="diagram" text-anchor="middle" font-family="monospace" font-size="13px" stroke-linecap="round">
               <path d="M 16,80 L 16,112" fill="none" stroke="black"></path>
               <path d="M 72,80 L 72,112" fill="none" stroke="black"></path>
@@ -1691,41 +1798,41 @@ It reuses the small example of <a href="#test-vectors" class="auto internal xref
                 <text x="364" y="340">h[4]</text>
                 <text x="440" y="340">h[5].</text>
               </g>
-            </svg><a href="#section-3-2.1.1" class="pilcrow">¶</a>
+            </svg><a href="#section-3-3.1.1" class="pilcrow">¶</a>
 </div>
 </div>
-<figcaption><a href="#figure-1" class="selfRef">Figure 1</a>:
+<figcaption><a href="#figure-2" class="selfRef">Figure 2</a>:
 <a href="#name-mtcrs-hash-chain-lifecycle-" class="selfRef">MTCRS hash chain lifecycle: generated forward at issuance, revealed in reverse each period, and verified forward to the committed anchor</a>
         </figcaption></figure>
 </div>
-<ol start="1" type="1" class="normal type-1" id="section-3-3">
-<li id="section-3-3.1">
-          <p id="section-3-3.1.1"><strong>Issuance.</strong>
+<ol start="1" type="1" class="normal type-1" id="section-3-4">
+<li id="section-3-4.1">
+          <p id="section-3-4.1.1"><strong>Issuance.</strong>
 For each log entry, the CA generates a secret random seed <code>h[0]</code> and hashes it forward <code>chain_length</code> times to obtain <code>h[1], h[2], ..., h[5]</code> (<a href="#construction" class="auto internal xref">Section 5</a>).
 The final value <code>h[5]</code> is the <em>anchor</em>.
-The CA commits it into the certificate as the id-pe-hashChainAnchor extension (<a href="#assertion-integration" class="auto internal xref">Section 7</a>); because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.<a href="#section-3-3.1.1" class="pilcrow">¶</a></p>
+The CA commits it into the certificate as the id-pe-hashChainAnchor extension (<a href="#assertion-integration" class="auto internal xref">Section 7</a>); because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.<a href="#section-3-4.1.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-3-3.2">
-          <p id="section-3-3.2.1"><strong>Per-period reveal.</strong>
+        <li id="section-3-4.2">
+          <p id="section-3-4.2.1"><strong>Per-period reveal.</strong>
 Time after the certificate's <code>notBefore</code> is divided into periods of <code>revocation_period</code> seconds (one hour by default).
 At the start of period <code>t</code>, the CA reveals <code>h[chain_length - t]</code> for every certificate it has not revoked (<a href="#revealing-values" class="auto internal xref">Section 5.4</a>) -- for period 2, that is <code>h[3]</code>.
-The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.<a href="#section-3-3.2.1" class="pilcrow">¶</a></p>
+The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.<a href="#section-3-4.2.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-3-3.3">
-          <p id="section-3-3.3.1"><strong>Server refresh.</strong>
+        <li id="section-3-4.3">
+          <p id="section-3-4.3.1"><strong>Server refresh.</strong>
 Once per period, the authenticating party (server) fetches its current value as a <em>tick</em> <code>{period, value}</code> -- for period 2, <code>{2, h[3]}</code> -- with a single plain HTTP GET (<a href="#distribution" class="auto internal xref">Section 10</a>), and writes it into the MTCProof it presents in TLS handshakes (<a href="#cert-format" class="auto internal xref">Section 8</a>).
-The MTCProof is not committed to the tree, so refreshing the tick each period does not disturb the inclusion proof or cosignatures.<a href="#section-3-3.3.1" class="pilcrow">¶</a></p>
+The MTCProof is not committed to the tree, so refreshing the tick each period does not disturb the inclusion proof or cosignatures.<a href="#section-3-4.3.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-3-3.4">
-          <p id="section-3-3.4.1"><strong>Relying-party verification.</strong>
+        <li id="section-3-4.4">
+          <p id="section-3-4.4.1"><strong>Relying-party verification.</strong>
 A relying party reads the tick and the committed anchor from the certificate, hashes <code>tick.value</code> forward <code>tick.period</code> times, and checks that the result equals the anchor (<a href="#verification" class="auto internal xref">Section 9</a>) -- hashing <code>h[3]</code> twice yields <code>h[5]</code>.
 It also checks that <code>tick.period</code> agrees with its own clock to within one period.
-Verification is entirely offline: the relying party fetches nothing (<a href="#rp-no-fetch" class="auto internal xref">Section 12.5</a>).<a href="#section-3-3.4.1" class="pilcrow">¶</a></p>
+Verification is entirely offline: the relying party fetches nothing (<a href="#rp-no-fetch" class="auto internal xref">Section 12.5</a>).<a href="#section-3-4.4.1" class="pilcrow">¶</a></p>
 </li>
-        <li id="section-3-3.5">
-          <p id="section-3-3.5.1"><strong>Revocation = withholding.</strong>
+        <li id="section-3-4.5">
+          <p id="section-3-4.5.1"><strong>Revocation = withholding.</strong>
 To revoke a certificate, the CA simply stops revealing its chain values (<a href="#revealing-values" class="auto internal xref">Section 5.4</a>).
-Once the last revealed tick's period ends, no party can produce a valid tick -- doing so would require inverting the hash -- so the certificate becomes unusable within at most two periods.<a href="#section-3-3.5.1" class="pilcrow">¶</a></p>
+Once the last revealed tick's period ends, no party can produce a valid tick -- doing so would require inverting the hash -- so the certificate becomes unusable within at most two periods.<a href="#section-3-4.5.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 </section>
