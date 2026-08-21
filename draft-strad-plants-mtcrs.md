@@ -222,7 +222,7 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
     +------+   +------+   +------+   +------+   +------+   +------+
     | h[0] |-->| h[1] |-->| h[2] |-->| h[3] |-->| h[4] |-->| h[5] |
     +------+   +------+   +------+   +------+   +------+   +------+
-     seed        \___ each arrow is one hash ___/          anchor
+     seed     \___ each arrow is one hash operation ___/   anchor
     (secret)                                             (committed
                                                           in cert)
 
