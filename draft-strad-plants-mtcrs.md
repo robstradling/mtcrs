@@ -787,8 +787,9 @@ The authenticating party periodically fetches its current tick from the CA:
 During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
 A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to publish the chain ({{period-zero-rationale}}).
 
-If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick until that tick's period expires.
-After expiry, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
+If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick it holds for as long as that tick remains within the acceptance window (step 4 of {{verification}}).
+Because a relying party also accepts the immediately preceding period's tick, a tick fetched for period t stays acceptable until the end of period t+1 -- close to two periods of runway from a single successful fetch, not one ({{availability-considerations}}).
+Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
