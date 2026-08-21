@@ -1677,16 +1677,16 @@ A handshake-carried status mechanism might therefore look like a return to an ap
 It is not: the reasons for that move are specific, and this mechanism is designed around each of them.
 
 - **Soft-fail.**
-  Online OCSP had to treat an unreachable responder as "not revoked," so an active attacker could simply suppress the check, making enforcement impossible.
-  The non-revocation proof here is structurally part of the certificate presentation and cannot be stripped while leaving a usable certificate, so relying parties hard-fail by construction ({{ocsp-stapling-comparison}}) -- the property OCSP Must-Staple ({{RFC7633}}) aimed at but never achieved at scale.
+  Online OCSP had to treat an unreachable responder as "not revoked," so an active attacker could suppress the check.
+  Here the proof is part of the certificate presentation and hard-fails by construction ({{ocsp-stapling-comparison}}) -- what OCSP Must-Staple ({{RFC7633}}) aimed at but never achieved at scale.
 
 - **Relying-party privacy.**
   Client-driven OCSP leaked relying-party browsing to CAs.
   Relying parties here never contact the CA ({{rp-no-fetch}}); the only fetch is server-side.
 
 - **Operator and responder fragility.**
-  Must-Staple saw negligible adoption because a stapling-pipeline failure caused self-inflicted outages, and clients could not hard-fail until coverage was universal.
-  Here the refresh is a trivial cacheable GET with no signing, backed by a full period of buffer and multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
+  Must-Staple's stapling-pipeline failures caused self-inflicted outages, so clients could never move to hard-fail ({{ocsp-stapling-comparison}}).
+  Here the refresh is a trivial cacheable GET with no signing, buffered for a period and backed by multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
 
 The pushed-list systems remain valuable and complementary -- comprehensive and fail-closed, but vendor-controlled and effective only for relying parties that ship the feed ({{alternatives}}).
 This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients and IoT devices with no external feed.
