@@ -169,7 +169,7 @@ This document uses the hash function HASH and its output length in bytes HASH_SI
 Hash chain values, the anchor, and the tick all use this hash.
 
 The HashChainTick that this mechanism embeds in the MTCProof ({{cert-format}}) is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of the current period, complementing the inclusion proof and cosignatures that attest authenticity.
-The separate `entry_digest` used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
+The separate `tbs_cert_entry_hash` used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
 
 Every hash chain value in this mechanism is *self-authenticating*: a relying party verifies it offline by hashing it forward to the anchor committed in the certificate ({{verification}}), needing no signature over the value and no trust beyond the CA's existing trust anchor.
 Because a tampered or forged value cannot reach the committed anchor in the number of steps its claimed period implies, this holds even though the MTCProof that carries the tick is itself unsigned and mutable.
@@ -360,7 +360,7 @@ The chain is revealed in reverse order precisely for this reason: knowledge of t
 
 The label in HashChainInput ({{encoding}}) domain-separates chain values from other uses of the hash function in MTC, and the per-entry `issuer_id`, `log_number`, and index salt each certificate's chain into its own hash domain ({{encoding}}).
 
-The one hash whose distinctness matters for a different reason is `entry_digest`, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
+The one hash whose distinctness matters for a different reason is `tbs_cert_entry_hash`, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
 A collision there would merely cause two entries to share a URL and misroute a fetch; the authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
 
 # Hash Chain Input Encoding {#encoding}
@@ -526,7 +526,7 @@ The two differ only in the subtree and signatures carried in their MTCProof; the
 Hash chain revocation is keyed by the log entry, not by the certificate profile:
 
 - Both profiles commit to the same id-pe-hashChainAnchor extension (part of the TBSCertificateLogEntry, or of the entry's extensions; see {{anchor-entry-extension}}), so a single anchor and hash chain per entry serves both.
-- `entry_digest` ({{distribution}}) is computed over the entry's `tbs_cert_entry_data`, which is identical for both profiles, so both resolve to the same tick URL and the same tick.
+- `tbs_cert_entry_hash` ({{distribution}}) is computed over the entry's `tbs_cert_entry_data`, which is identical for both profiles, so both resolve to the same tick URL and the same tick.
 - The HashChainTick for a given period is therefore identical in both certificates.
 
 An authenticating party that holds both a standalone and a landmark-relative certificate for the same entry -- for example, during the renewal overlap described in Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}} -- fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
@@ -591,24 +591,24 @@ This document defines an HTTP interface for this purpose.
 The CA (or a mirror) serves ticks over HTTP.
 Given a tick base URL for the CA (see {{discovery}}), the tick for a particular certificate is fetched from:
 
-    GET {tick_base_url}/.well-known/mtcrs/v1/tick/{entry_digest}
+    GET {tick_base_url}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}
 
-where {entry_digest} is the lowercase hex-encoded SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}), so that the CA and the authenticating party derive an identical value.
-The authenticating party computes {entry_digest} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
+where {tbs_cert_entry_hash} is the lowercase hex-encoded SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}), so that the CA and the authenticating party derive an identical value.
+The authenticating party computes {tbs_cert_entry_hash} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
 
-**Note:** `entry_digest` is a distribution-layer addressing value, and the only value defined in this document that uses a fixed hash function -- SHA-256 -- rather than the CA's tree HASH.
+**Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value, and the only value defined in this document that uses a fixed hash function -- SHA-256 -- rather than the CA's tree HASH.
 It is distinct from the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})` used for inclusion proofs (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), which is computed with the tree HASH over the entire log entry -- the entry extensions, the entry type, and `tbs_cert_entry_data`.
-`entry_digest` instead hashes only `tbs_cert_entry_data`, with SHA-256, and is never used as a proof; the different name signals the different value.
+`tbs_cert_entry_hash` instead hashes only `tbs_cert_entry_data`, with SHA-256, and is never used as a proof; its name states exactly what it hashes.
 The hash chain, anchor, and tick all use the tree HASH ({{construction}}), which equals SHA-256 for a SHA-256 CA but differs for any other CA.
-`entry_digest` is fixed to SHA-256 independent of the tree hash because it is only a stable identifier for the tick URL -- an addressing value, not a tree leaf hash and not part of the non-revocation proof.
+`tbs_cert_entry_hash` is fixed to SHA-256 independent of the tree hash because it is only a stable identifier for the tick URL -- an addressing value, not a tree leaf hash and not part of the non-revocation proof.
 No security property depends on it: it is never verified as a proof, and the sole property it needs is collision resistance so that two entries do not share a URL, which SHA-256 amply provides and which is not load-bearing in any case, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches ({{verification}}).
 Fixing the addressing hash keeps tick distribution, caching, and CDN infrastructure independent of whichever hash a CA chose for its tree.
 Algorithm agility is provided where it matters -- the security-relevant hashing follows the agile tree HASH ({{post-quantum}}) -- and the `v1` path segment provides a clean migration lever should the addressing hash itself ever need to change.
 
-The tick URL is keyed by `entry_digest` rather than by the certificate's serial number, even though the serial (`(log_number << 48) | index`; Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}) also uniquely identifies the entry, is shorter, and needs no hashing.
+The tick URL is keyed by `tbs_cert_entry_hash` rather than by the certificate's serial number, even though the serial (`(log_number << 48) | index`; Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}) also uniquely identifies the entry, is shorter, and needs no hashing.
 The serial's index component is assigned sequentially, so a serial-keyed URL would let anyone enumerate a CA's whole certificate population and probe each certificate's revocation status simply by counting indices -- with no certificate and no log data in hand.
-`entry_digest` raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter, and -- being a derived value that need not appear in the certificate -- it can be replaced by the unguessable per-certificate capability token of {{unguessable-urls}} when a CA wants to remove URL derivability entirely; a serial carried in the certificate offers no such option.
-Keying on `entry_digest` therefore aligns with the design's preference that the tick endpoint not be treated as an enumerable status oracle ({{rp-no-fetch}}).
+`tbs_cert_entry_hash` raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter, and -- being a derived value that need not appear in the certificate -- it can be replaced by the unguessable per-certificate capability token of {{unguessable-urls}} when a CA wants to remove URL derivability entirely; a serial carried in the certificate offers no such option.
+Keying on `tbs_cert_entry_hash` therefore aligns with the design's preference that the tick endpoint not be treated as an enumerable status oracle ({{rp-no-fetch}}).
 Its one cost -- a reliance on the addressing hash's collision resistance to keep entries' URLs distinct -- is amply met and non-load-bearing (the Note above).
 Where positive, monitorable revocation transparency is wanted, it is provided deliberately and separately ({{revocation-transparency}}), not as a side effect of an enumerable endpoint.
 
@@ -619,17 +619,17 @@ The base URL is instead conveyed to the authenticating party out of band, as des
 The scheme (`http://` or `https://`) is whatever the CA specifies as part of the base URL.
 Because each tick is self-authenticating, the tick fetch does not require transport-layer integrity, and because the tick value is public, it does not require transport-layer confidentiality of the response body.
 CAs MAY therefore publish an `http://` base URL, which eliminates TLS handshake overhead and permits caching by any HTTP intermediary.
-The one property plain HTTP does not provide is confidentiality of the request itself: an on-path observer can see which {entry_digest} is being requested.
+The one property plain HTTP does not provide is confidentiality of the request itself: an on-path observer can see which {tbs_cert_entry_hash} is being requested.
 CAs whose deployments consider this metadata sensitive SHOULD publish an `https://` base URL instead.
 
 For example, if a CA's tick base URL is `http://mtcrs.ca.example`, ticks are served at:
 
     http://mtcrs.ca.example/.well-known/mtcrs/v1/tick/a1b2c3...f0
 
-The base URL is an origin (scheme, host, and optional port); the `.well-known/mtcrs/v1/tick/{entry_digest}` path is rooted at that origin.
+The base URL is an origin (scheme, host, and optional port); the `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` path is rooted at that origin.
 A CA MAY point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.
 
-The `v1` segment versions the MTCRS HTTP interface as a whole -- the SHA-256 addressing of {entry_digest} and the response format ({{response-format}}).
+The `v1` segment versions the MTCRS HTTP interface as a whole -- the SHA-256 addressing of {tbs_cert_entry_hash} and the response format ({{response-format}}).
 It is a migration lever, not a per-request parameter: a future revision needing a different addressing hash or wire format would define a `v2` namespace, which a CA MAY serve alongside `v1` during a transition, without affecting the Merkle Tree, the non-revocation proof, or already-issued certificates.
 
 ## Discovering the Tick Base URL {#discovery}
@@ -665,7 +665,7 @@ When the CA issues certificates via ACME, it SHOULD convey the tick base URL in 
 
     "tickBaseURL": "https://mtcrs.cdn.ca.example"
 
-The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{entry_digest}` ({{distribution}}).
+The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}).
 A single value covers all of the CA's certificates and lets the CA direct authenticating parties to a CDN, regional mirror, or any origin, without adding bytes to the certificate or log entry.
 
 If the `tickBaseURL` field is absent from the ACME order, the authenticating party obtains the base URL through another mechanism in {{discovery}} (for example, the CA certificate SIA).
@@ -674,7 +674,7 @@ CAs using issuance protocols other than ACME SHOULD provide an equivalent mechan
 
 ## Unguessable Tick URLs {#unguessable-urls}
 
-The tick fetch path described above is `.well-known/mtcrs/v1/tick/{entry_digest}`, and {entry_digest} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
+The tick fetch path described above is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}`, and {tbs_cert_entry_hash} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
 Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
 A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, MAY replace the derivable path component with an unguessable per-certificate capability token:
 
@@ -693,9 +693,9 @@ The CA MAY generate the token by either of the following methods:
 - **Deterministic, stateless (RECOMMENDED).**
   The CA derives the token by applying a deterministic authenticated encryption scheme (for example, AES-SIV {{RFC5297}}) keyed by a CA-held secret to the entry identifier:
 
-      tick_token = key_id || DAE(K_ca, entry_digest)
+      tick_token = key_id || DAE(K_ca, tbs_cert_entry_hash)
 
-  The CA recovers `entry_digest` by decrypting the token, so no additional per-certificate state is required.
+  The CA recovers `tbs_cert_entry_hash` by decrypting the token, so no additional per-certificate state is required.
   The token is unguessable without K_ca and is stable for the certificate's lifetime, which preserves caching.
   The key_id prefix identifies K_ca so that it can be rotated; the CA retains superseded keys for decryption during an overlap window, and because MTC certificates are renewed frequently (Section 10.4 of {{I-D.ietf-plants-merkle-tree-certs}}), rotated tokens propagate through renewal, as for base-URL migration ({{discovery}}).
 
@@ -764,11 +764,11 @@ Two complementary mechanisms exploit this slack to prevent a period-boundary thu
 
 ### Client-Side: Deterministic Per-Entry Offset
 
-Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own `entry_digest`:
+Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own `tbs_cert_entry_hash`:
 
-    offset = UINT32(entry_digest[0..3]) mod max(1, revocation_period / 2)
+    offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
-where `entry_digest` is the binary (pre-hex-encoding) SHA-256 hash of the entry's `tbs_cert_entry_data` ({{distribution}}), UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
+where `tbs_cert_entry_hash` is the binary (pre-hex-encoding) SHA-256 hash of the entry's `tbs_cert_entry_data` ({{distribution}}), UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
 During the first offset seconds of the period it continues to serve the preceding period's tick.
 The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}): a verifier whose clock is ahead by more than (`revocation_period` - offset) already expects the following period and rejects a tick two periods behind its expectation.
@@ -797,9 +797,9 @@ The per-entry offset ({{load-distribution}}) spreads these fetches across the pe
 Several properties keep this inexpensive, and an operator that still prefers fewer requests has options.
 
 Each tick is a 36-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
-An operator retrieving ticks for its own certificates can also front them with its own cache, or act as a delegated distributor ({{delegated-distribution}}) fed the per-period bundle: the CA-to-distributor bundle is exactly a bulk transfer of one period's ticks keyed by `entry_digest`, so an operator that takes that feed obtains all of its ticks in one exchange rather than per-certificate fetches.
+An operator retrieving ticks for its own certificates can also front them with its own cache, or act as a delegated distributor ({{delegated-distribution}}) fed the per-period bundle: the CA-to-distributor bundle is exactly a bulk transfer of one period's ticks keyed by `tbs_cert_entry_hash`, so an operator that takes that feed obtains all of its ticks in one exchange rather than per-certificate fetches.
 
-A CA MAY additionally offer a batch endpoint that returns many ticks in a single response, keyed by a list of entry_digests (or tokens; {{unguessable-urls}}), for operators that prefer to reduce request count directly.
+A CA MAY additionally offer a batch endpoint that returns many ticks in a single response, keyed by a list of tbs_cert_entry_hashes (or tokens; {{unguessable-urls}}), for operators that prefer to reduce request count directly.
 The trade-off is cacheability: a batch response is specific to the set of entries requested and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs, which each address an immutable per-period resource; a batch endpoint therefore suits an operator fetching from the CA or from a mirror it controls rather than from a shared edge cache.
 This document does not standardize a batch wire format.
 Like the choice of distribution channel generally ({{distribution}}), any batch mechanism is an agreement between a CA and its authenticating parties layered on the single-tick interface, which remains the interoperable baseline; it does not affect relying parties, who never fetch ({{rp-no-fetch}}).
@@ -810,7 +810,7 @@ Because a tick is self-authenticating ({{verification}}), the party that serves 
 A distributor cannot forge a tick for a period the CA has not revealed (preimage resistance; {{security-considerations}}), and cannot serve a tampered value that verifies.
 Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
 
-Each period, the CA publishes to its authorized distributors the set of revealed values for that period -- a bundle keyed by `entry_digest` -- and each distributor serves them through the HTTP interface of {{distribution}}.
+Each period, the CA publishes to its authorized distributors the set of revealed values for that period -- a bundle keyed by `tbs_cert_entry_hash` -- and each distributor serves them through the HTTP interface of {{distribution}}.
 To revoke a certificate, the CA omits it from the next period's bundle: absence is revocation, so no revocation list is exchanged.
 Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.
 
@@ -853,11 +853,11 @@ Consequently the CA learns nothing about which certificates a relying party vali
 This is the central privacy difference from client-driven OCSP {{RFC6960}}, whose status fetches revealed relying-party browsing to the CA; that failure mode is avoided here by construction rather than by policy.
 
 The authenticating party's tick fetch, by contrast, exposes request metadata.
-An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which `entry_digest` -- or, with unguessable tick URLs, which `tick_token` ({{unguessable-urls}}) -- is being requested, and can thereby learn which certificate the authenticating party holds.
+An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which `tbs_cert_entry_hash` -- or, with unguessable tick URLs, which `tick_token` ({{unguessable-urls}}) -- is being requested, and can thereby learn which certificate the authenticating party holds.
 For a public-facing server this reveals little, since the certificate it serves is itself public; the request identifies the authenticating party's own certificate, not any relying party.
 Two points nonetheless bear noting:
 
-- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}). Plain HTTP leaves the requested `entry_digest` or `tick_token` visible to on-path observers. A deployment that considers this metadata sensitive -- for example, one serving certificates that are not otherwise publicly enumerable -- SHOULD publish an https base URL instead.
+- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}). Plain HTTP leaves the requested `tbs_cert_entry_hash` or `tick_token` visible to on-path observers. A deployment that considers this metadata sensitive -- for example, one serving certificates that are not otherwise publicly enumerable -- SHOULD publish an https base URL instead.
 - Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the `tick_token` appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch. Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
 
 Compared with pushed revocation lists such as {{CRLite}} and {{CRLSets}}, which the client checks entirely offline, this mechanism preserves the same relying-party privacy -- the client fetches nothing either way -- and does so universally, for any TLS client rather than only browsers that ship the list.
@@ -876,7 +876,7 @@ With a one-hour `revocation_period` and a 47-day lifetime, the chain length is 1
 
 This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
 Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up: against SHA-256 that leaves work on the order of 2^128, an ample margin for all foreseeable certificate lifetimes.
-The non-revocation proof relies on no collision resistance -- a revealed value is bound to a specific chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply (`entry_digest`, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{security-considerations}}).
+The non-revocation proof relies on no collision resistance -- a revealed value is bound to a specific chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply (`tbs_cert_entry_hash`, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{security-considerations}}).
 It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
 
 Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
@@ -910,7 +910,7 @@ The current tick is embedded in the MTCProof presented during the handshake and 
 A relying party therefore has no need to contact the CA, and MUST NOT fetch ticks or otherwise use the tick distribution endpoint as an online revocation responder.
 
 This is a privacy and availability protection, not a secrecy one.
-The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/v1/tick/{entry_digest}` with {entry_digest} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
+The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` with {tbs_cert_entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
 By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
 A CA that wishes to remove this derivability entirely MAY use the optional per-certificate capability-token hardening in {{unguessable-urls}}, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick -- the authenticating party already presents the current value -- while reintroducing the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{RFC6960}} problematic.
@@ -1128,7 +1128,7 @@ IANA is requested to register the following entry in the "Well-Known URIs" regis
 | Change Controller | IETF |
 | Reference | This document |
 | Status | permanent |
-| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/tick/{entry_digest}` ({{distribution}}) |
+| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}) |
 
 ## ACME Order Object Fields
 
@@ -1697,7 +1697,7 @@ However, DNS-based distribution also has limitations:
   Depending on the DNS infrastructure, this may be more complex than serving an HTTP endpoint.
 
 These limitations are largely addressable.
-Rather than provisioning a static zone with one record per certificate, a CA can answer queries dynamically: a programmable authoritative server synthesizes the response for `{entry_digest}._tick.<zone>` on demand from the same chain state the HTTP interface uses ({{distribution}}), so no per-certificate records are stored and record count ceases to be a scaling concern; the namespace can also be sharded by `entry_digest` prefix across delegated sub-zones.
+Rather than provisioning a static zone with one record per certificate, a CA can answer queries dynamically: a programmable authoritative server synthesizes the response for `{tbs_cert_entry_hash}._tick.<zone>` on demand from the same chain state the HTTP interface uses ({{distribution}}), so no per-certificate records are stored and record count ceases to be a scaling concern; the namespace can also be sharded by `tbs_cert_entry_hash` prefix across delegated sub-zones.
 Staleness is bounded by the record TTL, which SHOULD be no longer than `revocation_period`; because a relying party already accepts a tick for the immediately preceding period ({{clock-skew}}), a briefly stale record remains acceptable, and the authenticating party's pre-installation check ({{verification}}) rejects an unexpectedly stale record and refetches.
 For revocation, a cached record extends the window in which a revoked certificate remains usable by at most the TTL beyond the normal one-period grace, so a short TTL bounds it.
 Under dynamic synthesis the per-period work is the same the HTTP interface performs, merely fronted by a DNS responder; and because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the per-period bundle answering authoritatively.
@@ -1726,7 +1726,7 @@ This approach was rejected because:
   The HTTP interface is a static, plain-HTTP, CDN-cacheable key-value fetch with no per-request cryptography; OCSP adds DER request construction, a responder, nonce handling, and signature validation, contradicting the operational-simplicity argument ({{operational-resilience}}).
 
 - **Addressing and semantics do not fit.**
-  OCSP is a relying-party-to-responder status query located via AIA and keyed by CertID (issuer name and key hashes plus serial), whereas here the authenticating party fetches a value about its own certificate, addressed by `entry_digest` and the CA's TrustAnchorID ({{distribution}}); mapping this onto OCSP reintroduces the AIA-inflation problem rejected above.
+  OCSP is a relying-party-to-responder status query located via AIA and keyed by CertID (issuer name and key hashes plus serial), whereas here the authenticating party fetches a value about its own certificate, addressed by `tbs_cert_entry_hash` and the CA's TrustAnchorID ({{distribution}}); mapping this onto OCSP reintroduces the AIA-inflation problem rejected above.
 
 - **It invites relying-party fetching.**
   OCSP is strongly associated with client-side status checking, so an OCSP-shaped interface risks reintroducing the CA-visible relying-party fetch, latency, and soft-fail that {{rp-no-fetch}} forbids and this design avoids.
@@ -1762,10 +1762,10 @@ Both are committed to the Merkle Tree, so either home makes the anchor self-auth
 In this alternative, a new MerkleTreeCertEntryExtensionType (for example, `hash_chain_anchor`) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and `revocation_period` from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
-This changes what `entry_digest` ({{distribution}}) covers, though not its role.
-`entry_digest` is computed over `tbs_cert_entry_data`, which contains the TBSCertificateLogEntry but not the entry-level extensions of the MerkleTreeCertEntry.
-In this alternative the anchor is therefore committed to the tree through the MerkleTreeCertEntry rather than through `tbs_cert_entry_data`, and does not contribute to `entry_digest`; in the primary design the anchor, as an X.509 extension of the TBSCertificateLogEntry, is part of `tbs_cert_entry_data` and does contribute.
-Either way `entry_digest` remains well-defined and identical for a given entry's standalone and landmark-relative certificates ({{cert-profiles}}), and continues to serve only as the tick-URL identifier.
+This changes what `tbs_cert_entry_hash` ({{distribution}}) covers, though not its role.
+`tbs_cert_entry_hash` is computed over `tbs_cert_entry_data`, which contains the TBSCertificateLogEntry but not the entry-level extensions of the MerkleTreeCertEntry.
+In this alternative the anchor is therefore committed to the tree through the MerkleTreeCertEntry rather than through `tbs_cert_entry_data`, and does not contribute to `tbs_cert_entry_hash`; in the primary design the anchor, as an X.509 extension of the TBSCertificateLogEntry, is part of `tbs_cert_entry_data` and does contribute.
+Either way `tbs_cert_entry_hash` remains well-defined and identical for a given entry's standalone and landmark-relative certificates ({{cert-profiles}}), and continues to serve only as the tick-URL identifier.
 
 This has a natural symmetry with the tick's encoding: the immutable, committed anchor lives in the committed entry extensions, while the mutable, per-period tick lives in the uncommitted trailing field or `proof_extensions` ({{cert-format}}).
 It is also more compact, because a MerkleTreeCertEntryExtension uses a short TLS type-and-length framing rather than an X.509 extension's OBJECT IDENTIFIER and DER wrapper.
