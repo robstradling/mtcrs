@@ -480,7 +480,7 @@ Whichever encoding the base specification selects becomes the single encoding us
 ### Preferred Encoding: Trailing status_tick Field {#tick-trailing-field}
 
 In the RECOMMENDED encoding, the base MTC specification is amended to append the HashChainTick to the MTCProof as a trailing `status_tick` field.
-The field is not a bare optional field -- the base MTCProof has no discriminant for one -- but a variant selected by whether the certificate carries the id-pe-hashChainAnchor extension, occupying zero bytes when it does not:
+The field is not a bare optional field -- the base MTCProof has no discriminant for one -- but a variant selected by whether the entry carries a hash chain anchor ({{assertion-integration}}), occupying zero bytes when it does not:
 
     struct {
         MerkleTreeCertEntryExtension extensions<0..2^16-1>;
@@ -494,14 +494,14 @@ The field is not a bare optional field -- the base MTCProof has no discriminant 
         } status_tick;
     } MTCProof;
 
-certificate_has_hashChainAnchor is the contextual boolean "the certificate's TBSCertificate contains the id-pe-hashChainAnchor extension".
-Like the base specification's select on the certificate context (for example, Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}) and the analogous contextual selects in TLS ({{RFC8446}}), the discriminant is not a field of the structure; it is always available where an MTCProof is parsed, because an MTCProof is only ever decoded as the `signatureValue` of a specific certificate whose extensions are known.
+certificate_has_hashChainAnchor is the contextual boolean "the entry carries a hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}) -- read from whichever home the deployment uses.
+Like the base specification's select on the certificate context (for example, Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}) and the analogous contextual selects in TLS ({{RFC8446}}), the discriminant is not a field of the structure; it is always available where an MTCProof is parsed, because an MTCProof is only ever decoded as the `signatureValue` of a specific certificate whose entry and extensions are known.
 The false case uses the Empty type (an empty structure), so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
 
 This resolves precisely the "extra data after the MTCProof" check in Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
-- If the certificate contains the id-pe-hashChainAnchor extension (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes; 36 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there. A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
-- If the certificate does not contain the id-pe-hashChainAnchor extension (the false case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
+- If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes; 36 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there. A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
+- If the entry does not carry a hash chain anchor (the false case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
 
 A relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.
 
