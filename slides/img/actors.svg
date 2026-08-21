@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="464" width="512" viewBox="0 0 512 464" class="diagram" text-anchor="middle" font-family="monospace" font-size="13px" stroke-linecap="round">
+<path d="M 8,16 L 8,64" fill="none" stroke="black"/>
+<path d="M 8,176 L 8,240" fill="none" stroke="black"/>
+<path d="M 24,72 L 24,168" fill="none" stroke="black"/>
+<path d="M 24,248 L 24,336" fill="none" stroke="black"/>
+<path d="M 136,176 L 136,240" fill="none" stroke="black"/>
+<path d="M 168,16 L 168,224" fill="none" stroke="black"/>
+<path d="M 200,192 L 200,272" fill="none" stroke="black"/>
+<path d="M 232,336 L 232,432" fill="none" stroke="black"/>
+<path d="M 296,144 L 296,184" fill="none" stroke="black"/>
+<path d="M 296,280 L 296,328" fill="none" stroke="black"/>
+<path d="M 408,192 L 408,272" fill="none" stroke="black"/>
+<path d="M 440,336 L 440,432" fill="none" stroke="black"/>
+<path d="M 8,16 L 168,16" fill="none" stroke="black"/>
+<path d="M 8,64 L 168,64" fill="none" stroke="black"/>
+<path d="M 8,176 L 136,176" fill="none" stroke="black"/>
+<path d="M 200,192 L 408,192" fill="none" stroke="black"/>
+<path d="M 168,224 L 192,224" fill="none" stroke="black"/>
+<path d="M 8,240 L 136,240" fill="none" stroke="black"/>
+<path d="M 200,272 L 408,272" fill="none" stroke="black"/>
+<path d="M 24,336 L 440,336" fill="none" stroke="black"/>
+<path d="M 288,416 L 304,416" fill="none" stroke="black"/>
+<path d="M 232,432 L 440,432" fill="none" stroke="black"/>
+<polygon class="arrowhead" points="312,416 300,410.4 300,421.6" fill="black" transform="rotate(0,304,416)"/>
+<polygon class="arrowhead" points="304,328 292,322.4 292,333.6" fill="black" transform="rotate(90,296,328)"/>
+<polygon class="arrowhead" points="304,184 292,178.4 292,189.6" fill="black" transform="rotate(90,296,184)"/>
+<polygon class="arrowhead" points="232,336 220,330.4 220,341.6" fill="black" transform="rotate(0,224,336)"/>
+<polygon class="arrowhead" points="200,224 188,218.4 188,229.6" fill="black" transform="rotate(0,192,224)"/>
+<polygon class="arrowhead" points="32,168 20,162.4 20,173.6" fill="black" transform="rotate(90,24,168)"/>
+<g class="text">
+<text x="84" y="36">CA</text>
+<text x="84" y="52">(issuer)</text>
+<text x="88" y="100">(1) issuance:</text>
+<text x="312" y="100">(2) each period: reveal one chain</text>
+<text x="92" y="116">commit</text>
+<text x="332" y="116">value as a tick and publish it</text>
+<text x="104" y="132">anchor in</text>
+<text x="248" y="132">over HTTP</text>
+<text x="384" y="132">(to revoke, withhold)</text>
+<text x="104" y="148">log entry</text>
+<text x="72" y="196">MTC log</text>
+<text x="76" y="212">Merkle Tree,</text>
+<text x="300" y="212">Authenticating party</text>
+<text x="64" y="228">cosigners</text>
+<text x="300" y="228">(TLS server)</text>
+<text x="160" y="244">GET</text>
+<text x="296" y="244">staples tick into the</text>
+<text x="300" y="260">certificate's MTCProof</text>
+<text x="72" y="276">(3) cert:</text>
+<text x="132" y="292">inclusion proof,</text>
+<text x="120" y="308">cosignatures,</text>
+<text x="380" y="308">(4) TLS handshake:</text>
+<text x="132" y="324">committed anchor</text>
+<text x="424" y="324">cert + MTCProof(tick)</text>
+<text x="320" y="356">Relying party</text>
+<text x="316" y="372">(client)</text>
+<text x="312" y="388">verifies OFFLINE:</text>
+<text x="324" y="404">proof, cosignatures,</text>
+<text x="260" y="420">tick</text>
+<text x="340" y="420">anchor</text>
+</g>
+</svg>

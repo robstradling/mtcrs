@@ -27,16 +27,12 @@ style: |
 <!-- _class: lead -->
 
 # MTCRS
-## Merkle Tree Certificate Revocation Status
+## Merkle Tree Certificates: Revocation Status
 
 **Timely, enforceable revocation for MTC — using nothing but a hash function.**
 
 Rob Stradling · Sectigo
 PLANTS WG · `draft-strad-plants-mtcrs`
-
-<!--
-Speaker note: This audience already knows MTC. Today I'm filling in the one thing base MTC leaves open: what to do when a certificate must die before it naturally expires.
--->
 
 ---
 
@@ -44,8 +40,9 @@ Speaker note: This audience already knows MTC. Today I'm filling in the one thin
 
 - Certificates are **entries in a cosigned Merkle Tree**.
 - The **MTCProof** carries an **inclusion proof + cosignatures** = *"this certificate is authentic."*
-- Base MTC deliberately uses a **short-lived model**: expiry replaces revocation.
-- No OCSP, no CRLs, no responders. That simplicity is the whole point.
+- Base MTC deliberately uses a **short-lived model**: expiry is the primary revocation story.
+- It doesn't *mandate* an always-on revocation service — that lean design is the whole point.
+  <span class="small muted">(Traditional methods like OCSP/CRLs aren't forbidden; browser policy is still open.)</span>
 
 **MTCRS keeps that simplicity — it just adds one missing guarantee.**
 
@@ -55,8 +52,8 @@ Speaker note: This audience already knows MTC. Today I'm filling in the one thin
 
 - Real deployments allow long-ish lifetimes: **Chrome's draft MTC policy → up to 47 days**.
 - Over 47 days, **key compromise** or **misissuance** can do real damage before natural expiry.
-- Base MTC *acknowledges* this and says: "use CRLite / CRLSets if you have them."
-  - But that's **out-of-band**, **vendor-controlled**, and **not universal**.
+- Base MTC leaves certificate-level revocation **out of scope**: it says CRLs/OCSP "apply unchanged" and defines only coarse **serial-range** revocation for CA misbehaviour (§7.5).
+  - The practical fallback is **out-of-band, vendor-controlled** push lists (CRLite / CRLSets) — **not universal**, and nothing in-band.
 
 > There is no **in-band** way for the CA to say *"stop trusting this one, now."*
 
@@ -70,9 +67,17 @@ Speaker note: This audience already knows MTC. Today I'm filling in the one thin
 > Each period it **reveals the next link** as a proof of non-revocation.
 > To revoke, it simply **stops revealing**.
 
-- The inclusion proof says **"authentic."**
-- The new **tick** says **"still valid *right now*."**
+- The Merkle Tree inclusion proof says **"authentic."**
+- That revealed link, packaged with its period number, is a **tick** — it says **"still valid *right now*."**
 - Together: not just *was issued*, but *may be relied on now*.
+
+---
+
+# Picture: the hash-chain lifecycle
+
+![h:520](img/hash-chain.png)
+
+<span class="small muted">Generated **forward** at issuance (secret seed → public anchor) · revealed **backward**, one link per period · verified **forward** back to the committed anchor.</span>
 
 ---
 
@@ -88,9 +93,9 @@ anchor = h[chain_length]     <-- committed into the certificate
 
 - `chain_length = ceil(lifetime / revocation_period)`  (e.g. 47 days / 1 hour ≈ 1128).
 - The **anchor** goes into the log entry as an X.509 extension → **committed to the Merkle Tree**.
-- Preimage resistance ⇒ knowing a link **can't** compute the *next* (earlier-generated) link.
+- **One-way hashing** ⇒ knowing a link **can't** compute the *next* (earlier-generated) link.
 
-<span class="small muted">The chain is generated forward from the secret seed, but revealed backward.</span>
+<span class="small muted">Simplified: each step hashes the previous value together with per-entry identifiers (domain separation). The chain is generated **forward** from the secret seed, but revealed **backward**.</span>
 
 ---
 
@@ -125,7 +130,7 @@ period 2:  h[L-2]
 # How it works — 4. The server presents the tick
 
 - The server fetches its current tick each period: **one plain HTTP GET, 36 bytes, no crypto**.
-  - `GET {base}/.well-known/mtcrs/tick/{entry_hash}`
+  - `GET {base}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}`
 - It writes the tick into the **MTCProof** (the `signatureValue`).
 - MTCProof is **not** committed to the tree ⇒ the tick can be refreshed freely; the inclusion proof and cosignatures are untouched.
 
@@ -145,6 +150,14 @@ Everything needed comes **from the certificate itself**:
 <br>
 
 > **Self-authenticating.** No new signatures, no new trust, no responder, no network call.
+
+---
+
+# How it all fits together
+
+![h:560](img/actors.png)
+
+<span class="small muted">CA commits the anchor at issuance and publishes a tick each period · the server staples the current tick into the MTCProof · the relying party verifies everything **offline**.</span>
 
 ---
 
@@ -216,6 +229,29 @@ Everything needed comes **from the certificate itself**:
 
 ---
 
+# "Didn't Micali try this in 1996?"
+
+<div class="small">
+
+Hash-chain revocation is **Micali's CRS** — the "CRS" in MTCRS is a nod to it.
+It never shipped in the Web PKI, and **not because the crypto was wrong**:
+
+- The cheap part was *verifying*; the hard part was **getting a fresh token to the client every period**.
+- Classic X.509 had **nowhere free to carry it** ⇒ the client had to **fetch** it ⇒ straight back to OCSP's latency, privacy, and soft-fail problems.
+- OCSP chose **signatures for retrofit + flexibility**, not because hash chains were worse — the blocker was **delivery**, which MTC now provides.
+
+**What's different now — MTC gives the token a free ride:**
+
+- The tick travels **inside the certificate presentation** (MTCProof) — the client fetches **nothing**.
+- The anchor is **already committed** in the Merkle Tree — no new signature or trust.
+- Enforcement is **hard-fail by construction** — the very gap that sank CRS and OCSP.
+
+> Same primitive; the missing piece was the **delivery channel** — and MTC *is* that channel.
+
+</div>
+
+---
+
 # Objections & responses (1/2)
 
 <div class="small">
@@ -231,6 +267,9 @@ Everything needed comes **from the certificate itself**:
 
 - **"CRLite/CRLSets already solve this."**
   Complementary. Those are vendor-controlled, best-effort, subscribers-only. MTCRS is CA-operated, deterministic-latency, enforced by **every** RP (incl. IoT / non-browser).
+
+- **"OCSP can answer historical status; can MTCRS?"**
+  No — by design. MTCRS is a **handshake-time liveness** check, not a queryable "valid at time *T*" database. That audit niche stays with OCSP.
 
 </div>
 
@@ -284,5 +323,6 @@ Everything needed comes **from the certificate itself**:
 - **36 bytes** per handshake · **zero** per-check signatures · **no new trust**.
 - **Hard-fail** where OCSP could only soft-fail; **universal** where push lists are partial.
 - **One** small change to the base spec — and MTC is greenfield, so *now* is the time.
+- **Experimental** today; intended for the **Standards Track** if PLANTS is willing.
 
 **`draft-strad-plants-mtcrs` — feedback welcome.**
