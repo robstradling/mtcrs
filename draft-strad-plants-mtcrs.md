@@ -397,9 +397,26 @@ For period 0, `chain_length - t` equals `chain_length`, so the value revealed is
 The period 0 tick therefore provides no cryptographic assurance of non-revocation, and any party can construct it.
 This is an intentional design choice; see {{period-zero-rationale}} for the rationale.
 
+## Revoking a Certificate {#revoking}
+
 To revoke a certificate, the CA stops revealing new values.
 Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed chain elements, which requires inverting the hash function.
 Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1; a certificate therefore cannot be revoked during period 0, and one the CA wishes to revoke from the moment of issuance becomes unusable at the start of period 2 ({{period-zero-rationale}}).
+
+Withholding is the entirety of the revocation action, but a CA must discharge it across every channel through which it publishes ticks, and pair it with the base MTC mechanism where this one does not reach.
+On deciding to revoke an entry, a CA:
+
+1. MUST stop revealing that entry's chain values from the start of the next period, and MUST NOT serve them from its own tick distribution service ({{distribution}}) thereafter.
+
+2. MUST omit the entry from every subsequent per-period bundle published to delegated distributors ({{delegated-distribution}}).
+   A distributor pre-provisioned with a buffer of future values cannot be revoked through that channel until the buffer is exhausted, which is why the buffer SHOULD be short.
+
+3. MUST, when revoking because of key compromise, also revoke the serial ranges of that key's certificates that carry no anchor, since withholding ticks reaches only the certificates that carry one ({{downgrade}}).
+
+4. MUST fall back to the base MTC revoked-ranges mechanism if the seed or its derivation secret is compromised, because an attacker holding those can forge ticks whatever the CA withholds ({{seed-confidentiality}}).
+
+No cache purge is required or useful: a tick cached at an HTTP intermediary is bounded by the same acceptance window as a freshly fetched one ({{clock-skew}}), so the certificate becomes unusable on the same schedule either way.
+A deployment that needs the revocation to be publicly auditable records it through the revoked-ranges mechanism as well ({{revocation-transparency}}).
 
 ## Security of the Hash Chain
 
@@ -815,6 +832,12 @@ The authenticating party periodically fetches its current tick from the CA:
 
 During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
 A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to publish the chain ({{period-zero-rationale}}).
+
+Repeated failure to obtain a fresh tick after period 0 is different.
+It is the observable signature of either revocation ({{revoking}}) or a distribution failure, and the authenticating party cannot tell which from the response alone ({{response-format}}).
+An authenticating party SHOULD therefore raise an operational alarm once it has failed to obtain a fresh tick for a full `revocation_period`, rather than waiting until the certificate stops working, since by then it has at most one period of runway left.
+An authenticating party that holds a certificate from another CA SHOULD fail over to it before its newest tick leaves the acceptance window ({{availability-considerations}}), which restores service whichever of the two causes applies.
+Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification}}).
 
 If the authenticating party is unable to obtain a fresh tick (e.g., due to CA unavailability), it continues to serve the most recent tick it holds for as long as that tick remains within the acceptance window (step 4 of {{verification}}).
 Because a relying party also accepts the immediately preceding period's tick, a tick fetched for period t stays acceptable until the end of period t+1 -- close to two periods of runway from a single successful fetch, not one ({{availability-considerations}}).
