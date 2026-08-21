@@ -1459,7 +1459,7 @@ The narrower point is that, with enforceable revocation in place, lifetime and r
 ## Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
 
 Several alternative revocation mechanisms were considered and rejected; {{alternatives}} analyses each.
-Hash chains {{MICALI}} were selected because they are the only known mechanism that provides *all* of the properties listed in the Introduction at once -- self-authentication against the committed anchor, zero per-period CA signing, mandatory hard-fail enforcement, and a 36-byte per-handshake cost -- using nothing but a hash function and basic arithmetic, with no new cryptographic primitive.
+Hash chains {{MICALI}} were selected because they are the only known mechanism that provides *all* of the properties listed in the Introduction at once -- timely revocation, zero per-period CA signing, self-authentication against the committed anchor, mandatory hard-fail enforcement, and a 36-byte per-handshake cost -- using nothing but a hash function and basic arithmetic, with no new cryptographic primitive.
 Each alternative in {{alternatives}} secures some of these but sacrifices at least one: signed per-certificate status reintroduces per-period signing ({{operational-resilience}}); a separate TLS or stapled channel reintroduces the strippable soft-fail ({{ocsp-stapling-comparison}}); and pushed external lists give up universal, CA-anchored enforcement ({{browser-revocation-history}}).
 It is this simultaneity, not any single property, that distinguishes hash chains.
 
