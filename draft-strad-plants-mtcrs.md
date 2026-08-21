@@ -1814,26 +1814,18 @@ It has three costs, however:
 Because of the last point in particular, this document uses the X.509 extension as the primary design: it lets this mechanism be layered onto an otherwise unmodified MTC log and cosigner deployment.
 A base specification that is willing to make its entry-extension registry and cosigner software aware of hash chain revocation MAY instead adopt the entry-extension encoding, gaining the compactness and the committed/uncommitted symmetry described above.
 
-## TLS Extension (Separate from Certificate)
+## TLS Extension or status_request Reuse
 
-Another alternative was carrying the hash chain tick in a TLS CertificateEntry extension or a separate TLS extension, rather than embedding it in the MTCProof.
+Another option is to carry the tick in TLS rather than in the MTCProof -- either a new TLS or CertificateEntry extension, or the existing `status_request` extension (defined for OCSP stapling), whose `CertificateStatusType` enum is extensible beyond OCSP (in TLS 1.3 it would ride in the `CertificateEntry` extensions).
 
-This approach was rejected because:
+All such approaches share a disqualifying property: a TLS-carried status is opt-in and strippable.
+A separate extension can be omitted by a middlebox or misconfigured server, and `status_request` is requested by the client and may be omitted by the server -- in either case with no signal that one was expected -- forcing relying parties to soft-fail, exactly the failure mode analysed in {{ocsp-stapling-comparison}}.
+Embedding the tick in the MTCProof instead makes it inseparable from the certificate's acceptance: with the committed anchor present, an aware relying party rejects the certificate if the tick is missing ({{tick-trailing-field}}), so stripping forces a hard failure rather than a silent soft-fail.
+The bytes are covered by no signature and so are not physically immovable, but they cannot be removed while leaving a certificate that still verifies.
 
-- **Strippable soft-fail:** A separate, optional TLS extension can be omitted by a middlebox or misconfigured server with no signal that one was expected, forcing relying parties to soft-fail -- exactly the failure mode analysed in {{ocsp-stapling-comparison}}.
-  Embedding the tick in the MTCProof instead makes it inseparable from the certificate's acceptance: with the committed anchor present, an aware relying party rejects the certificate if the tick is missing ({{tick-trailing-field}}), so stripping forces a hard failure rather than a silent soft-fail. The bytes are not physically immovable -- they are covered by no signature -- but they cannot be removed while leaving a certificate that still verifies.
-
-- **Unnecessary complexity:** Defining a new TLS extension type requires IANA registration and implementation changes in TLS stacks.
-  Embedding in the MTCProof requires no TLS-layer changes beyond MTC support itself.
-
-## TLS status_request Extension
-
-The TLS `status_request` extension (defined for OCSP stapling) uses a `CertificateStatusType` enum that is designed to be extensible beyond OCSP.
-In TLS 1.2, a new status type could deliver the tick in a `CertificateStatus` message; in TLS 1.3, it could be carried per-certificate in the `CertificateEntry` extensions.
-
-This approach was rejected for the same fundamental reason as a generic TLS extension: status_request is inherently opt-in -- the client requests it and the server can omit it with no hard failure -- so reusing it for a mandatory validity condition reintroduces the strippable soft-fail analysed in {{ocsp-stapling-comparison}}.
-
-Additionally, `status_request` carries `OCSPResponse` semantics (a signed assertion from a responder); repurposing it for a bare hash value that is self-authenticating against the certificate would be a poor semantic fit.
+Two further points weigh against a TLS encoding.
+A new TLS extension type requires IANA registration and TLS-stack changes, whereas embedding in the MTCProof needs no TLS-layer change beyond MTC support itself.
+And `status_request` specifically carries `OCSPResponse` semantics (a signed responder assertion); repurposing it for a bare, self-authenticating hash value would be a poor semantic fit.
 
 ## Proof-Extension Encoding for the Tick {#tick-proof-extension}
 
