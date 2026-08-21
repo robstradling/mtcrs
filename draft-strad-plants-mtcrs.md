@@ -1494,7 +1494,7 @@ Merkle Tree Certificates remove that barrier, which is what lets the same primit
   The only fetch is the server's own once-per-period refresh, a static cacheable GET that can be delegated to CDNs and mirrors ({{delegated-distribution}}).
 
 - **The commitment is free.**
-  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{assertion-integration}}), so the tick is self-authenticating with no new signature, responder, or trust relationship -- where classic CRS needed the CA to sign the chain's target into each certificate.
+  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{assertion-integration}}), so the tick is self-authenticating with no new signature, responder, or trust relationship -- where classic CRS needed the CA to sign the chain's endpoint (its anchor) into each certificate.
 
 - **Enforcement is hard-fail by construction.**
   Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale ({{ocsp-stapling-comparison}}); it cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.
