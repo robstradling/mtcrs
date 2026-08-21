@@ -137,7 +137,7 @@ Relying parties that have them may fall back to out-of-band systems such as {{CR
 
 This document defines such a mechanism based on hash chains {{MICALI}}.
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
-Each revocation period (e.g., every hour), the CA reveals the next hash chain value for all non-revoked certificates.
+Each revocation period (e.g., every hour), the CA reveals the next hash chain value -- walking the committed chain backward -- for all non-revoked certificates.
 To revoke a certificate, the CA simply stops revealing values.
 The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the `signatureValue`), and the relying party (client) verifies it against the anchor committed in the log entry.
 
