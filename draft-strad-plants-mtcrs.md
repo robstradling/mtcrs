@@ -1728,41 +1728,14 @@ Two effects shrink it further: a newly issued certificate is the cheapest to ver
 
 ## DNS-Based Tick Distribution
 
-An alternative to the HTTP-based tick distribution described in {{distribution}} is for the CA to publish current ticks via DNS records, which the authenticating party fetches and embeds in the MTCProof.
-For example, a TXT or other record type at a well-known name derived from the CA, log number, and entry index.
+An alternative to the HTTP interface ({{distribution}}) is for the CA to publish current ticks via DNS -- for example a TXT record at a name derived from `tbs_cert_entry_hash` -- which the authenticating party fetches and embeds in the MTCProof.
+Because the tick is embedded regardless of transport, the relying party's verification is unchanged and the choice is purely between the CA and the authenticating party; it does not affect interoperability.
+DNS's hierarchical caching suits small, frequently-updated values, letting recursive resolvers serve ticks without CA-operated CDN infrastructure.
+Its apparent costs -- large zones with one record per certificate, and TTL-bounded propagation -- are addressable: a programmable authoritative server can synthesize the response for `{tbs_cert_entry_hash}._tick.<zone>` on demand from the same chain state ({{distribution}}), so no per-certificate records are stored, and a TTL no longer than `revocation_period` bounds staleness (a briefly stale record stays acceptable under the one-period grace ({{clock-skew}}), and the authenticating party's pre-installation check ({{verification}}) refetches an unexpectedly stale one).
+Because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the per-period bundle.
 
-Since the tick is embedded in the MTCProof regardless of how it was obtained, the relying party's verification procedure is unchanged.
-The choice of distribution channel is purely between the CA and the authenticating party.
-
-DNS-based distribution has some advantages over HTTP:
-
-- **Caching infrastructure:** DNS's hierarchical caching architecture is well-suited to distributing small, frequently updated values.
-  Recursive resolvers naturally cache and serve ticks without requiring the CA to operate CDN infrastructure.
-
-However, DNS-based distribution also has limitations:
-
-- **Record size constraints:** While a single tick (36 bytes) fits easily in a DNS record, scaling to millions of entries may require careful zone design.
-  The CA would need one record per active certificate, which could result in very large zones.
-
-- **Update propagation delay:** DNS TTLs and caching may delay propagation of new ticks.
-  The CA SHOULD set TTLs no longer than `revocation_period` seconds, but cached stale records could cause authenticating parties to serve expired ticks briefly.
-
-- **Operational complexity for the CA:** The CA must update DNS records for every non-revoked certificate each period.
-  Depending on the DNS infrastructure, this may be more complex than serving an HTTP endpoint.
-
-These limitations are largely addressable.
-Rather than provisioning a static zone with one record per certificate, a CA can answer queries dynamically: a programmable authoritative server synthesizes the response for `{tbs_cert_entry_hash}._tick.<zone>` on demand from the same chain state the HTTP interface uses ({{distribution}}), so no per-certificate records are stored and record count ceases to be a scaling concern; the namespace can also be sharded by `tbs_cert_entry_hash` prefix across delegated sub-zones.
-Staleness is bounded by the record TTL, which SHOULD be no longer than `revocation_period`; because a relying party already accepts a tick for the immediately preceding period ({{clock-skew}}), a briefly stale record remains acceptable, and the authenticating party's pre-installation check ({{verification}}) rejects an unexpectedly stale record and refetches.
-For revocation, a cached record extends the window in which a revoked certificate remains usable by at most the TTL beyond the normal one-period grace, so a short TTL bounds it.
-Under dynamic synthesis the per-period work is the same the HTTP interface performs, merely fronted by a DNS responder; and because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the per-period bundle answering authoritatively.
-
-Deployments MAY use DNS-based distribution as an alternative or complement to HTTP-based distribution.
-The choice does not affect interoperability, since the relying party only sees the tick in the MTCProof.
-
-DNSSEC is not required for DNS-based tick distribution and SHOULD NOT be used.
-Each tick is self-authenticating ({{verification}}): an attacker who modifies a tick in transit cannot produce a value that passes verification without inverting the hash function.
-An attacker who suppresses a tick only prevents the authenticating party from obtaining a fresh tick, which is equivalent to a network-level denial of service against any distribution channel.
-Adding DNSSEC would introduce unnecessary operational complexity (key management, signature generation for frequently changing records) and increase DNS response sizes, without improving the security of the revocation mechanism.
+DNSSEC is not required and SHOULD NOT be used: each tick is self-authenticating ({{verification}}), so an attacker cannot forge one in transit without inverting the hash, and suppressing a tick is only a denial of service against any distribution channel.
+DNSSEC would add key management and signing for frequently-changing records, and larger responses, without improving the mechanism's security.
 
 ## OCSP-Based Tick Distribution
 
