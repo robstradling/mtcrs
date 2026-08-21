@@ -333,7 +333,8 @@ The period number at any given time t is:
 It anchors the period schedule to a value that both the CA and every verifier read from the certificate, so they compute identical period boundaries regardless of their wall-clock differences; it is not necessarily the exact instant of issuance.
 The CA MUST number periods from `notBefore` and MUST NOT begin revealing ticks before period 0 starts at `notBefore`.
 
-A CA commonly sets `notBefore` slightly earlier than the actual instant of issuance (backdating) to tolerate relying-party clock skew.
+Period numbering depends only on `notBefore`.
+It is independent of the MTCProof's `start` and `end` fields, which describe the chosen subtree interval used for the inclusion proof and play no part in the period schedule; the standalone and landmark-relative certificates for an entry can carry different `start` and `end` yet number periods identically, because they share the same `notBefore` ({{cert-profiles}}).
 This is harmless here: it merely places the certificate a little way into period 0 when it is first presented (or, if `notBefore` is backdated by more than one `revocation_period`, into a later period).
 Setting `notBefore` later than issuance (forward-dating) is different: there is no period earlier than 0, and for any time t earlier than `notBefore` the quantity (t - `not_before`) is negative.
 Such a certificate is simply not yet valid; a verifier MUST reject it through the base MTC validity check before computing any period, and MUST NOT evaluate the period expression with unsigned arithmetic, which would underflow for such times and could yield a spuriously large period.
