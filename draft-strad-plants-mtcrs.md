@@ -169,7 +169,7 @@ First, enforcement introduces an availability dependency: because an authenticat
 Second, revocation is enforceable but not transparent: withholding a tick is not a signed, logged artifact, so monitors cannot observe revocation events in the Merkle Tree, and a deployment that needs an auditable revocation record pairs this mechanism with the base MTC revoked-ranges mechanism ({{revocation-transparency}}).
 Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
 
-This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with a single required change; {{base-spec-amendments}} collects what this document asks of the base specification.
+This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with a single required change; {{base-spec-amendments}} collects what this document asks of the base specification, and {{open-questions}} the design choices it leaves open for the working group to settle.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
 
 This document is published as Experimental to gather implementation and deployment experience with hash chain revocation for Merkle Tree Certificates.
@@ -291,6 +291,36 @@ Everything else this document defines -- the id-pe-hashChainAnchor X.509 extensi
 The MTCProof changes themselves -- the trailing `status_tick` field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the `proof_extensions` field ({{mtcproof-extensibility}}) -- are edits to a structure that the base specification owns.
 This document specifies them in full so that the required change is concrete and reviewable, but the intent is to hand them to the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
 If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
+
+# Open Questions for the Working Group {#open-questions}
+
+{{base-spec-amendments}} states what this document asks of the base specification as concrete proposals, so that they are reviewable.
+This section collects the choices behind those proposals that the author considers genuinely open, each with the alternatives, this document's current preference, and a pointer to the full analysis.
+A working group that adopts this document should expect to settle them; nothing in this section is itself a normative requirement.
+
+1. **Where does the anchor live?**
+   The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{assertion-integration}}) or a committed entry extension ({{anchor-entry-extension}}).
+   Both are committed to the Merkle Tree, so the verification procedure is identical either way; the trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+   *Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
+   Whichever is chosen becomes the single anchor home for the ecosystem.
+
+2. **How is the tick carried in the MTCProof?**
+   Either as a trailing `status_tick` field ({{tick-trailing-field}}) or as a `hash_chain_tick` proof extension ({{tick-proof-extension}}).
+   *Preference:* the trailing field, as the minimal change to a base-specification-owned structure, adding no variable-length "ignore if unknown" region.
+
+3. **Does the base specification want general proof-level extensibility at all?**
+   This is separable from question 2.
+   The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms; if it is adopted, the tick should use it rather than a bare trailing field.
+   *Preference:* not needed for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
+
+4. **What should the default `revocation_period` be?**
+   This document uses one hour ({{why-one-hour}}); one day is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}).
+   Because the value is per-certificate and carried in the certificate ({{construction}}), this is a question about the recommended default and about what root programs should require, not about the protocol.
+
+5. **Should period 0 enforce revocation?**
+   The period 0 tick is the public anchor, which gives the CA a one-period grace to publish a new certificate's chain but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
+   Computing the chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
+   *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
 
 # Hash Chain Construction {#construction}
 
