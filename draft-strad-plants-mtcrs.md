@@ -766,8 +766,11 @@ The authenticating party periodically fetches its current tick from the CA:
 
 1. At least once per `revocation_period`, the authenticating party fetches its updated HashChainTick.
 
-2. The authenticating party SHOULD verify the fetched tick against the anchor committed in its own certificate before installing it: that hashing `tick.value` forward `tick.period` times yields the anchor ({{verification}}), and that `tick.period` is the period it expects to be current.
-   This catches a corrupted, truncated, misrouted (wrong-entry), or unexpectedly stale response before it is ever presented in a handshake, where it would otherwise cause relying parties to reject the certificate.
+2. Before installing a fetched tick, the authenticating party MUST verify it against the anchor committed in its own certificate: that hashing `tick.value` forward `tick.period` times yields the anchor ({{verification}}).
+   A tick that fails this check MUST NOT be installed or presented; the authenticating party discards it and continues to serve its most recent still-valid tick, retrying as under {{response-format}}.
+   This catches a corrupted, truncated, or misrouted (wrong-entry) response before it is ever presented in a handshake, where it would otherwise cause relying parties to reject the certificate.
+   The authenticating party SHOULD additionally check that `tick.period` is the period it currently expects, so that an unexpectedly stale or future-dated response is also rejected; because a stale-but-genuine tick still hashes to the anchor, only this freshness check detects it.
+   This part is a SHOULD rather than a MUST because clock skew between the authenticating party and the CA can legitimately shift the served period by one ({{clock-skew}}); a deployment MAY narrow it to strict equality where both clocks are trusted.
 
 3. The authenticating party updates the HashChainTick carried in its certificate's MTCProof (`signatureValue`) with the newly fetched value.
    The inclusion proof and cosignatures remain unchanged.
