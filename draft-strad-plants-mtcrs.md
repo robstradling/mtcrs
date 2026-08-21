@@ -629,10 +629,11 @@ Given a tick base URL for the CA (see {{discovery}}), the tick for a particular 
 
     GET {tick_base_url}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}
 
-where {tbs_cert_entry_hash} is the lowercase hex-encoded SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}), so that the CA and the authenticating party derive an identical value.
-The authenticating party computes {tbs_cert_entry_hash} from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
+where `tbs_cert_entry_hash` is the SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}}), and the final path segment is its lowercase hexadecimal encoding (64 characters for SHA-256), so that the CA and the authenticating party derive an identical URL.
+Throughout this document `tbs_cert_entry_hash` denotes that binary hash value (32 bytes for SHA-256); only the URL path segment carries it hex-encoded.
+The authenticating party computes it from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
 
-**Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value: the lowercase hex SHA-256 of the entry's `tbs_cert_entry_data`, fixed to SHA-256 independent of the CA's tree HASH.
+**Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value: the SHA-256 of the entry's `tbs_cert_entry_data`, fixed to SHA-256 independent of the CA's tree HASH.
 It is distinct from the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})` used for inclusion proofs (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), which is computed with the tree HASH over the entire log entry; `tbs_cert_entry_hash` hashes only `tbs_cert_entry_data` and is never verified as a proof.
 It carries no security weight: the sole property it needs is collision resistance so that two entries do not share a URL, and even that is non-load-bearing, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches ({{verification}}).
 Fixing it to SHA-256 keeps tick distribution and caching independent of the CA's tree hash; algorithm agility lives where it matters, in the security-relevant hashing that follows the agile tree HASH ({{post-quantum}}), and the `v1` path segment is the migration lever should the addressing hash ever need to change.
@@ -806,7 +807,7 @@ Rather than fetching at the start of each period, an authenticating party SHOULD
 
     offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
-where `tbs_cert_entry_hash` is the binary (pre-hex-encoding) SHA-256 hash of the entry's `tbs_cert_entry_data` ({{distribution}}), UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
+where `tbs_cert_entry_hash` is the binary hash defined in {{distribution}}, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
 The authenticating party computes this from its own entry, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by `tbs_cert_entry_hash`.
 The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
 During the first offset seconds of the period it continues to serve the preceding period's tick.
