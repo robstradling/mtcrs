@@ -179,6 +179,31 @@ Later sections use the term in this sense.
 
 This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in {{construction}} through {{distribution}}.
 It reuses the small example of {{test-vectors}}: a chain of length `chain_length = 5` (a real certificate uses a much longer chain -- for example 1,128 for a 47-day lifetime with a one-hour period).
+{{fig-hash-chain}} depicts the lifecycle that the five steps below trace.
+
+~~~aasvg
+   Issuance: the CA hashes a secret seed forward to the anchor,
+   then commits the anchor in the certificate.
+
+    +------+   +------+   +------+   +------+   +------+   +------+
+    | h[0] |-->| h[1] |-->| h[2] |-->| h[3] |-->| h[4] |-->| h[5] |
+    +------+   +------+   +------+   +------+   +------+   +------+
+     seed        \___ each arrow is one hash ___/          anchor
+    (secret)                                             (committed
+                                                          in cert)
+
+   Each period, the CA reveals one value, walking the chain
+   backward; the revealed value is that period's public "tick".
+
+     period:   0        1        2        3        4
+     tick:    h[5]     h[4]     h[3]     h[2]     h[1]
+            (anchor)
+     (the seed h[0] is never revealed; revealing stops to revoke)
+
+   Verify a tick for period t: hash it forward t times and check
+   it equals the anchor.  Period 2:  h[3] --> h[4] --> h[5].
+~~~
+{: #fig-hash-chain title="MTCRS hash chain lifecycle: generated forward at issuance, revealed in reverse each period, and verified forward to the committed anchor"}
 
 1. **Issuance.**
    For each log entry, the CA generates a secret random seed `h[0]` and hashes it forward `chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
