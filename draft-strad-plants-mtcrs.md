@@ -161,6 +161,9 @@ This approach achieves the following properties:
 This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with a single required change; {{base-spec-amendments}} collects what this document asks of the base specification.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
 
+This document is published as Experimental to gather implementation and deployment experience with hash chain revocation for Merkle Tree Certificates.
+The author's intent is that it advance to the Standards Track if the PLANTS working group is willing to adopt it -- ideally with the single base-specification change it requests ({{base-spec-amendments}}) folded into the base MTC specification itself.
+
 # Conventions and Definitions
 
 {::boilerplate bcp14-tagged}
