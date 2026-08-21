@@ -159,6 +159,11 @@ This approach achieves the following properties:
 
 - **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof; the committed anchor adds roughly 40 to 50 bytes to each log entry ({{assertion-integration}}).
 
+These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
+First, enforcement introduces an availability dependency: because an authenticating party must refresh its tick each period, a tick-distribution outage that outlasts the certificate's buffer renders it unusable ({{availability-considerations}}).
+Second, revocation is enforceable but not transparent: withholding a tick is not a signed, logged artifact, so monitors cannot observe revocation events in the Merkle Tree, and a deployment that needs an auditable revocation record pairs this mechanism with the base MTC revoked-ranges mechanism ({{revocation-transparency}}).
+Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
+
 This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with a single required change; {{base-spec-amendments}} collects what this document asks of the base specification.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
 
