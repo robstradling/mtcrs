@@ -1740,7 +1740,7 @@ This approach was rejected because:
   The HTTP interface is a static, plain-HTTP, CDN-cacheable key-value fetch with no per-request cryptography; OCSP adds DER request construction, a responder, nonce handling, and signature validation, contradicting the operational-simplicity argument ({{operational-resilience}}).
 
 - **Addressing and semantics do not fit.**
-  OCSP is a relying-party-to-responder status query located via AIA and keyed by CertID (issuer name and key hashes plus serial), whereas here the authenticating party fetches a value about its own certificate, addressed by `tbs_cert_entry_hash` and the CA's TrustAnchorID ({{distribution}}); mapping this onto OCSP reintroduces the AIA-inflation problem rejected above.
+  OCSP is a relying-party-to-responder status query located via AIA and keyed by CertID (issuer name and key hashes plus serial), whereas here the authenticating party fetches a value about its own certificate, addressed by `tbs_cert_entry_hash` and the CA's TrustAnchorID ({{distribution}}); mapping this onto OCSP reintroduces the AIA-inflation problem of a per-certificate URL in the certificate ({{aia-discovery}}).
 
 - **It invites relying-party fetching.**
   OCSP is strongly associated with client-side status checking, so an OCSP-shaped interface risks reintroducing the CA-visible relying-party fetch, latency, and soft-fail that {{rp-no-fetch}} forbids and this design avoids.
