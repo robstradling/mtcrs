@@ -1,8 +1,8 @@
 <!-- regenerate: on (set to off if you edit this file) -->
 
-# Hash Chain Revocation for Merkle Tree Certificates
+# Merkle Tree Certificates: Revocation Status (MTCRS)
 
-This is the working area for the individual Internet-Draft, "Hash Chain Revocation for Merkle Tree Certificates".
+This is the working area for the individual Internet-Draft, "Merkle Tree Certificates: Revocation Status (MTCRS)".
 
 * [Editor's Copy](https://robstradling.github.io/mtcrs/#go.draft-strad-plants-mtcrs.html)
 * [Datatracker Page](https://datatracker.ietf.org/doc/draft-strad-plants-mtcrs)
