@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             20 August 2026
-Expires: 21 February 2027
+Intended status: Experimental                             21 August 2026
+Expires: 22 February 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 21 February 2027.
+   This Internet-Draft will expire on 22 February 2027.
 
 Copyright Notice
 
@@ -280,6 +280,32 @@ Table of Contents
    Section 10.  It reuses the small example of Appendix B: a chain of
    length chain_length = 5 (a real certificate uses a much longer chain
    -- for example 1,128 for a 47-day lifetime with a one-hour period).
+   Figure 1 depicts the lifecycle that the five steps below trace.
+
+      Issuance: the CA hashes a secret seed forward to the anchor,
+      then commits the anchor in the certificate.
+
+       +------+   +------+   +------+   +------+   +------+   +------+
+       | h[0] |-->| h[1] |-->| h[2] |-->| h[3] |-->| h[4] |-->| h[5] |
+       +------+   +------+   +------+   +------+   +------+   +------+
+        seed        \___ each arrow is one hash ___/          anchor
+       (secret)                                             (committed
+                                                             in cert)
+
+      Each period, the CA reveals one value, walking the chain
+      backward; the revealed value is that period's public "tick".
+
+        period:   0        1        2        3        4
+        tick:    h[5]     h[4]     h[3]     h[2]     h[1]
+               (anchor)
+        (the seed h[0] is never revealed; revealing stops to revoke)
+
+      Verify a tick for period t: hash it forward t times and check
+      it equals the anchor.  Period 2:  h[3] --> h[4] --> h[5].
+
+         Figure 1: MTCRS hash chain lifecycle: generated forward at
+      issuance, revealed in reverse each period, and verified forward
+                          to the committed anchor
 
    1.  *Issuance.* For each log entry, the CA generates a secret random
        seed h[0] and hashes it forward chain_length times to obtain
