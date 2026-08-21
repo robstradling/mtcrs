@@ -887,6 +887,7 @@ The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed chain val
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.
 
 A CA that derives per-certificate seeds from a single long-term secret ({{derived-seeds}}) concentrates this requirement into that secret: it MUST then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation SHOULD be used to bound the impact of a compromise.
+Such derivation MUST use a keyed KDF or PRF (for example HKDF or HMAC); a raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse and can make derived seeds distinguishable from independent random seeds ({{derived-seeds}}).
 
 If the CA's seed storage is compromised, the CA MUST revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see {{interaction-with-base-mtc-revocation}}.
 
