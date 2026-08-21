@@ -1459,22 +1459,9 @@ The narrower point is that, with enforceable revocation in place, lifetime and r
 ## Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
 
 Several alternative revocation mechanisms were considered and rejected; {{alternatives}} analyses each.
-Hash chains {{MICALI}} were selected because they are the only known mechanism that simultaneously provides:
-
-1. **Self-authentication:** The tick is verified against data already committed in the Merkle Tree (the anchor).
-   No additional signatures, certificates, or trust relationships are needed.
-
-2. **Zero CA signing load:** Each revocation period, the CA reveals a precomputed value.
-   There is no per-certificate, per-period signing operation.
-   This is critical for CAs with millions of active certificates.
-
-3. **Mandatory enforcement:** Because the tick is structurally part of the certificate presentation, relying parties can hard-fail on its absence.
-   This avoids the soft-fail problem that plagued OCSP.
-
-4. **Minimal bandwidth:** 36 bytes per handshake (4-byte period + 32-byte hash value).
-
-5. **Simple implementation:** The mechanism requires only a hash function and basic arithmetic.
-   No new cryptographic primitives are introduced.
+Hash chains {{MICALI}} were selected because they are the only known mechanism that provides *all* of the properties listed in the Introduction at once -- self-authentication against the committed anchor, zero per-period CA signing, mandatory hard-fail enforcement, and a 36-byte per-handshake cost -- using nothing but a hash function and basic arithmetic, with no new cryptographic primitive.
+Each alternative in {{alternatives}} secures some of these but sacrifices at least one: signed per-certificate status reintroduces per-period signing ({{operational-resilience}}); a separate TLS or stapled channel reintroduces the strippable soft-fail ({{ocsp-stapling-comparison}}); and pushed external lists give up universal, CA-anchored enforcement ({{browser-revocation-history}}).
+It is this simultaneity, not any single property, that distinguishes hash chains.
 
 ## Why This Succeeds Where Micali's CRS Did Not {#why-crs-succeeds}
 
