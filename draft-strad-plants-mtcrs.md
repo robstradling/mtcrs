@@ -360,6 +360,10 @@ Such a certificate is simply not yet valid; a verifier MUST reject it through th
 For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[chain_length - t]`.
 This value can be verified by hashing it t times and comparing with the anchor.
 
+Periods run from 0 to `chain_length` - 1, so the deepest value the CA ever reveals is `h[1]`, in the certificate's final period.
+The CA MUST NOT reveal a value for any period at or beyond `chain_length`, and MUST NOT reveal the seed `h[0]` under any circumstances: `h[0]` is the whole chain, and disclosing it would let any party forge ticks for every remaining period ({{seed-confidentiality}}).
+A CA that derives the period to serve from a clock MUST therefore bound that period at `chain_length` - 1 rather than evaluating `h[chain_length - t]` for an arbitrary t; tick publication for a certificate stops when the certificate expires.
+
 For period 0, `chain_length - t` equals `chain_length`, so the value revealed is the anchor `h[chain_length]` itself, which is already public (it is committed in the certificate; see {{assertion-integration}}).
 The period 0 tick therefore provides no cryptographic assurance of non-revocation, and any party can construct it.
 This is an intentional design choice; see {{period-zero-rationale}} for the rationale.
