@@ -22,8 +22,8 @@ Abstract
    in the certificate's MTCProof as the certificate's non-revocation
    proof -- alongside the inclusion proof that establishes authenticity
    -- enabling the relying party to cryptographically verify that the
-   certificate has not been revoked, with granularity as fine as one
-   hour, or finer.
+   certificate has not been revoked, with granularity as fine as a
+   fraction of a day.
 
    This mechanism provides timely revocation without requiring
    signatures per revocation check, without relying on the relying party
@@ -123,20 +123,21 @@ Table of Contents
      12.7.  Interaction with Base MTC Revocation
      12.8.  Revocation Transparency and Auditability
      12.9.  Downgrade to a Non-MTCRS Certificate
-     12.10. Availability Considerations
-     12.11. Client-Side Enforcement Latency and Session Resumption
-     12.12. Clock Skew
-     12.13. Relying-Party Policy Levers
-   13. IANA Considerations
-     13.1.  Module Identifier
-     13.2.  Certificate Extension
-     13.3.  Access Descriptor
-     13.4.  Well-Known URI
-     13.5.  ACME Order Object Fields
-     13.6.  MTCProof Extension Type
-   14. References
-     14.1.  Normative References
-     14.2.  Informative References
+     12.10. Clock Skew
+     12.11. Relying-Party Policy Levers
+   13. Operational and Availability Considerations
+     13.1.  Availability Considerations
+     13.2.  Client-Side Enforcement Latency and Session Resumption
+   14. IANA Considerations
+     14.1.  Module Identifier
+     14.2.  Certificate Extension
+     14.3.  Access Descriptor
+     14.4.  Well-Known URI
+     14.5.  ACME Order Object Fields
+     14.6.  MTCProof Extension Type
+   15. References
+     15.1.  Normative References
+     15.2.  Informative References
    Appendix A.  ASN.1 Module
    Appendix B.  Test Vectors
    Appendix C.  Proposed MTCProof Extensibility
@@ -330,7 +331,7 @@ Table of Contents
        +------+   +------+   +------+   +------+   +------+   +------+
        | h[0] |-->| h[1] |-->| h[2] |-->| h[3] |-->| h[4] |-->| h[5] |
        +------+   +------+   +------+   +------+   +------+   +------+
-        seed        \___ each arrow is one hash ___/          anchor
+        seed     \___ each arrow is one hash operation ___/   anchor
        (secret)                                             (committed
                                                              in cert)
 
@@ -415,7 +416,7 @@ Table of Contents
       (Appendix E.4).
 
    Everything else this document defines -- the id-pe-hashChainAnchor
-   X.509 extension (Section 13), the hash chain construction
+   X.509 extension (Section 14), the hash chain construction
    (Section 5), verification (Section 9), and tick distribution
    (Section 10) -- layers on top of an otherwise unmodified base MTC log
    and cosigner deployment and needs no base-specification change.
@@ -765,7 +766,7 @@ Table of Contents
    value that is current at the time of the TLS handshake.  A relying
    party SHOULD accept ticks for the current period, the immediately
    preceding period, or the immediately following period, to allow for
-   clock skew and caching (Section 12.12).
+   clock skew and caching (Section 12.10).
 
    This document describes two possible ways to carry the HashChainTick
    inside the MTCProof, but only one is used in practice: the encoding
@@ -953,7 +954,7 @@ struct {
 expected_period = floor((current_time - not_before) / revocation_period)
 
 4.  Check that tick.period is equal to expected_period,
-    expected_period - 1, or expected_period + 1 (Section 12.12).  If
+    expected_period - 1, or expected_period + 1 (Section 12.10).  If
     not, reject the certificate with a certificate_expired error
     (this alert also covers a tick too far in the future, which a
     verifier whose clock is well behind the authenticating party's
@@ -977,7 +978,7 @@ expected_period = floor((current_time - not_before) / revocation_period)
     which requires chain_length - 1 forward hashes (1,127 for the
     1,128-period chain of a 47-day, one-hour-period certificate;
     Appendix D.3).  The acceptance window's expected_period + 1
-    allowance (Section 12.12) raises the defensive upper bound the
+    allowance (Section 12.10) raises the defensive upper bound the
     verifier must tolerate by one, to chain_length.
 
 6.  Compare the result with anchor from the HashChainAnchorInfo.  If
@@ -1142,7 +1143,7 @@ expected_period = floor((current_time - not_before) / revocation_period)
    *  *CA certificate SIA (optional).* The base URL MAY additionally be
       published in the CA's certificate representation (Section 5.5 of
       [I-D.ietf-plants-merkle-tree-certs]) using the id-ad-mtcrsTicks
-      Subject Information Access access method defined in Section 13,
+      Subject Information Access access method defined in Section 14,
       whose accessLocation is a uniformResourceIdentifier giving the
       tick base URL.  This carries a single per-CA URL on a single
       object, adds no per-log-entry bytes, and provides a protocol-
@@ -1351,8 +1352,8 @@ expected_period = floor((current_time - not_before) / revocation_period)
    due to CA unavailability), it continues to serve the most recent tick
    until that tick's period expires.  After expiry, the certificate
    becomes unusable until a fresh tick is obtained or a new certificate
-   is provisioned.  Section 12.10 discusses this dependency and its
-   mitigations, including widening the acceptance window (Section 12.12)
+   is provisioned.  Section 13.1 discusses this dependency and its
+   mitigations, including widening the acceptance window (Section 12.10)
    and holding certificates from multiple CAs.
 
    At large deployment scale, tick distribution is dominated by
@@ -1391,7 +1392,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    offset seconds of the period it continues to serve the preceding
    period's tick.  The serving delay and a verifier whose clock runs
    ahead both draw on the same one-period preceding-tick grace
-   (Section 12.12): a verifier whose clock is ahead by more than
+   (Section 12.10): a verifier whose clock is ahead by more than
    (revocation_period - offset) already expects the following period and
    rejects a tick two periods behind its expectation.  Bounding the
    offset to half of revocation_period leaves at least half a period of
@@ -1512,7 +1513,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    not prevent a relying-party-side organization from running a
    distribution service that authenticating parties fetch from.  The
    only trust placed in any distributor is for availability, addressed
-   by operating several and by the multi-CA strategy of Section 12.10.
+   by operating several and by the multi-CA strategy of Section 13.1.
 
    What is delegated is distribution, not revocation authority.  The CA
    retains the seed and the unrevealed chain values (Section 12), so it
@@ -1786,7 +1787,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    Relying parties that support both mechanisms SHOULD check both: a
    certificate is considered revoked if either mechanism indicates
    revocation.  Whether to check the base MTC revoked ranges in addition
-   to the hash chain is a relying-party policy choice (Section 12.13).
+   to the hash chain is a relying-party policy choice (Section 12.11).
 
    This composition is one-directional.  Other revocation signals -- the
    base MTC revoked ranges, or external systems such as CRLite [CRLite]
@@ -1805,7 +1806,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    (keyCompromise, cessationOfOperation, and so on) from a mechanism
    that does convey one (Section 12.8).  Neither changes the safe action
    for an unproven tick, which remains rejection, subject only to the
-   availability levers of Section 12.10.
+   availability levers of Section 13.1.
 
 12.8.  Revocation Transparency and Auditability
 
@@ -1879,7 +1880,124 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    an anchor.  This is the general property that revocation targets
    certificates rather than keys; it is not specific to this mechanism.
 
-12.10.  Availability Considerations
+12.10.  Clock Skew
+
+   Verification step 4 accepts a tick whose period is the verifier's
+   expected_period, the immediately preceding period (expected_period -
+   1), or the immediately following period (expected_period + 1).  This
+   tolerates a verifier clock that is behind or ahead of the
+   authenticating party's by up to one full revocation_period in either
+   direction, and also an authenticating party that is still serving the
+   previous period's tick for caching or staggered refresh
+   (Section 10.7).
+
+   The two directions are not equivalent in cost.  Accepting the
+   immediately following period -- what a verifier whose clock is behind
+   will see -- costs nothing in revocation terms: that tick is a fresher
+   non-revocation proof than the verifier expected, and a tick for a
+   period the CA has not yet reached cannot be forged (preimage
+   resistance; Section 12).  Accepting the immediately preceding period
+   -- a verifier clock that is ahead, or a deliberately stale tick --
+   accepts a non-revocation proof up to one revocation_period old, which
+   is the intended one-period grace.
+
+   Deployments with known clock-skew or availability concerns MAY widen
+   the window: accepting further preceding periods tolerates a tick-
+   distribution outage (Section 13.1) at the cost of correspondingly
+   delayed revocation enforcement, while accepting further following
+   periods tolerates a verifier clock that runs further behind and
+   carries no revocation cost.
+
+   The acceptance window is anchored to the relying party's own clock,
+   so revocation timeliness depends on the integrity of that clock.  The
+   direction that matters for revocation is a clock that runs behind
+   true time: it shifts the whole window toward the past, so that a
+   genuine but stale tick -- one the CA revealed before it stopped
+   revealing, and which a correctly-clocked verifier would reject as too
+   old -- can fall within the window and be accepted.  An attacker able
+   to move a relying party's clock backward can thereby keep a revoked
+   certificate acceptable for roughly the induced offset, bounded for
+   small offsets by the window width and otherwise by notAfter, which is
+   checked against the same clock.  The forward direction, and the
+   immediately-following-period allowance in particular, adds no forgery
+   avenue: a tick for a period the CA has not yet reached cannot be
+   produced without inverting the hash (Section 12), so the value
+   accepted is always genuine; the exposure comes entirely from the
+   clock being wrong, not from accepting a fresher-than-expected proof.
+   This is the trusted-time dependency shared by every time-based
+   validity and revocation check -- notAfter, OCSP thisUpdate/
+   nextUpdate, CRL validity, and the base MTC short-lived-certificate
+   model itself -- and is not specific to this mechanism.  Two
+   consequences follow.  First, the acceptance window SHOULD be kept as
+   narrow as clock quality allows, since widening it for outage
+   tolerance correspondingly enlarges this exposure.  Second, a
+   deployment whose relying parties cannot trust their clocks gains
+   little revocation timeliness from a short revocation_period, because
+   the clock error, not the period, then bounds how long a revoked
+   certificate remains acceptable.  A relying party that requires tight
+   revocation SHOULD therefore source time from a trusted, integrity-
+   protected clock; both this and the window width are relying-party
+   policy choices (Section 12.11).
+
+12.11.  Relying-Party Policy Levers
+
+   Several behaviours of this mechanism are configurable by relying-
+   party (client) policy, which a root program may also set.  This
+   section collects them for convenience; each is specified in full in
+   the section cited, and nothing here is a new requirement.
+
+   Acceptance window:  The default accepts a tick for the current,
+      immediately preceding, or immediately following period.  A relying
+      party MAY widen the preceding side to tolerate a tick-distribution
+      outage, at the cost of correspondingly delayed revocation, or the
+      following side to tolerate a clock that runs behind, at no
+      revocation cost.  Widening applies to every certificate the
+      relying party validates (Section 12.10, Section 13.1).
+
+   Trusted time:  The acceptance window is anchored to the relying
+      party's clock, so revocation timeliness is bounded by clock
+      integrity.  A relying party that requires tight revocation SHOULD
+      source time from a trusted, integrity-protected clock and keep its
+      window narrow (Section 12.10).
+
+   Cross-checking base MTC revocation:  A relying party that also
+      supports the base MTC revoked-ranges mechanism SHOULD check both;
+      a certificate is revoked if either indicates so (Section 12.7).
+
+   Resumption and long-lived connections:  The tick is checked only at
+      full-handshake certificate validation.  A relying party that wants
+      revocation to take effect within about one revocation_period
+      SHOULD cap session-ticket reuse and force periodic full
+      handshakes, so that a fresh tick is re-checked (Section 13.2).
+
+   Enforcement and criticality:  A relying party that implements this
+      mechanism MUST enforce hash chain verification whenever the id-pe-
+      hashChainAnchor extension is present; an ecosystem MAY
+      additionally mark the extension critical for hard enforcement
+      (Section 7.2).
+
+   Fixed, not a lever:  Relying parties MUST NOT fetch ticks or use the
+      distribution endpoint as an online responder (Section 12.5); this
+      is a constraint, not a configurable choice.
+
+   If the base specification adopts the general proof_extensions field
+   (Appendix C), further relying-party handling applies -- size-budget
+   enforcement, committed admissibility, and unknown-type handling
+   (Appendix C.5).
+
+   The resilience levers that involve holding certificates from multiple
+   CAs, operating redundant tick distribution, and choosing
+   revocation_period are authenticating-party or CA decisions, not
+   relying-party policy (Section 13.1, Section 5).
+
+13.  Operational and Availability Considerations
+
+   This section covers the operational characteristics of the mechanism
+   that are not security properties in themselves: the availability
+   dependency introduced by periodic tick refresh, and the client-side
+   latency of handshake-time revocation checks.
+
+13.1.  Availability Considerations
 
    Because an authenticating party must fetch a fresh tick at least once
    per revocation_period (Section 10), a tick-distribution outage
@@ -1915,7 +2033,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
       party MAY accept ticks from further preceding periods, converting
       a tick-distribution outage longer than one period into bounded
       additional revocation latency rather than a hard failure
-      (Section 12.12).  This is a relying-party (or root-program)
+      (Section 12.10).  This is a relying-party (or root-program)
       policy, not something a server can switch on, and it applies to
       every certificate that relying party validates, so it loosens
       revocation freshness ecosystem-wide; it is therefore a conscious
@@ -1950,7 +2068,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    the availability dependency rather than a new one, and the shift is
    smaller than it first appears.  A single successful fetch gives more
    runway than one period.  Because a relying party also accepts the
-   immediately preceding period's tick (Section 12.12), a tick fetched
+   immediately preceding period's tick (Section 12.10), a tick fetched
    for one period stays acceptable through the end of the next.  A
    distribution outage therefore breaks a certificate only after it
    outlasts that certificate's last-fetch runway -- up to about two
@@ -1974,7 +2092,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    ecosystem depend entirely on external revocation systems whose
    availability the CA does not control.
 
-12.11.  Client-Side Enforcement Latency and Session Resumption
+13.2.  Client-Side Enforcement Latency and Session Resumption
 
    A relying party checks the non-revocation proof (Section 9) only when
    it validates the certificate, which happens during a full TLS
@@ -2014,7 +2132,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    of long-lived connections) to a value near revocation_period, so that
    a fresh full handshake -- and thus a fresh tick -- is forced within
    that period.  On the relying-party side this is a policy choice
-   (Section 12.13): a client MAY cap how long it reuses session tickets
+   (Section 12.11): a client MAY cap how long it reuses session tickets
    and force a periodic full handshake so that the tick is re-checked,
    independently of the server's ticket-lifetime setting.
 
@@ -2028,119 +2146,9 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    checks a per-period non-revocation proof rather than trusting a
    static notAfter.
 
-12.12.  Clock Skew
+14.  IANA Considerations
 
-   Verification step 4 accepts a tick whose period is the verifier's
-   expected_period, the immediately preceding period (expected_period -
-   1), or the immediately following period (expected_period + 1).  This
-   tolerates a verifier clock that is behind or ahead of the
-   authenticating party's by up to one full revocation_period in either
-   direction, and also an authenticating party that is still serving the
-   previous period's tick for caching or staggered refresh
-   (Section 10.7).
-
-   The two directions are not equivalent in cost.  Accepting the
-   immediately following period -- what a verifier whose clock is behind
-   will see -- costs nothing in revocation terms: that tick is a fresher
-   non-revocation proof than the verifier expected, and a tick for a
-   period the CA has not yet reached cannot be forged (preimage
-   resistance; Section 12).  Accepting the immediately preceding period
-   -- a verifier clock that is ahead, or a deliberately stale tick --
-   accepts a non-revocation proof up to one revocation_period old, which
-   is the intended one-period grace.
-
-   Deployments with known clock-skew or availability concerns MAY widen
-   the window: accepting further preceding periods tolerates a tick-
-   distribution outage (Section 12.10) at the cost of correspondingly
-   delayed revocation enforcement, while accepting further following
-   periods tolerates a verifier clock that runs further behind and
-   carries no revocation cost.
-
-   The acceptance window is anchored to the relying party's own clock,
-   so revocation timeliness depends on the integrity of that clock.  The
-   direction that matters for revocation is a clock that runs behind
-   true time: it shifts the whole window toward the past, so that a
-   genuine but stale tick -- one the CA revealed before it stopped
-   revealing, and which a correctly-clocked verifier would reject as too
-   old -- can fall within the window and be accepted.  An attacker able
-   to move a relying party's clock backward can thereby keep a revoked
-   certificate acceptable for roughly the induced offset, bounded for
-   small offsets by the window width and otherwise by notAfter, which is
-   checked against the same clock.  The forward direction, and the
-   immediately-following-period allowance in particular, adds no forgery
-   avenue: a tick for a period the CA has not yet reached cannot be
-   produced without inverting the hash (Section 12), so the value
-   accepted is always genuine; the exposure comes entirely from the
-   clock being wrong, not from accepting a fresher-than-expected proof.
-   This is the trusted-time dependency shared by every time-based
-   validity and revocation check -- notAfter, OCSP thisUpdate/
-   nextUpdate, CRL validity, and the base MTC short-lived-certificate
-   model itself -- and is not specific to this mechanism.  Two
-   consequences follow.  First, the acceptance window SHOULD be kept as
-   narrow as clock quality allows, since widening it for outage
-   tolerance correspondingly enlarges this exposure.  Second, a
-   deployment whose relying parties cannot trust their clocks gains
-   little revocation timeliness from a short revocation_period, because
-   the clock error, not the period, then bounds how long a revoked
-   certificate remains acceptable.  A relying party that requires tight
-   revocation SHOULD therefore source time from a trusted, integrity-
-   protected clock; both this and the window width are relying-party
-   policy choices (Section 12.13).
-
-12.13.  Relying-Party Policy Levers
-
-   Several behaviours of this mechanism are configurable by relying-
-   party (client) policy, which a root program may also set.  This
-   section collects them for convenience; each is specified in full in
-   the section cited, and nothing here is a new requirement.
-
-   Acceptance window:  The default accepts a tick for the current,
-      immediately preceding, or immediately following period.  A relying
-      party MAY widen the preceding side to tolerate a tick-distribution
-      outage, at the cost of correspondingly delayed revocation, or the
-      following side to tolerate a clock that runs behind, at no
-      revocation cost.  Widening applies to every certificate the
-      relying party validates (Section 12.12, Section 12.10).
-
-   Trusted time:  The acceptance window is anchored to the relying
-      party's clock, so revocation timeliness is bounded by clock
-      integrity.  A relying party that requires tight revocation SHOULD
-      source time from a trusted, integrity-protected clock and keep its
-      window narrow (Section 12.12).
-
-   Cross-checking base MTC revocation:  A relying party that also
-      supports the base MTC revoked-ranges mechanism SHOULD check both;
-      a certificate is revoked if either indicates so (Section 12.7).
-
-   Resumption and long-lived connections:  The tick is checked only at
-      full-handshake certificate validation.  A relying party that wants
-      revocation to take effect within about one revocation_period
-      SHOULD cap session-ticket reuse and force periodic full
-      handshakes, so that a fresh tick is re-checked (Section 12.11).
-
-   Enforcement and criticality:  A relying party that implements this
-      mechanism MUST enforce hash chain verification whenever the id-pe-
-      hashChainAnchor extension is present; an ecosystem MAY
-      additionally mark the extension critical for hard enforcement
-      (Section 7.2).
-
-   Fixed, not a lever:  Relying parties MUST NOT fetch ticks or use the
-      distribution endpoint as an online responder (Section 12.5); this
-      is a constraint, not a configurable choice.
-
-   If the base specification adopts the general proof_extensions field
-   (Appendix C), further relying-party handling applies -- size-budget
-   enforcement, committed admissibility, and unknown-type handling
-   (Appendix C.5).
-
-   The resilience levers that involve holding certificates from multiple
-   CAs, operating redundant tick distribution, and choosing
-   revocation_period are authenticating-party or CA decisions, not
-   relying-party policy (Section 12.10, Section 5).
-
-13.  IANA Considerations
-
-13.1.  Module Identifier
+14.1.  Module Identifier
 
    IANA is requested to register the following entry in the "SMI
    Security for PKIX Module Identifier" registry:
@@ -2153,7 +2161,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
                                   Table 1
 
-13.2.  Certificate Extension
+14.2.  Certificate Extension
 
    IANA is requested to register the following entry in the "SMI
    Security for PKIX Certificate Extension" registry:
@@ -2166,7 +2174,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
                                   Table 2
 
-13.3.  Access Descriptor
+14.3.  Access Descriptor
 
    IANA is requested to register the following entry in the "SMI
    Security for PKIX Access Descriptor" registry:
@@ -2187,7 +2195,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
    id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 
-13.4.  Well-Known URI
+14.4.  Well-Known URI
 
    IANA is requested to register the following entry in the "Well-Known
    URIs" registry ([RFC8615]):
@@ -2211,7 +2219,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
 
                                   Table 4
 
-13.5.  ACME Order Object Fields
+14.5.  ACME Order Object Fields
 
    IANA is requested to register the following entries in the "ACME
    Order Object Fields" registry ([RFC8555]):
@@ -2232,7 +2240,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    tickURL for the unguessable per-certificate URL scheme
    (Section 10.4); the two are mutually exclusive for a given order.
 
-13.6.  MTCProof Extension Type
+14.6.  MTCProof Extension Type
 
    The proof-extension encoding of the tick (Appendix E.7) relies on an
    MTCProofExtensionType code point, hash_chain_tick(0), within a
@@ -2248,9 +2256,9 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
    status_tick encoding (Section 8.1.1) is used instead, no such
    registry or code point is required.
 
-14.  References
+15.  References
 
-14.1.  Normative References
+15.1.  Normative References
 
    [I-D.ietf-plants-merkle-tree-certs]
               Benjamin, D., O'Brien, D., Westerbaan, B., Valenta, L.,
@@ -2300,7 +2308,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, revocation_period / 2)
               "Secure Hash Standard", 2015,
               <https://doi.org/10.6028/nist.fips.180-4>.
 
-14.2.  Informative References
+15.2.  Informative References
 
    [ALMOST-OPTIMAL]
               Coppersmith, D. and M. Jakobsson, "Almost Optimal Hash
@@ -2407,7 +2415,7 @@ Appendix A.  ASN.1 Module
 
    The id-mod-mtcrs-2026, id-pe-hashChainAnchor, and id-ad-mtcrsTicks
    arcs contain TBD values to be replaced with the OIDs assigned by IANA
-   (Section 13).
+   (Section 14).
 
 Appendix B.  Test Vectors
 
@@ -2859,7 +2867,7 @@ D.3.  Why One Hour (or One Day) Periods
    in days, e.g. 47 for a 47-day certificate) that a CA can store each
    chain in full and skip the fractal traversal of Appendix D.5.1
    entirely, and the once-per-day fetch cadence gives a far more
-   forgiving outage-tolerance budget (Section 12.10); the price is
+   forgiving outage-tolerance budget (Section 13.1); the price is
    coarser revocation.  A day-scale period should be compared against a
    same-lifetime certificate with no in-band revocation -- whose worst-
    case exposure is the full remaining lifetime -- not against a one-day
@@ -3137,7 +3145,7 @@ D.7.3.  Why It Is More Readily Deployable
    responder certificate and validity window, and where Must-Staple
    binds one certificate to one responder with no fallback, a server can
    hold certificates from several CAs and present one whose tick is
-   current (Section 12.10).  Section 12.10 discusses this availability
+   current (Section 13.1).  Section 13.1 discusses this availability
    dependency and its mitigations.
 
 D.7.4.  Operational Simplicity and Resilience
@@ -3164,7 +3172,7 @@ D.7.4.  Operational Simplicity and Resilience
    fail and proceed), whereas a tick-distribution outage lasting longer
    than one period fails closed for the affected certificate -- bounded
    by the one-period buffer and mitigated by caching, multi-CA
-   operation, and window-widening (Section 12.10).
+   operation, and window-widening (Section 13.1).
 
 D.8.  Relationship to the Browser Move Away from Online Revocation
 
@@ -3279,7 +3287,7 @@ D.10.  Verification Cost
    across several origins remains a small fraction of that cryptography
    summed across the same handshakes.  Most connections pay nothing: a
    resumed session carries no Certificate message and verifies no tick
-   (Section 12.11), and connection coalescing (HTTP/2 and HTTP/3)
+   (Section 13.2), and connection coalescing (HTTP/2 and HTTP/3)
    collapses many same-origin assets onto one connection.  And a relying
    party that revalidates the same (entry, period) -- for example a
    recurring third-party CDN origin -- MAY cache the verified result and
@@ -3348,7 +3356,7 @@ E.1.  DNS-Based Tick Distribution
    tbs_cert_entry_hash prefix across delegated sub-zones.  Staleness is
    bounded by the record TTL, which SHOULD be no longer than
    revocation_period; because a relying party already accepts a tick for
-   the immediately preceding period (Section 12.12), a briefly stale
+   the immediately preceding period (Section 12.10), a briefly stale
    record remains acceptable, and the authenticating party's pre-
    installation check (Section 9) rejects an unexpectedly stale record
    and refetches.  For revocation, a cached record extends the window in
