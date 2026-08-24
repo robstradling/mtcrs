@@ -193,7 +193,7 @@ Later sections use the term in this sense.
 # Overview {#overview}
 
 This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in {{construction}} through {{distribution}}.
-It reuses the small example of {{test-vectors}}: a chain of length `chain_length = 5` (a real certificate uses a much longer chain -- for example 1,128 for a 47-day lifetime with a one-hour period).
+It reuses the small example of {{test-vectors}}: a hash chain of length `hash_chain_length = 5` (a real certificate uses a much longer one -- for example 1,128 for a 47-day lifetime with a one-hour period).
 {{fig-actors}} shows how the parties interact, and {{fig-hash-chain}} depicts the hash chain lifecycle that the five steps below trace.
 
 ~~~aasvg
@@ -252,13 +252,13 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
 {: #fig-hash-chain title="MTCRS hash chain lifecycle: generated forward at issuance, revealed in reverse each period, and verified forward to the committed anchor"}
 
 1. **Issuance.**
-   For each log entry, the CA generates a secret random seed `h[0]` and hashes it forward `chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
+   For each log entry, the CA generates a secret random seed `h[0]` and hashes it forward `hash_chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
    The final value `h[5]` is the *anchor*.
    The CA commits it into the certificate as the id-pe-hashChainAnchor extension ({{assertion-integration}}); because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.
 
 2. **Per-period reveal.**
    Time after the certificate's `notBefore` is divided into periods of `tick_interval` seconds (one hour by default).
-   At the start of period `t`, the CA reveals `h[chain_length - t]` -- for period 2, that is `h[3]` -- unless it has revoked the certificate, in which case it reveals nothing further ({{revealing-values}}).
+   At the start of period `t`, the CA reveals `h[hash_chain_length - t]` -- for period 2, that is `h[3]` -- unless it has revoked the certificate, in which case it reveals nothing further ({{revealing-values}}).
    These period boundaries are the certificate's own: because they are counted from its `notBefore`, each certificate advances through its periods on its own schedule ({{construction}}).
    The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
 
@@ -341,16 +341,16 @@ The hash chain mechanism introduces the following additional parameter:
   It sets the granularity of revocation but not the latency, which is about two intervals under the default acceptance window ({{clock-skew}}).
   This MUST be greater than zero.
   The RECOMMENDED and default value is 3600 (one hour); {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no `tick_interval` bytes.
-  The number of periods in a certificate's lifetime is `chain_length = ceil(lifetime / tick_interval)`.
+  The number of periods in a certificate's lifetime is `hash_chain_length = ceil(lifetime / tick_interval)`.
 
-Because a tick carries its period in a 32-bit field ({{cert-format}}), `chain_length` MUST be less than 2^32, so that every period number (0 through `chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
+Because a tick carries its period in a 32-bit field ({{cert-format}}), `hash_chain_length` MUST be less than 2^32, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
 This is not a practical constraint: reaching it would require, for example, a one-second period sustained over more than a century.
 
 `tick_interval` need not evenly divide the lifetime; if it does not, the final period is shorter than `tick_interval`, ending when the certificate expires.
 This is harmless: the verifier computes the period from `not_before` ({{construction}}) and the base MTC validity check bounds the certificate at `notAfter`, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
 
 The certificate's validity period MUST be longer than `tick_interval`.
-A certificate whose validity period is not longer than `tick_interval` would have `chain_length = 1`: its only tick is the public period-0 anchor, which enforces nothing (revocation is only enforceable from period 1 onwards; see {{period-zero-rationale}}).
+A certificate whose validity period is not longer than `tick_interval` would have `hash_chain_length = 1`: its only tick is the public period-0 anchor, which enforces nothing (revocation is only enforceable from period 1 onwards; see {{period-zero-rationale}}).
 A CA MUST NOT include the id-pe-hashChainAnchor extension, and MUST NOT use this mechanism, for such a certificate.
 Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}), deployments SHOULD choose a validity period substantially longer than twice `tick_interval` so that revocation is effective for most of the certificate's life.
 
@@ -367,14 +367,14 @@ At certificate issuance time, for each log entry, the CA generates a hash chain 
 1. Generate a seed of HASH_SIZE bytes (32 bytes for SHA-256) using a cryptographically secure random number generator ({{RFC4086}}) or an approved deterministic random bit generator.
    The seed MUST be unpredictable: an adversary who can guess or recover it can compute the whole chain and forge ticks for a revoked certificate, so it carries the same unpredictability and confidentiality requirement as a secret key ({{seed-confidentiality}}).
 
-2. Compute the `chain_length` + 1 values of the hash chain:
+2. Compute the `hash_chain_length` + 1 values of the hash chain:
 
        h[0] = seed
-       h[i] = Hash(HashChainInput(h[i-1]))  for i = 1, ..., chain_length
+       h[i] = Hash(HashChainInput(h[i-1]))  for i = 1, ..., hash_chain_length
 
    Where HashChainInput is defined in {{encoding}}.
 
-3. The anchor is `h[chain_length]`, the final value in the chain.
+3. The anchor is `h[hash_chain_length]`, the final value in the hash chain.
 
 The anchor is included in the certificate as an X.509 extension (see {{assertion-integration}}).
 
@@ -402,14 +402,14 @@ Such a certificate is simply not yet valid; a verifier MUST reject it through th
 
 ## Revealing Values {#revealing-values}
 
-For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[chain_length - t]`.
+For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[hash_chain_length - t]`.
 This value can be verified by hashing it t times and comparing with the anchor.
 
-Periods run from 0 to `chain_length` - 1, so the last value the CA ever reveals is `h[1]`, one step from the seed, in the certificate's final period.
-The CA MUST NOT reveal a value for any period at or beyond `chain_length`, and MUST NOT reveal the seed `h[0]` under any circumstances: `h[0]` is the whole chain, and disclosing it would let any party forge ticks for every remaining period ({{seed-confidentiality}}).
-A CA that derives the period to serve from a clock MUST therefore bound that period at `chain_length` - 1 rather than evaluating `h[chain_length - t]` for an arbitrary t; tick publication for a certificate stops when the certificate expires.
+Periods run from 0 to `hash_chain_length` - 1, so the last value the CA ever reveals is `h[1]`, one step from the seed, in the certificate's final period.
+The CA MUST NOT reveal a value for any period at or beyond `hash_chain_length`, and MUST NOT reveal the seed `h[0]` under any circumstances: `h[0]` is the whole hash chain, and disclosing it would let any party forge ticks for every remaining period ({{seed-confidentiality}}).
+A CA that derives the period to serve from a clock MUST therefore bound that period at `hash_chain_length` - 1 rather than evaluating `h[hash_chain_length - t]` for an arbitrary t; tick publication for a certificate stops when the certificate expires.
 
-For period 0, `chain_length - t` equals `chain_length`, so the value revealed is the anchor `h[chain_length]` itself, which is already public (it is committed in the certificate; see {{assertion-integration}}).
+For period 0, `hash_chain_length - t` equals `hash_chain_length`, so the value revealed is the anchor `h[hash_chain_length]` itself, which is already public (it is committed in the certificate; see {{assertion-integration}}).
 The period 0 tick therefore provides no cryptographic assurance of non-revocation: any party holding the certificate can construct it by pairing that anchor with period 0, which takes no hashing at all, and a verifier hashes forward zero times and compares the anchor with itself.
 This is an intentional design choice; see {{period-zero-rationale}} for the rationale.
 
@@ -485,7 +485,7 @@ It keeps chains distinct even if a seed-generation fault were to repeat a seed a
 
 Two constraints rule out deriving the salt from the certificate or the log entry instead, as a hash of the TBSCertificate or of `tbs_cert_entry_data` would.
 The first is circularity: the anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{assertion-integration}}), whereas the salt must be fixed before the chain that produces that anchor can be computed, so a hash of either structure is unavailable at chain-generation time.
-The second is cost: HashChainInput is hashed once per forward step, up to `chain_length` - 1 times per verification ({{verification}}), and substituting a 32-byte hash for the 8-byte serial number pushes a typical structure past the 55 bytes that SHA-256 accommodates in a single compression block, roughly doubling that work.
+The second is cost: HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}), and substituting a 32-byte hash for the 8-byte serial number pushes a typical structure past the 55 bytes that SHA-256 accommodates in a single compression block, roughly doubling that work.
 The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
 
 The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).
@@ -514,7 +514,7 @@ The extension value contains the DER encoding of the following ASN.1 structure:
   The relying party reads this value (or the default) from here; it is used to number periods and to compute the expected period during verification ({{verification}}).
 
 anchor:
-: The hash chain anchor value `h[chain_length]`.
+: The hash chain anchor value `h[hash_chain_length]`.
   This OCTET STRING MUST be exactly HASH_SIZE bytes long; a relying party MUST reject the certificate if it is not ({{verification}}).
 
 The extension MUST appear at most once in a certificate.
@@ -563,7 +563,7 @@ period:
   The field is 32 bits so that fine `tick_interval` values remain usable across the full certificate lifetime: a 16-bit field would overflow at 65,535 periods, which a minute-granularity period already exceeds within a 47-day lifetime.
 
 value:
-: The hash chain value `h[chain_length - period]`.
+: The hash chain value `h[hash_chain_length - period]`.
 
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
@@ -674,12 +674,12 @@ Using these inputs, the verifier performs the following steps:
        for i = 1 to tick.period:
            v = Hash(HashChainInput(v))
 
-   The count is `tick.period`, not `chain_length` - `tick.period`: the subtraction is applied when the CA chooses which value to reveal, since period t reveals `h[chain_length - t]`, which lies exactly t hashes below the anchor ({{revealing-values}}).
-   A relying party therefore never needs `chain_length`, which is not carried in the certificate ({{assertion-integration}}); as the period counts up, the chain index counts down, and the number of forward hashes to the anchor is the period itself.
+   The count is `tick.period`, not `hash_chain_length` - `tick.period`: the subtraction is applied when the CA chooses which value to reveal, since period t reveals `h[hash_chain_length - t]`, which lies exactly t hashes below the anchor ({{revealing-values}}).
+   A relying party therefore never needs `hash_chain_length`, which is not carried in the certificate ({{assertion-integration}}); as the period counts up, the hash chain index counts down, and the number of forward hashes to the anchor is the period itself.
 
    Because step 4 has already constrained `tick.period` to the acceptance window, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
-   The largest legitimate `tick.period` is `chain_length - 1`, the certificate's final period, which requires `chain_length - 1` forward hashes (1,127 for the 1,128-period chain of a 47-day, one-hour-period certificate; {{why-one-hour}}).
-   Under the default acceptance window, the `expected_period` + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `chain_length`; a relying party that widens the window raises that bound correspondingly.
+   The largest legitimate `tick.period` is `hash_chain_length - 1`, the certificate's final period, which requires `hash_chain_length - 1` forward hashes (1,127 for the 1,128-period hash chain of a 47-day, one-hour-period certificate; {{why-one-hour}}).
+   Under the default acceptance window, the `expected_period` + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `hash_chain_length`; a relying party that widens the window raises that bound correspondingly.
 
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
@@ -1360,7 +1360,7 @@ The example uses:
 
 - `issuer_id`: TrustAnchorID 32473.1, whose binary representation is 81fd5901; as a <1..2^8-1> vector it encodes with its length prefix as 04 81fd5901.
 - `serial_number` = 281474976710698, which is `(log_number << 48) | index` for log number 1 and entry index 42
-- `chain_length` = 5
+- `hash_chain_length` = 5
 - seed h\[0\] = the 32 bytes 00 01 ... 1f (a fixed value for this example; a real CA uses a cryptographically random, secret seed)
 
 The fixed fields of HashChainInput therefore encode as:
@@ -1384,9 +1384,9 @@ The resulting chain is:
     h[4]  b8c0f6b6aac2f65177c9c2481e50b1070cfd31a348f27f94d5318ecfea385aca
     h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
 
-The anchor committed in the certificate is h\[`chain_length`\] = h\[5\].
+The anchor committed in the certificate is h\[`hash_chain_length`\] = h\[5\].
 
-For period t = 2, the CA reveals h\[`chain_length` - t\] = h\[3\].
+For period t = 2, the CA reveals h\[`hash_chain_length` - t\] = h\[3\].
 The HashChainTick is { period = 2, value = h\[3\] }, which serializes (a 4-byte big-endian period followed by the 32-byte value; {{response-format}}) as the following 36 bytes:
 
     000000024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697
@@ -1622,7 +1622,7 @@ A one-hour `tick_interval` provides a good balance:
   Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing -- any chain is recomputed on demand from that one secret and the public entry identity -- and traversal or checkpoint schemes ({{chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
-At day-scale periods the chain is short enough (`chain_length` on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
+At day-scale periods the hash chain is short enough (`hash_chain_length` on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each hash chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation -- whose worst-case exposure is the full remaining lifetime -- not against a one-day short-lived certificate: its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
 The fine-grained-revocation advantage over short lifetimes ({{revocation-vs-expiry}}) is precisely what a short period buys, so deployments SHOULD choose the shortest period operationally feasible.
 
@@ -1645,13 +1645,13 @@ Narrow, low-value window:
   That an arbitrary party can present the public anchor as a period 0 tick confers no additional capability on an attacker, because presenting the certificate in a TLS handshake still requires possession of the corresponding private key.
   It means only that the CA's revocation signal does not take effect until period 1.
 
-A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret chain element: compute the chain one element longer, use `h[chain_length + 1]` as the anchor, and hash the revealed value `period + 1` times (rather than `period` times) during verification.
-The period 0 tick is then the secret value `h[chain_length]`, which the CA can withhold.
+A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret hash chain element: compute the hash chain one element longer, use `h[hash_chain_length + 1]` as the anchor, and hash the revealed value `period + 1` times (rather than `period` times) during verification.
+The period 0 tick is then the secret value `h[hash_chain_length]`, which the CA can withhold.
 This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.
 
 ## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
 
-A CA has two largely independent implementation choices for each certificate's hash chain of length `chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
+A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
 Both are CA-side only; the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
 
 ### Storing Versus Recomputing Chain Values {#chain-traversal}
@@ -1817,7 +1817,7 @@ This linear cost is small in every setting that has been raised as a concern.
 
 On modern hardware, 1,127 SHA-256 operations take roughly 10 to 20 microseconds -- negligible beside the handshake's asymmetric cryptography (one signature verification is worth hundreds of SHA-256 operations), which is itself dwarfed by the network round-trip.
 On constrained IoT devices SHA-256 is usually hardware-accelerated and the computation finishes in under a millisecond.
-A shorter certificate lifetime or a longer `tick_interval` both reduce `chain_length` and so bound the cost directly.
+A shorter certificate lifetime or a longer `tick_interval` both reduce `hash_chain_length` and so bound the cost directly.
 
 Across the many connections a page load opens, three effects keep the total small.
 The hashing is a small fraction of what each full handshake already spends on asymmetric cryptography, so summing it across several origins remains a small fraction of that cryptography summed across the same handshakes.
