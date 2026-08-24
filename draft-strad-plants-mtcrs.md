@@ -700,6 +700,8 @@ The serial's index component is assigned sequentially, so a serial-keyed URL wou
 `tbs_cert_entry_hash` raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter, and -- being a derived value that need not appear in the certificate -- it can be replaced by the unguessable per-certificate capability token of {{unguessable-urls}} when a CA wants to remove URL derivability entirely; a serial carried in the certificate offers no such option.
 Keying on `tbs_cert_entry_hash` therefore aligns with the design's preference that the tick endpoint not be treated as an enumerable status oracle ({{rp-no-fetch}}).
 Its one cost -- a reliance on the addressing hash's collision resistance to keep entries' URLs distinct -- is amply met and non-load-bearing (the Note above).
+Distinct URLs also require the hashed data itself to differ between entries, which `serialNumber` cannot supply, being omitted from the TBSCertificateLogEntry (Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}); in this design the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{assertion-integration}}).
+An encoding that moves the anchor out of `tbs_cert_entry_data` must therefore key ticks on something else ({{anchor-entry-extension}}).
 Where positive, monitorable revocation transparency is wanted, it is provided deliberately and separately ({{revocation-transparency}}), not as a side effect of an enumerable endpoint.
 
 The tick base URL is not derived from the CA's identifier.
