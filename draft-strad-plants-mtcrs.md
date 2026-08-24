@@ -410,7 +410,7 @@ The CA MUST NOT reveal a value for any period at or beyond `chain_length`, and M
 A CA that derives the period to serve from a clock MUST therefore bound that period at `chain_length` - 1 rather than evaluating `h[chain_length - t]` for an arbitrary t; tick publication for a certificate stops when the certificate expires.
 
 For period 0, `chain_length - t` equals `chain_length`, so the value revealed is the anchor `h[chain_length]` itself, which is already public (it is committed in the certificate; see {{assertion-integration}}).
-The period 0 tick therefore provides no cryptographic assurance of non-revocation, and any party can construct it.
+The period 0 tick therefore provides no cryptographic assurance of non-revocation: any party holding the certificate can construct it by pairing that anchor with period 0, which takes no hashing at all, and a verifier hashes forward zero times and compares the anchor with itself.
 This is an intentional design choice; see {{period-zero-rationale}} for the rationale.
 
 ## Revoking a Certificate {#revoking}
