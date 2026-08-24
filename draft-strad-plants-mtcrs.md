@@ -392,7 +392,11 @@ The CA MUST number periods from `notBefore` and MUST NOT begin revealing ticks b
 
 Period numbering depends only on `notBefore`.
 It is independent of the MTCProof's `start` and `end` fields, which describe the chosen subtree interval used for the inclusion proof and play no part in the period schedule; the standalone and landmark-relative certificates for an entry can carry different `start` and `end` yet number periods identically, because they share the same `notBefore` ({{cert-profiles}}).
-This is harmless here: it merely places the certificate a little way into period 0 when it is first presented (or, if `notBefore` is backdated by more than one `tick_interval`, into a later period).
+Backdating `notBefore`, as CAs commonly do to accommodate relying-party clock skew, shifts the certificate forward in its own schedule.
+Backdating by less than one `tick_interval` is harmless: it merely places the certificate a little way into period 0 when it is first presented.
+Backdating by one `tick_interval` or more places the certificate in period 1 or later at the moment of issuance, which forfeits the period 0 grace ({{period-zero-rationale}}) in both its parts -- the CA no longer has until the start of period 1 before it must serve a secret tick, and the authenticating party can no longer present the committed anchor as a period 0 tick while it installs.
+A CA that backdates by one `tick_interval` or more MUST therefore be serving that entry's ticks from the moment it issues the certificate, since the authenticating party cannot present the certificate at all until it has fetched one.
+Deployments that want the grace preserved keep backdating below one `tick_interval`.
 Setting `notBefore` later than issuance (forward-dating) is different: there is no period earlier than 0, and for any time t earlier than `notBefore` the quantity (t - `not_before`) is negative.
 Such a certificate is simply not yet valid; a verifier MUST reject it through the base MTC validity check before computing any period, and MUST NOT evaluate the period expression with unsigned arithmetic, which would underflow for such times and could yield a spuriously large period.
 
@@ -849,6 +853,7 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
 A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to publish the chain ({{period-zero-rationale}}).
+This does not apply to a certificate whose `notBefore` was backdated by one `tick_interval` or more, which is already past period 0 when it is issued: its first fetch must succeed before it can be served ({{construction}}).
 
 Repeated failure to obtain a fresh tick after period 0 is different.
 It is the observable signature of either revocation ({{revoking}}) or a distribution failure, and the authenticating party cannot tell which from the response alone ({{response-format}}).
@@ -1614,6 +1619,7 @@ The only capability given up is revoking a certificate faster than that bound in
 Operational grace period at issuance:
 : The CA's tick distribution service ({{distribution}}) does not need to have computed and begun serving a certificate's first secret tick at the exact instant of issuance.
   It has until the start of period 1 -- one full `tick_interval` -- to make the certificate's chain available.
+  This assumes `notBefore` is not backdated by a full `tick_interval` or more, which would place the certificate past period 0 at issuance and remove the grace ({{construction}}).
   This mirrors established practice for OCSP {{RFC6960}}, where a newly issued certificate's first status response is permitted to be briefly unavailable after issuance (the CA/Browser Forum Baseline Requirements, for example, allow up to 15 minutes).
   Revocation infrastructure need not be instantaneously ready for brand-new certificates.
 
