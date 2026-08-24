@@ -304,6 +304,7 @@ A working group that adopts this document should expect to settle them; nothing 
 1. **Where does the anchor live?**
    The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{assertion-integration}}) or a committed entry extension ({{anchor-entry-extension}}).
    Both are committed to the Merkle Tree, so the verification procedure is identical either way; the trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+   The entry extension additionally forces a change to tick addressing, because the anchor then no longer separates entries that are otherwise identical ({{anchor-entry-extension}}).
    *Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
    Whichever is chosen becomes the single anchor home for the ecosystem.
 
