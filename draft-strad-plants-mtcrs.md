@@ -413,7 +413,7 @@ On deciding to revoke an entry, a CA:
 
 1. MUST stop revealing that entry's chain values from the start of the next period, and MUST NOT serve them from its own tick distribution service ({{distribution}}) thereafter.
 
-2. MUST omit the entry from every subsequent per-period bundle published to delegated distributors ({{delegated-distribution}}).
+2. MUST omit the entry from every subsequent bundle published to delegated distributors ({{delegated-distribution}}).
    A distributor pre-provisioned with a buffer of future values cannot be revoked through that channel until the buffer is exhausted, which is why the buffer SHOULD be short.
 
 3. MUST, when revoking because of key compromise, also revoke the serial ranges of that key's certificates that carry no anchor, since withholding ticks reaches only the certificates that carry one ({{downgrade}}).
@@ -892,7 +892,7 @@ This document nonetheless specifies them as SHOULD rather than MUST, because fet
 
 The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates -- a large hosting provider or CDN -- issues on the order of N fetches per period for N certificates; the per-entry offset ({{load-distribution}}) spreads them across the period but does not reduce their number.
 This stays inexpensive: each tick is a 36-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
-An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}): the CA-to-distributor bundle is exactly a bulk transfer of one period's ticks, so taking that feed obtains all of them in one exchange.
+An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}): the CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.
 
 A CA MAY additionally offer a batch endpoint keyed by a list of `tbs_cert_entry_hash` values (or tokens; {{unguessable-urls}}).
 The trade-off is cacheability -- a batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs -- which suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
@@ -904,11 +904,11 @@ Because a tick is self-authenticating ({{verification}}), the party that serves 
 A distributor cannot forge a tick for a period the CA has not revealed (preimage resistance; {{hash-function-requirements}}), and cannot serve a tampered value that verifies.
 Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
 
-Each period, the CA publishes to its authorized distributors the set of revealed values for that period -- a bundle keyed by `tbs_cert_entry_hash` -- and each distributor serves them through the HTTP interface of {{distribution}}.
-To revoke a certificate, the CA omits it from the next period's bundle: absence is revocation, so no revocation list is exchanged.
+The CA publishes to its authorized distributors the value currently revealed for each entry -- a bundle keyed by `tbs_cert_entry_hash` -- refreshing it as certificates advance through their own periods ({{construction}}), and each distributor serves those values through the HTTP interface of {{distribution}}.
+To revoke a certificate, the CA drops its entry from subsequent refreshes: absence is revocation, so no revocation list is exchanged.
 Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.
 
-MTC mirrors are a natural home for this role: they already replicate and serve MTC log data at high availability, and extending a mirror to also serve the current period's ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
+MTC mirrors are a natural home for this role: they already replicate and serve MTC log data at high availability, and extending a mirror to also serve the currently-revealed ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
 Content delivery networks and relying-party-side operators -- including browser providers, which already run large-scale revocation-distribution infrastructure -- can serve as distributors on the same terms.
 Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several delegated distributors concurrently with no added trust, removing the CA origin as a single point of failure; the level of redundancy a CA must provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
 Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation; it does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
@@ -917,7 +917,7 @@ The only trust placed in any distributor is for availability, addressed by opera
 What is delegated is distribution, not revocation authority.
 The CA retains the seed and the unrevealed chain values ({{seed-confidentiality}}), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
 
-A CA MAY push only the current period's bundle, in which case each distributor depends on the CA every period and the CA retains tight, sole control of revocation.
+A CA MAY publish only values that are already revealed, in which case each distributor depends on the CA for every refresh and the CA retains tight, sole control of revocation.
 
 Alternatively, as part of disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values, so that the distributor can keep certificates usable through a CA-side outage.
 This is continuity (liveness) delegation, not delegation of revocation.
@@ -1802,7 +1802,7 @@ An alternative to the HTTP interface ({{distribution}}) is for the CA to publish
 Because the tick is embedded regardless of transport, the relying party's verification is unchanged and the choice is purely between the CA and the authenticating party; it does not affect interoperability.
 DNS's hierarchical caching suits small, frequently-updated values, letting recursive resolvers serve ticks without CA-operated CDN infrastructure.
 Its apparent costs -- large zones with one record per certificate, and TTL-bounded propagation -- are addressable: a programmable authoritative server can synthesize the response for `{tbs_cert_entry_hash}._tick.<zone>` on demand from the same chain state ({{distribution}}), so no per-certificate records are stored, and a TTL no longer than `revocation_period` bounds staleness (a briefly stale record stays acceptable under the one-period grace ({{clock-skew}}), and the authenticating party's pre-installation check ({{verification}}) refetches an unexpectedly stale one).
-Because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the per-period bundle.
+Because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the same bundle.
 
 DNSSEC is not required and SHOULD NOT be used: each tick is self-authenticating ({{verification}}), so an attacker cannot forge one in transit without inverting the hash, and suppressing a tick is only a denial of service against any distribution channel.
 DNSSEC would add key management and signing for frequently-changing records, and larger responses, without improving the mechanism's security.
