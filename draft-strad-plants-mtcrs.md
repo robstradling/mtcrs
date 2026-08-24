@@ -830,11 +830,17 @@ The response Content-Type MUST be `application/octet-stream`.
 
 The CA uses HTTP status codes ({{RFC9110}}) as follows:
 
-- **200 (OK):** the response body is the current HashChainTick for the entry.
+- **200 (OK):** the response body is the current HashChainTick for the entry. During period 0 the current tick is the public anchor paired with period 0 ({{revealing-values}}), so a CA whose distribution service is already provisioned for the entry MAY serve it; this is permitted but not required, since the period 0 grace exists precisely so that provisioning need not be complete at the instant of issuance ({{period-zero-rationale}}), and an authenticating party can construct that tick from the anchor committed in its own certificate in any case.
 - **404 (Not Found):** the CA is not serving a current tick for this entry. This covers both a revoked certificate, for which the CA has stopped revealing values ({{revoking}}), and a tick that is merely not yet available, as during the period 0 grace ({{period-zero-rationale}}). The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation; it means only that no fresh tick was obtained on this attempt. The authenticating party continues to serve its most recent still-valid tick and MAY retry (see the Operational Model below).
+- **410 (Gone), optional:** the server knows that no further tick will ever be published for this entry -- because the certificate has been revoked ({{revoking}}), or because it has expired and tick publication has stopped ({{revealing-values}}). A CA MAY return 410 in place of 404 where it holds that knowledge, but is never required to, and a delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given ({{delegated-distribution}}). A 410 is a diagnostic hint and nothing more. It is unsigned and MAY be carried over plain HTTP ({{distribution}}), so an on-path observer or a faulty distributor can forge one; an authenticating party MUST NOT let it curtail a tick that is still within the acceptance window (see the Operational Model below). Nor may its absence be read the other way: a plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor MUST NOT infer non-revocation from the lack of a 410.
 - **429 (Too Many Requests) or 503 (Service Unavailable):** transient overload; the authenticating party retries according to the Retry-After header ({{load-distribution}}).
 
 Any other status code carries its ordinary HTTP semantics ({{RFC9110}}); an authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.
+
+Requiring the period 0 tick to be served, rather than permitting it, would not make a 404 mean "revoked".
+Revocation is only one of several causes of a missing tick: an origin outage, a cache or edge miss, and a delegated distributor that has not yet received the current bundle ({{delegated-distribution}}) all yield the same status code, in every period.
+During period 0 a 404 cannot mean revoked at all, because the earliest period for which the CA can withhold a secret value is period 1 ({{revoking}}).
+The ambiguity is therefore neither introduced nor removed by the period 0 case, and enforcement rests throughout on the presence of a fresh tick rather than on the absence of one ({{revocation-transparency}}).
 
 The CA SHOULD set HTTP cache headers with a max-age no longer than `tick_interval` seconds.
 For example:
@@ -859,12 +865,14 @@ For each certificate it serves, the authenticating party periodically fetches th
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
 During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
-A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to begin serving the entry's ticks ({{period-zero-rationale}}).
+A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to begin serving the entry's ticks ({{period-zero-rationale}}); a CA already provisioned for the entry may equally return that tick with a 200 ({{response-format}}), which the authenticating party has no need of either way.
 This does not apply to a certificate whose `notBefore` was backdated by one `tick_interval` or more, which is already past period 0 when it is issued: its first fetch must succeed before it can be served ({{construction}}).
 
 Repeated failure to obtain a fresh tick after period 0 is different.
-It is the observable signature of either revocation ({{revoking}}) or a distribution failure, and the authenticating party cannot tell which from the response alone ({{response-format}}).
+It is the observable signature of either revocation ({{revoking}}) or a distribution failure, and a 404 does not tell the authenticating party which ({{response-format}}).
 An authenticating party SHOULD therefore raise an operational alarm once it has failed to obtain a fresh tick for a full `tick_interval`, rather than waiting until the certificate stops working, since by then it has at most one period of runway left.
+Where the server offers the optional 410 ({{response-format}}), the authenticating party learns that no further tick is coming, so it can attribute that alarm correctly, stop retrying an entry that will never be served again, and begin provisioning a replacement certificate.
+Because the signal is unauthenticated, it MUST NOT cause the authenticating party to stop presenting a tick that is still within the acceptance window: treating a forged 410 as grounds to withdraw a healthy certificate would hand anyone able to inject a response a remote kill switch, which is a worse position than simply continuing to serve the valid tick it already holds.
 An authenticating party that holds a certificate from another CA SHOULD fail over to it before its newest tick leaves the acceptance window ({{availability-considerations}}), which restores service whichever of the two causes applies.
 Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification}}).
 
