@@ -263,7 +263,8 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
    The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
 
 3. **Server refresh.**
-   Once per period, the authenticating party (server) fetches its current value as a *tick* `{period, value}` -- for period 2, `{2, h[3]}` -- with a single plain HTTP GET ({{distribution}}), and writes it into the MTCProof it presents in TLS handshakes ({{cert-format}}).
+   Once per period, the authenticating party (server) fetches the certificate's current value as a *tick* `{period, value}` -- for period 2, `{2, h[3]}` -- with a single plain HTTP GET ({{distribution}}), and writes it into the MTCProof it presents in TLS handshakes ({{cert-format}}).
+   A server holding several certificates fetches one tick per certificate, each on that certificate's own schedule.
    The MTCProof is not committed to the tree, so refreshing the tick each period does not disturb the inclusion proof or cosignatures.
 
 4. **Relying-party verification.**
@@ -820,9 +821,9 @@ For example:
 
 ## Operational Model
 
-The authenticating party periodically fetches its current tick from the CA:
+For each certificate it serves, the authenticating party periodically fetches that certificate's current tick from the CA:
 
-1. At least once per `revocation_period`, the authenticating party fetches its updated HashChainTick.
+1. At least once per `revocation_period`, the authenticating party fetches an updated HashChainTick for the certificate.
 
 2. Before installing a fetched tick, the authenticating party MUST verify it against the anchor committed in its own certificate: that hashing `tick.value` forward `tick.period` times yields the anchor ({{verification}}).
    A tick that fails this check MUST NOT be installed or presented; the authenticating party discards it and continues to serve its most recent still-valid tick, retrying as under {{response-format}}.
