@@ -326,7 +326,7 @@ A working group that adopts this document should expect to settle them; nothing 
    Neither is a protocol question: both concern recommended defaults and what root programs should require.
 
 5. **Should period 0 enforce revocation?**
-   The period 0 tick is the public anchor, which gives the CA a one-period grace to publish a new certificate's chain but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
+   The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
    Computing the chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
    *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
 
@@ -852,7 +852,7 @@ For each certificate it serves, the authenticating party periodically fetches th
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
 During period 0 the authenticating party need not fetch at all: the period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
-A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to publish the chain ({{period-zero-rationale}}).
+A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to begin serving the entry's ticks ({{period-zero-rationale}}).
 This does not apply to a certificate whose `notBefore` was backdated by one `tick_interval` or more, which is already past period 0 when it is issued: its first fetch must succeed before it can be served ({{construction}}).
 
 Repeated failure to obtain a fresh tick after period 0 is different.
@@ -1618,7 +1618,7 @@ The only capability given up is revoking a certificate faster than that bound in
 
 Operational grace period at issuance:
 : The CA's tick distribution service ({{distribution}}) does not need to have computed and begun serving a certificate's first secret tick at the exact instant of issuance.
-  It has until the start of period 1 -- one full `tick_interval` -- to make the certificate's chain available.
+  It has until the start of period 1 -- one full `tick_interval` -- to begin doing so.
   This assumes `notBefore` is not backdated by a full `tick_interval` or more, which would place the certificate past period 0 at issuance and remove the grace ({{construction}}).
   This mirrors established practice for OCSP {{RFC6960}}, where a newly issued certificate's first status response is permitted to be briefly unavailable after issuance (the CA/Browser Forum Baseline Requirements, for example, allow up to 15 minutes).
   Revocation infrastructure need not be instantaneously ready for brand-new certificates.
