@@ -657,6 +657,9 @@ Using these inputs, the verifier performs the following steps:
        for i = 1 to tick.period:
            v = Hash(HashChainInput(v))
 
+   The count is `tick.period`, not `chain_length` - `tick.period`: the subtraction is applied when the CA chooses which value to reveal, since period t reveals `h[chain_length - t]`, which lies exactly t hashes below the anchor ({{revealing-values}}).
+   A relying party therefore never needs `chain_length`, which is not carried in the certificate ({{assertion-integration}}); as the period counts up, the chain index counts down, and the number of forward hashes to the anchor is the period itself.
+
    Because step 4 has already constrained `tick.period` to the acceptance window, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
    The largest legitimate `tick.period` is `chain_length - 1`, the certificate's final period, which requires `chain_length - 1` forward hashes (1,127 for the 1,128-period chain of a 47-day, one-hour-period certificate; {{why-one-hour}}).
    Under the default acceptance window, the `expected_period` + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `chain_length`; a relying party that widens the window raises that bound correspondingly.
