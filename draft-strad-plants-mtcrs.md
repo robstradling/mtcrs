@@ -440,7 +440,7 @@ The non-revocation proof relies only on the preimage resistance of the hash func
 Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would be needed to forge a future validity proof).
 The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.
 
-The label in HashChainInput ({{encoding}}) domain-separates chain values from other uses of the hash function in MTC, and the per-entry `issuer_id`, `log_number`, and index salt each certificate's chain into its own hash domain ({{encoding}}).
+The label in HashChainInput ({{encoding}}) domain-separates chain values from other uses of the hash function in MTC, and the per-entry `issuer_id` and `serial_number` salt each certificate's chain into its own hash domain ({{encoding}}).
 
 The one hash whose distinctness matters for a different reason is `tbs_cert_entry_hash`, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
 A collision there would merely cause two entries to share a URL and misroute a fetch; the authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
@@ -452,8 +452,7 @@ The HashChainInput structure provides domain separation for hash chain computati
     struct {
         uint8 label[7] = "MTCRS\n\0";
         TrustAnchorID issuer_id<1..2^8-1>;
-        uint16 log_number;
-        uint48 index;
+        uint64 serial_number;
         HashValue preimage;
     } HashChainInput;
 
@@ -465,22 +464,21 @@ label:
 `issuer_id`:
 : The CA's trust anchor ID.
 
-`log_number`:
-: The log number of the issuance log containing this entry.
-
-index:
-: The entry's index within the issuance log.
+`serial_number`:
+: The certificate's serial number, which the base specification defines as `(log_number << 48) | index` and which therefore identifies both the issuance log and the entry within it (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}).
 
 preimage:
 : The previous hash chain value being hashed.
 
-All fields are encoded with the TLS presentation language ({{RFC8446}}): the integer fields `log_number` and index are in network byte order (big-endian), and `issuer_id` is the binary TrustAnchorID carried with its one-byte length prefix as the `<1..2^8-1>` vector -- for TrustAnchorID 32473.1, the five bytes 04 81fd5901 ({{test-vectors}}).
+All fields are encoded with the TLS presentation language ({{RFC8446}}): `serial_number` is in network byte order (big-endian), and `issuer_id` is the binary TrustAnchorID carried with its one-byte length prefix as the `<1..2^8-1>` vector -- for TrustAnchorID 32473.1, the five bytes 04 81fd5901 ({{test-vectors}}).
 
-Both parties recover `log_number` and index from the certificate's serial number, `serial = (log_number << 48) | index` (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}): the relying party when verifying ({{verification}}), and the authenticating party for its pre-installation check ({{distribution}}).
-Neither can take them from the TBSCertificateLogEntry, which omits `serialNumber` (Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}).
-An authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
+Carrying the serial number whole, rather than its `log_number` and index components as separate fields, encodes the identical eight bytes, since those components are exactly its high 16 and low 48 bits.
+It matches what both parties hold and removes a split-and-rejoin step in which the field widths could be mistaken.
 
-The `issuer_id`, `log_number`, and index fields together identify the log entry and act as a per-entry salt, placing each certificate's chain in a distinct hash domain.
+Both parties read `serial_number` directly from the certificate: the relying party when verifying ({{verification}}), and the authenticating party for its pre-installation check ({{distribution}}).
+It cannot be taken from the TBSCertificateLogEntry, which omits `serialNumber` (Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}); an authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
+
+The `issuer_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's chain in a distinct hash domain.
 This salting is not load-bearing for the core guarantee: each chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific chain.
 Its contribution is defense in depth.
 It keeps chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of chains at once (the same rationale as salting).
@@ -641,7 +639,7 @@ The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to 
 All of them are obtained from the certificate and the trust anchor being validated against; no data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
 
 - **`issuer_id`:** the TrustAnchorID of the trust anchor against which the certificate is being validated (Section 5.1 of {{I-D.ietf-plants-merkle-tree-certs}}).
-- **`log_number` and index:** recovered from the certificate's serial number, which the base specification defines as `serial = (log_number << 48) | index` (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}); the verifier takes index as the low 48 bits and `log_number` as the remaining high bits.
+- **`serial_number`:** the certificate's serial number, read directly from the certificate (Section 6.2 of {{I-D.ietf-plants-merkle-tree-certs}}).
 - **`tick_interval` and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension; if `tickInterval` is absent, use its default of 3600 ({{assertion-integration}}).
 - **`not_before`:** the `notBefore` time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
 
@@ -1356,19 +1354,17 @@ All values are hexadecimal, and the hash function is SHA-256 (HASH_SIZE = 32).
 The example uses:
 
 - `issuer_id`: TrustAnchorID 32473.1, whose binary representation is 81fd5901; as a <1..2^8-1> vector it encodes with its length prefix as 04 81fd5901.
-- `log_number` = 1
-- index = 42
+- `serial_number` = 281474976710698, which is `(log_number << 48) | index` for log number 1 and entry index 42
 - `chain_length` = 5
 - seed h\[0\] = the 32 bytes 00 01 ... 1f (a fixed value for this example; a real CA uses a cryptographically random, secret seed)
 
 The fixed fields of HashChainInput therefore encode as:
 
-    label       4d544352530a00        ("MTCRS\n\0")
-    issuer_id   0481fd5901
-    log_number  0001
-    index       00000000002a
+    label          4d544352530a00        ("MTCRS\n\0")
+    issuer_id      0481fd5901
+    serial_number  000100000000002a
 
-Each step computes h\[i\] = SHA-256(HashChainInput(h\[i-1\])), where HashChainInput(preimage) is the concatenation label || `issuer_id` || `log_number` || index || preimage.
+Each step computes h\[i\] = SHA-256(HashChainInput(h\[i-1\])), where HashChainInput(preimage) is the concatenation label || `issuer_id` || `serial_number` || preimage.
 For example, HashChainInput(h\[0\]) is the following 52 bytes:
 
     4d544352530a000481fd5901000100000000002a000102030405060708090a0b
@@ -1681,7 +1677,7 @@ The pebbles are unrevealed chain values and therefore carry the same confidentia
 ### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
 
 The per-certificate seed itself can also be eliminated from storage.
-Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function -- for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || log_number || index)`, or the equivalent with HKDF.
+Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function -- for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || serial_number)`, or the equivalent with HKDF.
 A raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse; a proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of {{construction}}.
 Any chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
 The cost is concentration: compromise of `ca_seed` exposes every certificate's chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}) -- though, being a single small key, it is better suited to HSM custody than a bulk per-certificate seed store.
