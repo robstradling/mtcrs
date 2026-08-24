@@ -143,7 +143,7 @@ Relying parties that have them may fall back to out-of-band systems such as {{CR
 
 This document defines such a mechanism based on hash chains {{MICALI}}.
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
-For each non-revoked certificate, once per tick interval (e.g., every hour), the CA reveals the previous hash chain value, walking the committed chain backward.
+For each non-revoked certificate, once per tick interval (e.g., every hour), the CA reveals the previous hash chain value, walking the committed hash chain backward.
 To revoke a certificate, the CA simply stops revealing values.
 The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the `signatureValue`), and the relying party (client) verifies it against the anchor committed in the log entry.
 
@@ -202,7 +202,7 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
    |     (issuer)      |
    +-------------------+
      |                 |
-     | (1) issuance:   | (2) each period: reveal one chain
+     | (1) issuance:   | (2) each period: reveal one hash chain
      |     commit      |     value as a tick and publish it
      |     anchor in   |     over HTTP  (to revoke, withhold)
      |     log entry   |               |
@@ -238,7 +238,7 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
     (secret)                                             (committed
                                                           in cert)
 
-   Each period, the CA reveals one value, walking the chain
+   Each period, the CA reveals one value, walking the hash chain
    backward; the revealed value is that period's public "tick".
 
      period:   0        1        2        3        4
@@ -260,7 +260,7 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
    Time after the certificate's `notBefore` is divided into periods of `tick_interval` seconds (one hour by default).
    At the start of period `t`, the CA reveals `h[hash_chain_length - t]` -- for period 2, that is `h[3]` -- unless it has revoked the certificate, in which case it reveals nothing further ({{revealing-values}}).
    These period boundaries are the certificate's own: because they are counted from its `notBefore`, each certificate advances through its periods on its own schedule ({{construction}}).
-   The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
+   The hash chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
 
 3. **Server refresh.**
    Once per period, the authenticating party (server) fetches the certificate's current value as a *tick* `{period, value}` -- for period 2, `{2, h[3]}` -- with a single plain HTTP GET ({{distribution}}), and writes it into the MTCProof it presents in TLS handshakes ({{cert-format}}).
@@ -273,7 +273,7 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
    Verification is entirely offline: the relying party fetches nothing ({{rp-no-fetch}}).
 
 5. **Revocation = withholding.**
-   To revoke a certificate, the CA simply stops revealing its chain values ({{revealing-values}}).
+   To revoke a certificate, the CA simply stops revealing its hash chain values ({{revealing-values}}).
    Once the last revealed tick's period ends, no party can produce a valid tick -- doing so would require inverting the hash -- so the certificate becomes unusable within at most two periods.
 
 # Amendments Requested of the Base Specification {#base-spec-amendments}
@@ -327,7 +327,7 @@ A working group that adopts this document should expect to settle them; nothing 
 
 5. **Should period 0 enforce revocation?**
    The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
-   Computing the chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
+   Computing the hash chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
    *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
 
 # Hash Chain Construction {#construction}
@@ -365,7 +365,7 @@ A CA MAY of course use the same `tick_interval` for every certificate it issues;
 At certificate issuance time, for each log entry, the CA generates a hash chain as follows:
 
 1. Generate a seed of HASH_SIZE bytes (32 bytes for SHA-256) using a cryptographically secure random number generator ({{RFC4086}}) or an approved deterministic random bit generator.
-   The seed MUST be unpredictable: an adversary who can guess or recover it can compute the whole chain and forge ticks for a revoked certificate, so it carries the same unpredictability and confidentiality requirement as a secret key ({{seed-confidentiality}}).
+   The seed MUST be unpredictable: an adversary who can guess or recover it can compute the whole hash chain and forge ticks for a revoked certificate, so it carries the same unpredictability and confidentiality requirement as a secret key ({{seed-confidentiality}}).
 
 2. Compute the `hash_chain_length` + 1 values of the hash chain:
 
@@ -416,13 +416,13 @@ This is an intentional design choice; see {{period-zero-rationale}} for the rati
 ## Revoking a Certificate {#revoking}
 
 To revoke a certificate, the CA stops revealing new values.
-Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed chain elements, which requires inverting the hash function.
+Once the previous value expires (at the start of the next period), the certificate is effectively revoked: no party can produce a valid value without knowledge of unrevealed hash chain elements, which requires inverting the hash function.
 Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1; a certificate therefore cannot be revoked during period 0, and one the CA wishes to revoke from the moment of issuance becomes unusable at the start of period 2 ({{period-zero-rationale}}).
 
 Withholding is the entirety of the revocation action, but a CA must discharge it across every channel through which it publishes ticks, and pair it with the base MTC mechanism where this one does not reach.
 On deciding to revoke an entry, a CA:
 
-1. MUST stop revealing that entry's chain values from the start of the next period, and MUST NOT serve them from its own tick distribution service ({{distribution}}) thereafter.
+1. MUST stop revealing that entry's hash chain values from the start of the next period, and MUST NOT serve them from its own tick distribution service ({{distribution}}) thereafter.
 
 2. MUST omit the entry from every subsequent bundle published to delegated distributors ({{delegated-distribution}}).
    A distributor pre-provisioned with a buffer of future values cannot be revoked through that channel until the buffer is exhausted, which is why the buffer SHOULD be short.
@@ -438,9 +438,9 @@ A deployment that needs the revocation to be publicly auditable must record it t
 
 The non-revocation proof relies only on the preimage resistance of the hash function, not on collision resistance.
 Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would be needed to forge a future validity proof).
-The chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.
+The hash chain is revealed in reverse order precisely for this reason: knowledge of the current value does not help compute future values.
 
-The label in HashChainInput ({{encoding}}) domain-separates chain values from other uses of the hash function in MTC, and the per-entry `issuer_id` and `serial_number` salt each certificate's chain into its own hash domain ({{encoding}}).
+The label in HashChainInput ({{encoding}}) domain-separates hash chain values from other uses of the hash function in MTC, and the per-entry `issuer_id` and `serial_number` salt each certificate's hash chain into its own hash domain ({{encoding}}).
 
 The one hash whose distinctness matters for a different reason is `tbs_cert_entry_hash`, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
 A collision there would merely cause two entries to share a URL and misroute a fetch; the authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
@@ -457,7 +457,7 @@ The HashChainInput structure provides domain separation for hash chain computati
     } HashChainInput;
 
 label:
-: A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
+: A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a hash chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
   The trailing "\n\0" follows the convention of the base MTC specification's label (`"subtree/v1\n\0"`); the NUL terminator keeps the MTC label space prefix-free, so no label can be a prefix of another.
   The label's length is not otherwise security-relevant, and this short value keeps a typical HashChainInput within a single hash compression block.
 
@@ -478,13 +478,13 @@ It matches what both parties hold and removes a split-and-rejoin step in which t
 Both parties read `serial_number` directly from the certificate: the relying party when verifying ({{verification}}), and the authenticating party for its pre-installation check ({{distribution}}).
 It cannot be taken from the TBSCertificateLogEntry, which omits `serialNumber` (Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}); an authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
 
-The `issuer_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's chain in a distinct hash domain.
-This salting is not load-bearing for the core guarantee: each chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific chain.
+The `issuer_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
+This salting is not load-bearing for the core guarantee: each hash chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific hash chain.
 Its contribution is defense in depth.
-It keeps chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of chains at once (the same rationale as salting).
+It keeps hash chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of hash chains at once (the same rationale as salting).
 
 Two constraints rule out deriving the salt from the certificate or the log entry instead, as a hash of the TBSCertificate or of `tbs_cert_entry_data` would.
-The first is circularity: the anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{assertion-integration}}), whereas the salt must be fixed before the chain that produces that anchor can be computed, so a hash of either structure is unavailable at chain-generation time.
+The first is circularity: the anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{assertion-integration}}), whereas the salt must be fixed before the hash chain that produces that anchor can be computed, so a hash of either structure is unavailable when the hash chain is generated.
 The second is cost: HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}), and substituting a 32-byte hash for the 8-byte serial number pushes a typical structure past the 55 bytes that SHA-256 accommodates in a single compression block, roughly doubling that work.
 The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
 
@@ -820,7 +820,7 @@ This hardening preserves the properties of the base HTTP interface: each token a
 The token is an addressing capability, not a confidentiality secret, and this hardening is defense in depth rather than a hard security boundary.
 The tick it locates is public and self-authenticating, so the fetch still requires no transport-layer integrity or confidentiality and MAY be served over plain HTTP.
 The token is correspondingly a bearer capability: an authenticating party could disclose it, and an on-path observer of a plain-HTTP fetch can see it.
-Possession of it grants only the ability to fetch that public value, or to observe its absence -- not to forge ticks, which requires the secret chain values ({{seed-confidentiality}}), nor to use the certificate, which requires the corresponding private key.
+Possession of it grants only the ability to fetch that public value, or to observe its absence -- not to forge ticks, which requires the secret hash chain values ({{seed-confidentiality}}), nor to use the certificate, which requires the corresponding private key.
 Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status ({{rp-no-fetch}}).
 
 ## Response Format {#response-format}
@@ -939,7 +939,7 @@ Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, wh
 The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{availability-considerations}}.
 
 What is delegated is distribution, not revocation authority.
-The CA retains the seed and the unrevealed chain values ({{seed-confidentiality}}), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
+The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal each period; a distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
 
 A CA MAY publish only values that are already revealed, in which case each distributor depends on the CA for every refresh and the CA retains tight, sole control of revocation.
 
@@ -948,7 +948,7 @@ This is continuity (liveness) delegation, not delegation of revocation.
 Sharing future ticks lets the holder keep certificates alive.
 It correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
 The buffer length therefore caps how quickly those certificates can be revoked through the hash chain; during the window the only remaining lever is the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which the CA controls independently.
-Future values held by a distributor are as sensitive as the CA's own unrevealed chain values ({{seed-confidentiality}}): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
+Future values held by a distributor are as sensitive as the CA's own unrevealed hash chain values ({{seed-confidentiality}}): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
 A CA SHOULD therefore keep the buffer short -- sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace ({{period-zero-rationale}}) -- and pre-provision only distributors trusted to stop serving on the CA's instruction.
 
 Such a buffer is compact and inherently bounded.
@@ -991,13 +991,13 @@ It also need not reach the CA at all: because ticks are self-authenticating, dis
 
 The security of this mechanism depends on the preimage resistance of the hash function used.
 SHA-256 {{SHS}} provides 256 bits of preimage resistance, which is sufficient for all foreseeable certificate lifetimes.
-With a one-hour `tick_interval` and a 47-day lifetime, the chain length is 1,128, which does not meaningfully degrade the security margin.
+With a one-hour `tick_interval` and a 47-day lifetime, the hash chain length is 1,128, which does not meaningfully degrade the security margin.
 
 ## Post-Quantum Considerations {#post-quantum}
 
 This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
 Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up: against SHA-256 that leaves work on the order of 2^128, an ample margin for all foreseeable certificate lifetimes.
-The non-revocation proof relies on no collision resistance -- a revealed value is bound to a specific chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply (`tbs_cert_entry_hash`, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{distribution}}).
+The non-revocation proof relies on no collision resistance -- a revealed value is bound to a specific hash chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply (`tbs_cert_entry_hash`, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{distribution}}).
 It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
 
 Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
@@ -1006,7 +1006,7 @@ Adopting hash-chain revocation is therefore aligned with a post-quantum transiti
 
 ## Seed Confidentiality {#seed-confidentiality}
 
-The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed chain values confidential.
+The CA MUST keep the hash chain seed (h\[0\]) and all not-yet-revealed hash chain values confidential.
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.
 
 A CA that derives per-certificate seeds from a single long-term secret ({{derived-seeds}}) concentrates this requirement into that secret: it MUST then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation SHOULD be used to bound the impact of a compromise.
@@ -1074,7 +1074,7 @@ Neither changes the safe action for an unproven tick, which remains rejection, s
 
 ## Revocation Transparency and Auditability {#revocation-transparency}
 
-Revocation in this mechanism is the *absence* of a tick: the CA stops revealing chain values ({{revealing-values}}) and the certificate becomes unusable within two periods.
+Revocation in this mechanism is the *absence* of a tick: the CA stops revealing hash chain values ({{revealing-values}}) and the certificate becomes unusable within two periods.
 There is deliberately no positive, signed, non-repudiable artifact asserting "the CA revoked entry X as of period T."
 This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts.
 The base MTC revoked-ranges mechanism does not supply one either: it is relying-party configuration distributed out of band, not anything committed to the log ({{interaction-with-base-mtc-revocation}}).
@@ -1235,7 +1235,7 @@ This section records the status of known implementations of the mechanism define
 It is requested that the RFC Editor remove this section before publication.
 
 There are no known implementations at the time of writing.
-The author intends to produce a reference implementation covering chain generation ({{construction}}), tick distribution ({{distribution}}), and relying-party verification ({{verification}}), and to report interoperability results to the working group.
+The author intends to produce a reference implementation covering hash chain generation ({{construction}}), tick distribution ({{distribution}}), and relying-party verification ({{verification}}), and to report interoperability results to the working group.
 The test vectors of {{test-vectors}} are given so that independent implementations can check their HashChainInput encoding and hashing order against a fixed example before any interoperable deployment exists.
 
 # IANA Considerations {#iana-considerations}
@@ -1375,7 +1375,7 @@ For example, HashChainInput(h\[0\]) is the following 52 bytes:
     4d544352530a000481fd5901000100000000002a000102030405060708090a0b
     0c0d0e0f101112131415161718191a1b1c1d1e1f
 
-The resulting chain is:
+The resulting hash chain is:
 
     h[0]  000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
     h[1]  a99c801b389eed84c31eb04c970d2fbe63608bbd8911d54e63eb7f18adcf286a
@@ -1594,7 +1594,7 @@ Merkle Tree Certificates remove that barrier, which is what lets the same primit
   The only fetch is the server's own once-per-period refresh, a static cacheable GET that can be delegated to CDNs and mirrors ({{delegated-distribution}}).
 
 - **The commitment is free.**
-  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{assertion-integration}}), so the tick is self-authenticating with no new signature, responder, or trust relationship -- where classic CRS needed the CA to sign the chain's endpoint (its anchor) into each certificate.
+  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{assertion-integration}}), so the tick is self-authenticating with no new signature, responder, or trust relationship -- where classic CRS needed the CA to sign the hash chain's endpoint (its anchor) into each certificate.
 
 - **Enforcement is hard-fail by construction.**
   Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale ({{ocsp-stapling-comparison}}); it cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.
@@ -1615,11 +1615,11 @@ A one-hour `tick_interval` provides a good balance:
 - **Operational feasibility:** Authenticating parties must fetch a new tick once per hour.
   This is a trivial HTTP request for a small response.
 
-- **Chain length:** For 47-day certificates, the chain length is 1,128.
+- **Hash chain length:** For 47-day certificates, the hash chain length is 1,128.
   Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
 
 - **CA storage:** A CA MAY store one seed per active certificate (32 bytes each; 32 GB for 1 billion), but need not.
-  Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing -- any chain is recomputed on demand from that one secret and the public entry identity -- and traversal or checkpoint schemes ({{chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
+  Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing -- any hash chain is recomputed on demand from that one secret and the public entry identity -- and traversal or checkpoint schemes ({{chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 At day-scale periods the hash chain is short enough (`hash_chain_length` on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each hash chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
@@ -1654,19 +1654,19 @@ This document uses the shorter construction because the operational grace period
 A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
 Both are CA-side only; the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
 
-### Storing Versus Recomputing Chain Values {#chain-traversal}
+### Storing Versus Recomputing Hash Chain Values {#chain-traversal}
 
-Within a single chain, a CA does not have to choose between the two naive extremes:
+Within a single hash chain, a CA does not have to choose between the two naive extremes:
 
-- **Store the entire chain:** O(L) storage per certificate, but each revealed value is a free lookup.
+- **Store the entire hash chain:** O(L) storage per certificate, but each revealed value is a free lookup.
   For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
 
 - **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
   Over a certificate's lifetime this is O(L^2) hashing.
 
 A CA MAY instead use **fractal hash-chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
-The chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
-Instead of the whole chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the chain.
+The hash chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
+Instead of the whole hash chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the hash chain.
 When the value for the current period is needed, a pebble is already there; between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
 The scheduling guarantees:
 
@@ -1677,17 +1677,17 @@ For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) p
 Across 1 billion certificates that is roughly 340 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
 This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).
 
-The pebbles are unrevealed chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
+The pebbles are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
 
 ### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
 
 The per-certificate seed itself can also be eliminated from storage.
 Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function -- for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || serial_number)`, or the equivalent with HKDF.
 A raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse; a proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of {{construction}}.
-Any chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
-The cost is concentration: compromise of `ca_seed` exposes every certificate's chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}) -- though, being a single small key, it is better suited to HSM custody than a bulk per-certificate seed store.
+Any hash chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
+The cost is concentration: compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}) -- though, being a single small key, it is better suited to HSM custody than a bulk per-certificate seed store.
 To bound the blast radius, a CA SHOULD derive per-log or per-epoch sub-seeds (`log_seed = KDF(ca_seed, log_number)`, then `h[0] = KDF(log_seed, label || index)`), which can be retired as their logs expire; as with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
-Rotation is by issuance epoch, not by tick period: a certificate's entire chain derives from the seed fixed at issuance, so per-log or per-epoch sub-seeds are the finest granularity at which a compromise can be bounded.
+Rotation is by issuance epoch, not by tick period: a certificate's entire hash chain derives from the seed fixed at issuance, so per-log or per-epoch sub-seeds are the finest granularity at which a compromise can be bounded.
 
 ## Why Embed the Tick in the MTCProof {#why-embed}
 
@@ -1835,7 +1835,7 @@ The effects above apply equally, and a newly issued certificate is the cheapest 
 An alternative to the HTTP interface ({{distribution}}) is for the CA to publish current ticks via DNS -- for example a TXT record at a name derived from `tbs_cert_entry_hash` -- which the authenticating party fetches and embeds in the MTCProof.
 Because the tick is embedded regardless of transport, the relying party's verification is unchanged and the choice is purely between the CA and the authenticating party; it does not affect interoperability.
 DNS's hierarchical caching suits small, frequently-updated values, letting recursive resolvers serve ticks without CA-operated CDN infrastructure.
-Its apparent costs -- large zones with one record per certificate, and TTL-bounded propagation -- are addressable: a programmable authoritative server can synthesize the response for `{tbs_cert_entry_hash}._tick.<zone>` on demand from the same chain state ({{distribution}}), so no per-certificate records are stored, and a TTL no longer than `tick_interval` bounds staleness (a briefly stale record stays acceptable under the one-period grace ({{clock-skew}}), and the authenticating party's pre-installation check ({{verification}}) refetches an unexpectedly stale one).
+Its apparent costs -- large zones with one record per certificate, and TTL-bounded propagation -- are addressable: a programmable authoritative server can synthesize the response for `{tbs_cert_entry_hash}._tick.<zone>` on demand from the same hash chain state ({{distribution}}), so no per-certificate records are stored, and a TTL no longer than `tick_interval` bounds staleness (a briefly stale record stays acceptable under the one-period grace ({{clock-skew}}), and the authenticating party's pre-installation check ({{verification}}) refetches an unexpectedly stale one).
 Because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the same bundle.
 
 DNSSEC is not required and SHOULD NOT be used: each tick is self-authenticating ({{verification}}), so an attacker cannot forge one in transit without inverting the hash, and suppressing a tick is only a denial of service against any distribution channel.
@@ -1906,7 +1906,7 @@ Either way `tbs_cert_entry_hash` remains well-defined and identical for a given 
 
 Excluding the anchor does, however, remove the uniqueness the tick URL relies on.
 `serialNumber` is omitted from the TBSCertificateLogEntry, its value being authenticated instead by the inclusion proof index (Section 12.6 of {{I-D.ietf-plants-merkle-tree-certs}}), so `tbs_cert_entry_data` carries nothing that distinguishes two entries certifying the same subject, public key, validity, and extensions -- which a CA that rounds `notBefore` readily produces for a repeated issuance request.
-In the primary design the anchor separates such entries, each carrying an independent random value; in this alternative it does not, so both resolve to a single tick URL while holding different chains, and the authenticating party for whichever entry the CA does not serve there would reject every tick it fetched ({{verification}}).
+In the primary design the anchor separates such entries, each carrying an independent random value; in this alternative it does not, so both resolve to a single tick URL while holding different hash chains, and the authenticating party for whichever entry the CA does not serve there would reject every tick it fetched ({{verification}}).
 A base specification adopting the entry-extension encoding MUST therefore address ticks by a value that covers the anchor -- for example the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})`, which is computed over the entry extensions as well as `tbs_cert_entry_data` ({{distribution}}) -- in place of `tbs_cert_entry_hash`.
 
 This has a natural symmetry with the tick's encoding: the immutable, committed anchor lives in the committed entry extensions, while the mutable, per-period tick lives in the uncommitted trailing field or `proof_extensions` ({{cert-format}}).
