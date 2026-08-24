@@ -330,6 +330,13 @@ A working group that adopts this document should expect to settle them; nothing 
    Computing the hash chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
    *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
 
+6. **Is "tick" the right name for the revealed value?**
+   The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
+   "Tick" was chosen for its clock connotation -- one per period, on a fixed cadence -- and because it is unclaimed in TLS and PKI, unlike "token" (time-stamp tokens, bearer tokens, Privacy Pass), "witness" and "checkpoint" (already used in transparency systems, and this document has cosigners), and "heartbeat" (a TLS extension).
+   "Token" is doubly unavailable here: this document already uses it for the optional per-certificate capability that addresses a tick URL ({{unguessable-urls}}), and its bearer-credential connotation is the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
+   Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number; this document therefore always presents the tick as the pair `{period, value}`.
+   *Preference:* keep "tick"; a descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.
+
 # Hash Chain Construction {#construction}
 
 ## Parameters
