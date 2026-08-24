@@ -1863,6 +1863,12 @@ Both are committed to the Merkle Tree, so either home makes the anchor self-auth
 In this alternative, a new MerkleTreeCertEntryExtensionType (to be renamed to MTCLogEntryExtensionType) (for example, `hash_chain_anchor`) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and `revocation_period` from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
+Obtaining the anchor costs neither party any meaningful extra work.
+Both the anchor and the tick then travel in the MTCProof -- the entry extensions in its leading field, the tick in its trailing one -- so a relying party finds the anchor by scanning a short type-length-value list it has already parsed to reconstruct the entry, in place of the scan of the certificate's X.509 extensions that the primary design performs; each is a lookup in a list the party decodes regardless.
+An authenticating party likewise reads it from the certificate it already holds, and preserves the entry extensions verbatim when it rewrites the `signatureValue` to install a fresh tick ({{distribution}}); disturbing them would break the inclusion proof, so the error is self-detecting.
+One detail is in fact simpler: `certificate_has_anchor`, the discriminant of the trailing `status_tick` field ({{tick-trailing-field}}), becomes a preceding field of the same structure rather than a property of the enclosing certificate, matching the base specification's own in-structure selects.
+The costs of this alternative lie elsewhere, as below.
+
 This changes what `tbs_cert_entry_hash` ({{distribution}}) covers, though not its role.
 `tbs_cert_entry_hash` is computed over `tbs_cert_entry_data`, which contains the TBSCertificateLogEntry but not the entry-level extensions of the MerkleTreeCertEntry (to be renamed to MTCLogEntry).
 In this alternative the anchor is therefore committed to the tree through the MerkleTreeCertEntry (to be renamed to MTCLogEntry) rather than through `tbs_cert_entry_data`, and does not contribute to `tbs_cert_entry_hash`; in the primary design the anchor, as an X.509 extension of the TBSCertificateLogEntry, is part of `tbs_cert_entry_data` and does contribute.
