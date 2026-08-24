@@ -244,7 +244,7 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
      period:   0        1        2        3        4
      tick:    h[5]     h[4]     h[3]     h[2]     h[1]
             (anchor)
-     (the seed h[0] is never revealed; revealing stops to revoke)
+     (h[0] is never revealed; to revoke, the CA stops revealing)
 
    Verify a tick for period t: hash it forward t times and check
    it equals the anchor.  Period 2:  h[3] --> h[4] --> h[5].
