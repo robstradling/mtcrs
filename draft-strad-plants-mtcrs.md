@@ -317,9 +317,13 @@ A working group that adopts this document should expect to settle them; nothing 
    The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms; if it is adopted, the tick should use it rather than a bare trailing field.
    *Preference:* not needed for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
 
-4. **What should the default `tick_interval` be?**
-   This document uses one hour ({{why-one-hour}}); one day is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}).
-   Because the value is per-certificate and carried in the certificate ({{construction}}), this is a question about the recommended default and about what root programs should require, not about the protocol.
+4. **What should the default `tick_interval` and acceptance window be?**
+   The two jointly set revocation latency: a withheld tick stops verifying within (k + 1) `tick_interval`s, where k is the number of preceding periods a relying party accepts ({{clock-skew}}).
+   This document uses one hour ({{why-one-hour}}) with k = 1, which is where the two-period bound quoted throughout comes from.
+   They are worth settling separately because they have different owners: `tick_interval` is per-certificate and set by the CA, carried in the certificate for every verifier to read ({{construction}}), whereas the acceptance window is relying-party or root-program policy applying uniformly to every certificate that party validates ({{rp-policy}}).
+   A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}); widening k buys outage tolerance at a one-for-one cost in latency ({{clock-skew}}).
+   *Preference:* one hour with k = 1.
+   Neither is a protocol question: both concern recommended defaults and what root programs should require.
 
 5. **Should period 0 enforce revocation?**
    The period 0 tick is the public anchor, which gives the CA a one-period grace to publish a new certificate's chain but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
