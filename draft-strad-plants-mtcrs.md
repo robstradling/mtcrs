@@ -143,7 +143,7 @@ Relying parties that have them may fall back to out-of-band systems such as {{CR
 
 This document defines such a mechanism based on hash chains {{MICALI}}.
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
-Each revocation period (e.g., every hour), the CA reveals the previous hash chain value -- walking the committed chain backward -- for all non-revoked certificates.
+For each non-revoked certificate, once per revocation period (e.g., every hour), the CA reveals the previous hash chain value, walking the committed chain backward.
 To revoke a certificate, the CA simply stops revealing values.
 The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the `signatureValue`), and the relying party (client) verifies it against the anchor committed in the log entry.
 
@@ -258,7 +258,8 @@ It reuses the small example of {{test-vectors}}: a chain of length `chain_length
 
 2. **Per-period reveal.**
    Time after the certificate's `notBefore` is divided into periods of `revocation_period` seconds (one hour by default).
-   At the start of period `t`, the CA reveals `h[chain_length - t]` for every certificate it has not revoked ({{revealing-values}}) -- for period 2, that is `h[3]`.
+   At the start of period `t`, the CA reveals `h[chain_length - t]` -- for period 2, that is `h[3]` -- unless it has revoked the certificate, in which case it reveals nothing further ({{revealing-values}}).
+   These period boundaries are the certificate's own: because they are counted from its `notBefore`, each certificate advances through its periods on its own schedule ({{construction}}).
    The chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
 
 3. **Server refresh.**
