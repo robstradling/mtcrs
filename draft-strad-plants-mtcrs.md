@@ -483,6 +483,11 @@ This salting is not load-bearing for the core guarantee: each chain already star
 Its contribution is defense in depth.
 It keeps chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of chains at once (the same rationale as salting).
 
+Two constraints rule out deriving the salt from the certificate or the log entry instead, as a hash of the TBSCertificate or of `tbs_cert_entry_data` would.
+The first is circularity: the anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{assertion-integration}}), whereas the salt must be fixed before the chain that produces that anchor can be computed, so a hash of either structure is unavailable at chain-generation time.
+The second is cost: HashChainInput is hashed once per forward step, up to `chain_length` - 1 times per verification ({{verification}}), and substituting a 32-byte hash for the 8-byte serial number pushes a typical structure past the 55 bytes that SHA-256 accommodates in a single compression block, roughly doubling that work.
+The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
+
 The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).
 
 # Integration with MTC Log Entries {#assertion-integration}
