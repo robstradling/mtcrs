@@ -167,7 +167,7 @@ This approach achieves the following properties:
 
 These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
 First, enforcement introduces an availability dependency: because an authenticating party must refresh its tick each period, a tick-distribution outage that outlasts the certificate's buffer renders it unusable ({{availability-considerations}}).
-Second, revocation is enforceable but not transparent: withholding a tick is not a signed, logged artifact, so monitors cannot observe revocation events in the Merkle Tree, and a deployment that needs an auditable revocation record pairs this mechanism with the base MTC revoked-ranges mechanism ({{revocation-transparency}}).
+Second, revocation is enforceable but not transparent: withholding a tick is not a signed, logged artifact, so monitors cannot observe revocation events in the Merkle Tree, and a deployment that needs an auditable revocation record obtains it from a mechanism outside MTC ({{revocation-transparency}}).
 Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
 
 This mechanism is designed to layer onto the base MTC specification {{I-D.ietf-plants-merkle-tree-certs}} with a single required change; {{base-spec-amendments}} collects what this document asks of the base specification, and {{open-questions}} the design choices it leaves open for the working group to settle.
@@ -432,7 +432,7 @@ On deciding to revoke an entry, a CA:
 4. MUST fall back to the base MTC revoked-ranges mechanism if the seed or its derivation secret is compromised, because an attacker holding those can forge ticks whatever the CA withholds ({{seed-confidentiality}}).
 
 No cache purge is required or useful: a tick cached at an HTTP intermediary is bounded by the same acceptance window as a freshly fetched one ({{clock-skew}}), so the certificate becomes unusable on the same schedule either way.
-A deployment that needs the revocation to be publicly auditable records it through the revoked-ranges mechanism as well ({{revocation-transparency}}).
+A deployment that needs the revocation to be publicly auditable must record it through a mechanism that produces such an artifact, since neither withholding a tick nor the base revoked ranges does ({{revocation-transparency}}).
 
 ## Security of the Hash Chain
 
@@ -1047,6 +1047,8 @@ Hash chain revocation does not rely on its authenticity -- the tick is self-auth
 ## Interaction with Base MTC Revocation {#interaction-with-base-mtc-revocation}
 
 The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
+Revoked ranges are relying-party configuration: each relying party maintains, per CA, a list of revoked serial-number ranges, seeded from the CA certificate's minSerial and maxSerial and extended from out-of-band sources (Section 7.5 of {{I-D.ietf-plants-merkle-tree-certs}}).
+They are therefore closer in kind to CRLite {{CRLite}} or CRLSets {{CRLSets}} -- pushed state, distributed out of band, effective only for relying parties that receive it -- than to a logged or signed artifact; nothing about a revoked range is committed to the Merkle Tree.
 Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:
 
 - Compromise of the CA's hash chain seed storage
@@ -1067,7 +1069,8 @@ Neither changes the safe action for an unproven tick, which remains rejection, s
 
 Revocation in this mechanism is the *absence* of a tick: the CA stops revealing chain values ({{revealing-values}}) and the certificate becomes unusable within two periods.
 There is deliberately no positive, signed, non-repudiable artifact asserting "the CA revoked entry X as of period T."
-This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts, and from the base MTC revoked-ranges mechanism, whose revoked ranges are committed to the log.
+This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts.
+The base MTC revoked-ranges mechanism does not supply one either: it is relying-party configuration distributed out of band, not anything committed to the log ({{interaction-with-base-mtc-revocation}}).
 The transparency here is asymmetric: opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{assertion-integration}}), but the per-period revocation *state* is neither signed nor committed, so a monitor cannot observe it in the log.
 
 Four consequences follow, each bounded:
@@ -1078,7 +1081,8 @@ Four consequences follow, each bounded:
 
 - **No revocation-event transparency in the log.**
   Because revealed ticks are not committed to the tree, the fact and time of a revocation are not recorded there.
-  A deployment that requires a committed, monitorable revocation record MUST use the base MTC revoked-ranges mechanism ({{interaction-with-base-mtc-revocation}}), which places the revocation in the log; the two compose, and a CA MAY revoke a certificate through both.
+  Nor do base MTC revoked ranges supply such a record, being relying-party configuration rather than log content ({{interaction-with-base-mtc-revocation}}), so no in-band, logged revocation record exists anywhere in MTC.
+  A deployment that requires one uses an external system that provides it -- CRLs or OCSP, which apply to Merkle Tree Certificates unchanged (Section 12.7 of {{I-D.ietf-plants-merkle-tree-certs}}) -- or a signed revocation feed published by the CA (see below).
 
 - **No revocation reason codes.**
   A tick's absence carries no reason (keyCompromise, cessationOfOperation, and so on).
@@ -1093,8 +1097,8 @@ Four consequences follow, each bounded:
 
 None of this weakens enforcement, which is what the mechanism exists to provide.
 A revoked certificate stops verifying at every relying party within the two-period bound ({{clock-skew}}) whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
-Auditability, where a deployment needs it, is obtained by pairing hash chain revocation with the committed revoked-ranges mechanism ({{interaction-with-base-mtc-revocation}}) rather than from the hash chain itself.
-A CA that wants positive, monitorable revocation records without invoking revoked ranges MAY additionally publish a signed revocation feed, but this document neither defines nor requires one.
+Auditability, where a deployment needs it, therefore comes from outside both this mechanism and the base revoked-ranges mechanism: from CRLs or OCSP, which apply unchanged (Section 12.7 of {{I-D.ietf-plants-merkle-tree-certs}}), or from a signed revocation feed the CA publishes.
+This document neither defines nor requires such a feed.
 
 ## Downgrade to a Non-MTCRS Certificate {#downgrade}
 
