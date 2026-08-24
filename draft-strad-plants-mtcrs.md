@@ -1070,7 +1070,7 @@ There is deliberately no positive, signed, non-repudiable artifact asserting "th
 This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts, and from the base MTC revoked-ranges mechanism, whose revoked ranges are committed to the log.
 The transparency here is asymmetric: opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{assertion-integration}}), but the per-period revocation *state* is neither signed nor committed, so a monitor cannot observe it in the log.
 
-Three consequences follow, each bounded:
+Four consequences follow, each bounded:
 
 - **Revocation is observable but not provable.**
   A monitor watching a certificate's tick endpoint can detect that ticks have stopped, but cannot by that alone prove the CA revoked it rather than suffered a distribution outage: a 404 does not distinguish the two ({{response-format}}).
@@ -1083,6 +1083,13 @@ Three consequences follow, each bounded:
 - **No revocation reason codes.**
   A tick's absence carries no reason (keyCompromise, cessationOfOperation, and so on).
   Conveying a reason is out of scope here; a deployment that needs machine-readable reasons uses the base MTC revoked-ranges mechanism or an external revocation system that carries them.
+
+- **No status after expiry.**
+  Tick publication stops when the certificate expires ({{revealing-values}}), so no status can be obtained for an expired certificate, and because revocation is absence, nothing then distinguishes one that was revoked from one that was not.
+  CRLs and OCSP can in principle answer past `notAfter`, which profiles for long-term signature validation depend on.
+  This is out of scope for the TLS use case that motivates this mechanism, where an expired certificate is rejected on validity grounds before any tick is examined.
+  A tick retained while the certificate was valid does remain verifiable indefinitely -- verification is offline hashing against the anchor in the certificate ({{verification}}) -- so it is durable, self-authenticating evidence of non-revocation as of its own period, in 36 bytes rather than an archived signed response.
+  Only the negative cannot be reconstructed later.
 
 None of this weakens enforcement, which is what the mechanism exists to provide.
 A revoked certificate stops verifying at every relying party within the two-period bound ({{clock-skew}}) whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
