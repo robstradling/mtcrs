@@ -1600,7 +1600,7 @@ Merkle Tree Certificates remove that barrier, which is what lets the same primit
   Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale ({{ocsp-stapling-comparison}}); it cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.
 
 - **The remaining costs are tractable at scale.**
-  Zero per-period signing keeps post-quantum signatures off the revocation path ({{post-quantum}}), precomputation is bounded by fractal traversal ({{chain-traversal}}), and distribution is delegable ({{delegated-distribution}}) -- addressing the generation-and-distribution load that also burdened CRS.
+  Zero per-period signing keeps post-quantum signatures off the revocation path ({{post-quantum}}), precomputation is bounded by fractal traversal ({{hash-chain-traversal}}), and distribution is delegable ({{delegated-distribution}}) -- addressing the generation-and-distribution load that also burdened CRS.
   MTC is moreover greenfield, so enforcement can be mandatory from the outset rather than accommodating a soft-fail install base.
 
 In short, CRS's limitation was delivery and enforcement, not the hash chain.
@@ -1619,10 +1619,10 @@ A one-hour `tick_interval` provides a good balance:
   Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
 
 - **CA storage:** A CA MAY store one seed per active certificate (32 bytes each; 32 GB for 1 billion), but need not.
-  Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing -- any hash chain is recomputed on demand from that one secret and the public entry identity -- and traversal or checkpoint schemes ({{chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
+  Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing -- any hash chain is recomputed on demand from that one secret and the public entry identity -- and traversal or checkpoint schemes ({{hash-chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
-At day-scale periods the hash chain is short enough (`hash_chain_length` on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each hash chain in full and skip the fractal traversal of {{chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
+At day-scale periods the hash chain is short enough (`hash_chain_length` on the order of the lifetime in days, e.g. 47 for a 47-day certificate) that a CA can store each hash chain in full and skip the fractal traversal of {{hash-chain-traversal}} entirely, and the once-per-day fetch cadence gives a far more forgiving outage-tolerance budget ({{availability-considerations}}); the price is coarser revocation.
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation -- whose worst-case exposure is the full remaining lifetime -- not against a one-day short-lived certificate: its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
 The fine-grained-revocation advantage over short lifetimes ({{revocation-vs-expiry}}) is precisely what a short period buys, so deployments SHOULD choose the shortest period operationally feasible.
 
@@ -1654,7 +1654,7 @@ This document uses the shorter construction because the operational grace period
 A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
 Both are CA-side only; the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
 
-### Storing Versus Recomputing Hash Chain Values {#chain-traversal}
+### Storing Versus Recomputing Hash Chain Values {#hash-chain-traversal}
 
 Within a single hash chain, a CA does not have to choose between the two naive extremes:
 
