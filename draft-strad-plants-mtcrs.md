@@ -302,73 +302,6 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
    Once the last revealed tick's period ends, no party can produce a valid tick, because doing so would require inverting the hash.
    The certificate therefore becomes unusable within at most two periods.
 
-# Amendments Requested of the Base Specification {#base-spec-amendments}
-
-For convenience, this section collects the amendments this document asks of the base specification; each is specified in full in the section cited.
-
-Exactly one change to the base specification is required:
-
-- **Amend the Section 7.2 "extra data" check** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
-  The RECOMMENDED realization appends a trailing `status_tick` field ({{tick-trailing-field}}); a base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends Section 7.2 accordingly.
-
-The following item is optional; a base specification MAY adopt it but need not:
-
-- **Register a `hash_chain_anchor` entry-extension type** in the MTCLogEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
-
-Everything else this document defines layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
-That covers the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}).
-
-The MTCProof changes themselves are edits to a structure that the base specification owns: the trailing `status_tick` field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the `proof_extensions` field ({{mtcproof-extensibility}}).
-This document specifies them in full so that the required change is concrete and reviewable.
-The intent, however, is to hand them to the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
-If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
-
-# Open Questions for the Working Group {#open-questions}
-
-{{base-spec-amendments}} states what this document asks of the base specification as concrete proposals, so that they are reviewable.
-This section collects the choices behind those proposals that the author considers genuinely open, each with the alternatives, this document's current preference, and a pointer to the full analysis.
-A working group that adopts this document should expect to settle them; nothing in this section is itself a normative requirement.
-
-1. **Where does the anchor live?**
-   The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{assertion-integration}}) or a committed entry extension ({{anchor-entry-extension}}).
-   Both are committed to the Merkle Tree, so the verification procedure is identical either way; the trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
-   The entry extension additionally forces a change to tick addressing, because the anchor then no longer separates entries that are otherwise identical ({{anchor-entry-extension}}).
-   *Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
-   Whichever is chosen becomes the single anchor home for the ecosystem.
-
-2. **How is the tick carried in the MTCProof?**
-   Either as a trailing `status_tick` field ({{tick-trailing-field}}) or as a `hash_chain_tick` proof extension ({{tick-proof-extension}}).
-   *Preference:* the trailing field, as the minimal change to a base-specification-owned structure, adding no variable-length "ignore if unknown" region.
-
-3. **Does the base specification want general proof-level extensibility at all?**
-   This is separable from question 2.
-   The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms; if it is adopted, the tick should use it rather than a bare trailing field.
-   *Preference:* not needed for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
-
-4. **What should the default `tick_interval` and acceptance window be?**
-   The two jointly set revocation latency: a withheld tick stops verifying within (k + 1) `tick_interval`s, where k is the number of preceding periods a relying party accepts ({{clock-skew}}).
-   This document uses one hour ({{why-one-hour}}) with k = 1, which is where the two-period bound quoted throughout comes from.
-   They are worth settling separately because they have different owners.
-   `tick_interval` is per-certificate and set by the CA, carried in the certificate for every verifier to read ({{construction}}), whereas the acceptance window is relying-party or root-program policy applying uniformly to every certificate that party validates ({{rp-policy}}).
-   A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}); widening k buys outage tolerance at a one-for-one cost in latency ({{clock-skew}}).
-   *Preference:* one hour with k = 1.
-   Neither is a protocol question: both concern recommended defaults and what root programs should require.
-
-5. **Should period 0 enforce revocation?**
-   The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
-   Computing the hash chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
-   *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
-
-6. **Is "tick" the right name for the revealed value?**
-   The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
-   "Tick" was chosen for its clock connotation: one per period, on a fixed cadence.
-   It is also unclaimed in TLS and PKI, unlike "token" (time-stamp tokens, bearer tokens, Privacy Pass), "witness" and "checkpoint" (already used in transparency systems, and this document has cosigners), and "heartbeat" (a TLS extension).
-   "Token" is doubly unavailable here.
-   This document already uses it for the optional per-certificate capability that addresses a tick URL ({{unguessable-urls}}).
-   Its bearer-credential connotation is also the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
-   Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number; this document therefore always presents the tick as the pair `{period, value}`.
-   *Preference:* keep "tick"; a descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.
-
 # Hash Chain Construction {#construction}
 
 ## Parameters
@@ -1628,6 +1561,73 @@ f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
 
 Here `30` is SEQUENCE, `04 20` the 32-byte anchor OCTET STRING, and `02 03 015180` the INTEGER 86400.
 A relying party that finds `tickInterval` absent MUST use the default of 3600 ({{assertion-integration}}).
+
+# Amendments Requested of the Base Specification {#base-spec-amendments}
+
+For convenience, this section collects the amendments this document asks of the base specification; each is specified in full in the section cited.
+
+Exactly one change to the base specification is required:
+
+- **Amend the Section 7.2 "extra data" check** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
+  The RECOMMENDED realization appends a trailing `status_tick` field ({{tick-trailing-field}}); a base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends Section 7.2 accordingly.
+
+The following item is optional; a base specification MAY adopt it but need not:
+
+- **Register a `hash_chain_anchor` entry-extension type** in the MTCLogEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
+
+Everything else this document defines layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
+That covers the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}).
+
+The MTCProof changes themselves are edits to a structure that the base specification owns: the trailing `status_tick` field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the `proof_extensions` field ({{mtcproof-extensibility}}).
+This document specifies them in full so that the required change is concrete and reviewable.
+The intent, however, is to hand them to the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
+If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
+
+# Open Questions for the Working Group {#open-questions}
+
+{{base-spec-amendments}} states what this document asks of the base specification as concrete proposals, so that they are reviewable.
+This section collects the choices behind those proposals that the author considers genuinely open, each with the alternatives, this document's current preference, and a pointer to the full analysis.
+A working group that adopts this document should expect to settle them; nothing in this section is itself a normative requirement.
+
+1. **Where does the anchor live?**
+   The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{assertion-integration}}) or a committed entry extension ({{anchor-entry-extension}}).
+   Both are committed to the Merkle Tree, so the verification procedure is identical either way; the trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+   The entry extension additionally forces a change to tick addressing, because the anchor then no longer separates entries that are otherwise identical ({{anchor-entry-extension}}).
+   *Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
+   Whichever is chosen becomes the single anchor home for the ecosystem.
+
+2. **How is the tick carried in the MTCProof?**
+   Either as a trailing `status_tick` field ({{tick-trailing-field}}) or as a `hash_chain_tick` proof extension ({{tick-proof-extension}}).
+   *Preference:* the trailing field, as the minimal change to a base-specification-owned structure, adding no variable-length "ignore if unknown" region.
+
+3. **Does the base specification want general proof-level extensibility at all?**
+   This is separable from question 2.
+   The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms; if it is adopted, the tick should use it rather than a bare trailing field.
+   *Preference:* not needed for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
+
+4. **What should the default `tick_interval` and acceptance window be?**
+   The two jointly set revocation latency: a withheld tick stops verifying within (k + 1) `tick_interval`s, where k is the number of preceding periods a relying party accepts ({{clock-skew}}).
+   This document uses one hour ({{why-one-hour}}) with k = 1, which is where the two-period bound quoted throughout comes from.
+   They are worth settling separately because they have different owners.
+   `tick_interval` is per-certificate and set by the CA, carried in the certificate for every verifier to read ({{construction}}), whereas the acceptance window is relying-party or root-program policy applying uniformly to every certificate that party validates ({{rp-policy}}).
+   A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}); widening k buys outage tolerance at a one-for-one cost in latency ({{clock-skew}}).
+   *Preference:* one hour with k = 1.
+   Neither is a protocol question: both concern recommended defaults and what root programs should require.
+
+5. **Should period 0 enforce revocation?**
+   The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
+   Computing the hash chain one element longer removes the grace and enforces from period 1; that construction is given in {{period-zero-rationale}}.
+   *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
+
+6. **Is "tick" the right name for the revealed value?**
+   The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
+   "Tick" was chosen for its clock connotation: one per period, on a fixed cadence.
+   It is also unclaimed in TLS and PKI, unlike "token" (time-stamp tokens, bearer tokens, Privacy Pass), "witness" and "checkpoint" (already used in transparency systems, and this document has cosigners), and "heartbeat" (a TLS extension).
+   "Token" is doubly unavailable here.
+   This document already uses it for the optional per-certificate capability that addresses a tick URL ({{unguessable-urls}}).
+   Its bearer-credential connotation is also the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
+   Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number; this document therefore always presents the tick as the pair `{period, value}`.
+   *Preference:* keep "tick"; a descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
