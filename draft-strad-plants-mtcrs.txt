@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             24 August 2026
-Expires: 25 February 2027
+Intended status: Experimental                             25 August 2026
+Expires: 26 February 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -14,16 +14,15 @@ Expires: 25 February 2027
 Abstract
 
    This document defines a hash chain revocation mechanism for Merkle
-   Tree Certificates (MTC) [I-D.ietf-plants-merkle-tree-certs].  A
-   Merkle Tree CA includes a hash chain anchor in the certificate at
-   issuance time.  Periodically, the CA reveals the previous hash chain
-   value for each non-revoked certificate.  The authenticating party
-   packages the current value with its period as a _tick_ and embeds it
-   in the certificate's MTCProof as the certificate's non-revocation
-   proof -- alongside the inclusion proof that establishes authenticity
-   -- enabling the relying party to cryptographically verify that the
-   certificate has not been revoked, with granularity as fine as a
-   fraction of a day.
+   Tree Certificates (MTC).  A Merkle Tree CA includes a hash chain
+   anchor in the certificate at issuance time.  Periodically, the CA
+   reveals the previous hash chain value for each non-revoked
+   certificate.  The authenticating party packages the current value
+   with its period as a _tick_ and embeds it in the certificate's
+   MTCProof as the certificate's non-revocation proof -- alongside the
+   inclusion proof that establishes authenticity -- enabling the relying
+   party to cryptographically verify that the certificate has not been
+   revoked, with granularity as fine as a fraction of a day.
 
    This mechanism provides timely revocation without requiring
    signatures per revocation check, without relying on the relying party
@@ -62,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 25 February 2027.
+   This Internet-Draft will expire on 26 February 2027.
 
 Copyright Notice
 
@@ -82,6 +81,7 @@ Table of Contents
 
    1.  Introduction
    2.  Conventions and Definitions
+     2.1.  Terminology
    3.  Overview
    4.  Amendments Requested of the Base Specification
    5.  Open Questions for the Working Group
@@ -181,6 +181,7 @@ Table of Contents
      E.8.  CRLite / CRLSets / External Revocation
      E.9.  Per-Certificate Signatures (OCSP-like)
    Acknowledgments
+   Change log
    Author's Address
 
 1.  Introduction
@@ -195,12 +196,17 @@ Table of Contents
    serial-range revocation (Section 7.5) is a complementary mitigation
    for CA misbehaviour rather than a per-certificate revocation service.
 
-   However, deployments such as Chrome's draft MTC policy [CHROME-MTC]
-   permit certificate lifetimes of up to 47 days.  At this timescale,
-   key compromise or certificate misissuance can cause significant harm
-   before natural expiry.  Relying parties that have them may fall back
-   to out-of-band systems such as [CRLite] or [CRLSets], but these are
-   vendor-controlled and not universal, and no in-band mechanism exists.
+   However, deployments such as Chrome's draft Quantum-resistant Root
+   Program policy [CHROME-MTC] permit certificate lifetimes of up to 47
+   days: that policy recommends a 7-day validity and requires each MTC
+   CA to operate at least one cosigner key limited to it, while
+   permitting up to three further keys that issue at 47 days.  Without
+   revocation, exposure to key compromise or certificate misissuance is
+   bounded only by expiry -- a week in the recommended case, and a month
+   and a half at the permitted maximum.  Relying parties that have them
+   may fall back to out-of-band systems such as [CRLite] or [CRLSets],
+   but these are vendor-controlled and not universal, and no in-band
+   mechanism exists.
 
    This document defines such a mechanism based on hash chains [MICALI].
    At issuance, the CA commits a hash chain anchor into the MTC log
@@ -280,28 +286,86 @@ Table of Contents
    BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
    capitals, as shown here.
 
+   This document uses the TLS presentation language defined in Section 3
+   of [RFC9846] for the HashChainInput (Section 7), HashChainTick
+   (Section 9), and amended MTCProof (Section 9.1.1) structures, and
+   ASN.1 [X.690] for the certificate extension it defines (Section 8).
+   The HashValue and TrustAnchorID types are those of
+   [I-D.ietf-plants-merkle-tree-certs].
+
    This document uses the hash function HASH and its output length in
    bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs
    (Section 5 of [I-D.ietf-plants-merkle-tree-certs]); for a CA using
    SHA-256, HASH is SHA-256 and HASH_SIZE is 32.  Hash chain values, the
    anchor, and the tick all use this hash.
 
-   The HashChainTick that this mechanism embeds in the MTCProof
-   (Section 9) is the certificate's _non-revocation proof_: the
-   component of the MTCProof attesting that the certificate has not been
-   revoked as of the current period, complementing the inclusion proof
-   and cosignatures that attest authenticity.  The separate
-   tbs_cert_entry_hash used only to address ticks (Section 11) is always
-   computed with SHA-256, independent of the CA's tree hash.
+   Structure names from the base specification follow its editor's copy,
+   in which MerkleTreeCertEntry, MerkleTreeCertEntryExtension,
+   MerkleTreeCertEntryExtensionType, and MTCSignature have been renamed
+   to MTCLogEntry, MTCLogEntryExtension, MTCLogEntryExtensionType, and
+   SubtreeSignature respectively.  Readers comparing against draft-ietf-
+   plants-merkle-tree-certs-05 should substitute the older names.
 
-   Every hash chain value in this mechanism is _self-authenticating_: a
-   relying party verifies it offline by hashing it forward to the anchor
-   committed in the certificate (Section 10), needing no signature over
-   the value and no trust beyond the CA's existing trust anchor.
-   Because a tampered or forged value cannot reach the committed anchor
-   in the number of steps its claimed period implies, this holds even
-   though the MTCProof that carries the tick is itself unsigned and
-   mutable.  Later sections use the term in this sense.
+2.1.  Terminology
+
+   This document uses the roles defined in
+   [I-D.ietf-plants-merkle-tree-certs]: the _certification authority
+   (CA)_ that issues certificates, the _authenticating party_ (in TLS,
+   the server) that presents one, the _relying party_ (in TLS, the
+   client) that validates it, and the _monitor_ that watches issuance
+   logs.  It adds the following terms, each specified in full in the
+   section cited.
+
+   Hash chain:  The sequence of values h[0] through h[hash_chain_length]
+      that the CA generates for a log entry at issuance, each the hash
+      of its predecessor (Section 6).
+
+   Seed:  The first value of a hash chain, h[0].  It is secret, is never
+      revealed, and yields the entire hash chain to anyone who learns it
+      (Section 13.3).
+
+   Anchor:  The last value of a hash chain, h[hash_chain_length].  It is
+      public, is committed to the Merkle Tree as part of the
+      certificate, and is the value against which every tick is verified
+      (Section 8).
+
+   Period:  One interval of tick_interval seconds.  Periods are numbered
+      from 0, with period 0 beginning at the certificate's notBefore
+      (Section 6).
+
+   tick_interval:  The duration of one period, in seconds.  It is a per-
+      certificate value carried in the certificate, and defaults to 3600
+      (Section 6).
+
+   hash_chain_length:  The number of periods in the certificate's
+      lifetime, ceil(lifetime / tick_interval), which is also the index
+      of the anchor within the hash chain (Section 6).
+
+   Tick:  The pair {period, value} that the CA reveals for a period and
+      the authenticating party embeds in the MTCProof (Section 9).  A
+      tick is the certificate's _non-revocation proof_: the component of
+      the MTCProof attesting that the certificate has not been revoked
+      as of that period, complementing the inclusion proof and
+      cosignatures that attest authenticity.
+
+   tbs_cert_entry_hash:  The value that addresses an entry's tick in the
+      distribution interface: the SHA-256 hash of the entry's
+      tbs_cert_entry_data, always computed with SHA-256 independent of
+      the CA's tree hash (Section 11).
+
+   Tick distributor:  A party other than the CA that serves ticks over
+      the HTTP interface of Section 11.  Because ticks are self-
+      authenticating, a distributor is trusted for availability only,
+      never for integrity (Section 11.9).
+
+   Self-authenticating:  Verifiable offline by hashing forward to the
+      anchor committed in the certificate (Section 10), needing no
+      signature over the value and no trust beyond the CA's existing
+      trust anchor.  Every hash chain value in this mechanism has this
+      property.  Because a tampered or forged value cannot reach the
+      committed anchor in the number of steps its claimed period
+      implies, it holds even though the MTCProof that carries the tick
+      is itself unsigned and mutable.
 
 3.  Overview
 
@@ -436,8 +500,7 @@ Table of Contents
    need not:
 
    *  *Register a hash_chain_anchor entry-extension type* in the
-      MerkleTreeCertEntryExtensionType (to be renamed to
-      MTCLogEntryExtensionType) registry, as an alternative home for the
+      MTCLogEntryExtensionType registry, as an alternative home for the
       anchor, if the base specification is willing to make its entry-
       extension registry and cosigner software aware of this mechanism
       (Appendix E.4).
@@ -811,7 +874,7 @@ Table of Contents
    preimage:  The previous hash chain value being hashed.
 
    All fields are encoded with the TLS presentation language
-   ([RFC8446]): serial_number is in network byte order (big-endian), and
+   ([RFC9846]): serial_number is in network byte order (big-endian), and
    issuer_id is the binary TrustAnchorID carried with its one-byte
    length prefix as the <1..2^8-1> vector -- for TrustAnchorID 32473.1,
    the five bytes 04 81fd5901 (Appendix B).
@@ -936,22 +999,22 @@ Table of Contents
 
    This document carries the anchor as an X.509 extension of the
    TBSCertificateLogEntry rather than as a committed
-   MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension),
-   so that the anchor rides as ordinary certificate bytes and the
-   generic MTC log and cosigner infrastructure need not be MTCRS-aware.
-   The entry-extension alternative -- more compact and symmetric with
-   the tick's encoding, but requiring MTCRS-aware cosigner software and
-   lacking a criticality lever -- is described in Appendix E.4.  The
-   anchor's home is the one design choice this document explicitly
-   refers to the working group.  This document's preference is the X.509
-   extension, because it lets the mechanism layer onto an unmodified MTC
-   log and cosigner deployment (Section 4); a base specification willing
-   to make its entry-extension registry and cosigners MTCRS-aware MAY
-   instead adopt the entry-extension encoding, gaining the compactness
-   and committed/uncommitted symmetry noted above.  The two are mutually
-   exclusive: whichever the base specification selects becomes the
-   single anchor home for the ecosystem, and the verification procedure
-   (Section 10) is identical either way.
+   MTCLogEntryExtension, so that the anchor rides as ordinary
+   certificate bytes and the generic MTC log and cosigner infrastructure
+   need not be MTCRS-aware.  The entry-extension alternative -- more
+   compact and symmetric with the tick's encoding, but requiring MTCRS-
+   aware cosigner software and lacking a criticality lever -- is
+   described in Appendix E.4.  The anchor's home is the one design
+   choice this document explicitly refers to the working group.  This
+   document's preference is the X.509 extension, because it lets the
+   mechanism layer onto an unmodified MTC log and cosigner deployment
+   (Section 4); a base specification willing to make its entry-extension
+   registry and cosigners MTCRS-aware MAY instead adopt the entry-
+   extension encoding, gaining the compactness and committed/uncommitted
+   symmetry noted above.  The two are mutually exclusive: whichever the
+   base specification selects becomes the single anchor home for the
+   ecosystem, and the verification procedure (Section 10) is identical
+   either way.
 
 8.2.  Criticality and Incremental Deployment
 
@@ -1048,17 +1111,17 @@ Table of Contents
    entry carries a hash chain anchor (Section 8), occupying zero bytes
    when it does not:
 
-struct {
-    MerkleTreeCertEntryExtension extensions<0..2^16-1>;  /* to be renamed to MTCLogEntryExtension */
-    uint48 start;
-    uint48 end;
-    HashValue inclusion_proof<0..2^16-1>;
-    MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
-    select (certificate_has_anchor) {
-        case false: Empty;
-        case true:  HashChainTick;
-    } status_tick;
-} MTCProof;
+   struct {
+       MTCLogEntryExtension extensions<0..2^16-1>;
+       uint48 start;
+       uint48 end;
+       HashValue inclusion_proof<0..2^16-1>;
+       SubtreeSignature signatures<0..2^16-1>;
+       select (certificate_has_anchor) {
+           case false: Empty;
+           case true:  HashChainTick;
+       } status_tick;
+   } MTCProof;
 
    certificate_has_anchor is the contextual boolean "the entry carries a
    hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of
@@ -1080,8 +1143,8 @@ struct {
    from exactly the data the base procedure already has in hand.  No new
    parsing capability is introduced; this is the same context-dependent
    decoding TLS itself relies on, where a structure's contents depend on
-   the context in which it appears ([RFC8446]).  The false case uses the
-   Empty type -- the empty structure struct {} Empty; of [RFC8446] -- so
+   the context in which it appears ([RFC9846]).  The false case uses the
+   Empty type -- the empty structure struct {} Empty; of [RFC9846] -- so
    a certificate that does not use this mechanism carries no additional
    bytes and is byte-identical to a base MTCProof.
 
@@ -1227,7 +1290,7 @@ struct {
        Section 13.11.  A relying party MUST reject a certificate whose
        tick.period falls outside the acceptance window it applies, with
        a certificate_expired error.  That alert covers both directions,
-       because [RFC8446] defines it as "a certificate has expired or is
+       because [RFC9846] defines it as "a certificate has expired or is
        not currently valid": a tick too far in the future, which a
        verifier whose clock is well behind the authenticating party's
        would see, is not currently valid either.  There is no period
@@ -1754,7 +1817,8 @@ struct {
    party SHOULD fetch at a fixed offset into the first half of the
    period, derived deterministically from its own tbs_cert_entry_hash:
 
-offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
+   offset = UINT32(tbs_cert_entry_hash[0..3])
+            mod max(1, tick_interval / 2)
 
    where tbs_cert_entry_hash is the binary hash defined in Section 11,
    UINT32 interprets its first four bytes as a big-endian unsigned
@@ -2084,7 +2148,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
 
    *  *Third-party observability.* The tick distribution endpoint can be
       monitored externally (Certificate Transparency-style auditing
-      [RFC6962]), making selective withholding observable.
+      [RFC9162]), making selective withholding observable.
 
    *  *Market pressure.* An authenticating party that cannot reliably
       obtain ticks will switch CAs.
@@ -2532,7 +2596,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
       and none is checked.  A client may therefore resume without re-
       checking revocation for as long as its session tickets remain
       usable.  TLS 1.3 caps a ticket's lifetime at seven days
-      ([RFC8446], Section 4.6.1), and implementations commonly use
+      (Section 4.7.1 of [RFC9846]), and implementations commonly use
       shorter, configurable limits, but within that window resumption
       bypasses tick verification.
 
@@ -2697,9 +2761,11 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
 
    [I-D.ietf-plants-merkle-tree-certs]
               Benjamin, D., O'Brien, D., Westerbaan, B., Valenta, L.,
-              and F. Valsorda, "Merkle Tree Certificates", July 2026,
-              <https://datatracker.ietf.org/doc/draft-ietf-plants-
-              merkle-tree-certs/>.
+              and F. Valsorda, "Merkle Tree Certificates", Work in
+              Progress, Internet-Draft, draft-ietf-plants-merkle-tree-
+              certs-05, 6 July 2026,
+              <https://datatracker.ietf.org/doc/html/draft-ietf-plants-
+              merkle-tree-certs-05>.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -2721,10 +2787,6 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
               May 2017, <https://www.rfc-editor.org/rfc/rfc8174>.
 
-   [RFC8446]  Rescorla, E., "The Transport Layer Security (TLS) Protocol
-              Version 1.3", RFC 8446, DOI 10.17487/RFC8446, August 2018,
-              <https://www.rfc-editor.org/rfc/rfc8446>.
-
    [RFC8555]  Barnes, R., Hoffman-Andrews, J., McCarney, D., and J.
               Kasten, "Automatic Certificate Management Environment
               (ACME)", RFC 8555, DOI 10.17487/RFC8555, March 2019,
@@ -2739,8 +2801,12 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
               DOI 10.17487/RFC9110, June 2022,
               <https://www.rfc-editor.org/rfc/rfc9110>.
 
-   [SHS]      National Institute of Standards and Technology (U.S.),
-              "Secure Hash Standard", 2015,
+   [RFC9846]  Rescorla, E., "The Transport Layer Security (TLS) Protocol
+              Version 1.3", RFC 9846, DOI 10.17487/RFC9846, July 2026,
+              <https://www.rfc-editor.org/rfc/rfc9846>.
+
+   [SHS]      "Secure hash standard", National Institute of Standards
+              and Technology (U.S.), DOI 10.6028/nist.fips.180-4, 2015,
               <https://doi.org/10.6028/nist.fips.180-4>.
 
    [X.690]    ITU-T, "Information technology - ASN.1 encoding rules:
@@ -2752,13 +2818,14 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
 
    [ALMOST-OPTIMAL]
               Coppersmith, D. and M. Jakobsson, "Almost Optimal Hash
-              Sequence Traversal", 2002,
+              Sequence Traversal", 2003,
               <https://doi.org/10.1007/3-540-36504-4_8>.
 
    [CHROME-MTC]
-              Google Chrome, "Chrome MTC Policy", 2025,
-              <https://googlechrome.github.io/CertificateTransparency/
-              mtc_policy.html>.
+              Google Chrome, "Chrome Quantum-resistant Root Program
+              Policy (Draft), Version 0.3.0", 14 August 2026,
+              <https://googlechrome.github.io/chromerootprogram/cqrp/
+              draft-policy>.
 
    [CRLite]   Larisch, J., Choffnes, D., Levin, D., Maggs, B., Mislove,
               A., and C. Wilson, "CRLite: A Scalable System for Pushing
@@ -2773,7 +2840,8 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
               Traversal", 2002,
               <https://doi.org/10.1109/ISIT.2002.1023709>.
 
-   [MICALI]   Micali, S., "Efficient Certificate Revocation", 1996,
+   [MICALI]   Micali, S., "Efficient Certificate Revocation",
+              MIT Technical Memo TM-542b, March 1996,
               <https://dl.acm.org/doi/10.5555/889659>.
 
    [RFC4086]  Eastlake 3rd, D., Schiller, J., and S. Crocker,
@@ -2792,10 +2860,6 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
               RFC 6960, DOI 10.17487/RFC6960, June 2013,
               <https://www.rfc-editor.org/rfc/rfc6960>.
 
-   [RFC6962]  Laurie, B., Langley, A., and E. Kasper, "Certificate
-              Transparency", RFC 6962, DOI 10.17487/RFC6962, June 2013,
-              <https://www.rfc-editor.org/rfc/rfc6962>.
-
    [RFC7633]  Hallam-Baker, P., "X.509v3 Transport Layer Security (TLS)
               Feature Extension", RFC 7633, DOI 10.17487/RFC7633,
               October 2015, <https://www.rfc-editor.org/rfc/rfc7633>.
@@ -2804,6 +2868,10 @@ offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
               Code: The Implementation Status Section", BCP 205,
               RFC 7942, DOI 10.17487/RFC7942, July 2016,
               <https://www.rfc-editor.org/rfc/rfc7942>.
+
+   [RFC9162]  Laurie, B., Messeri, E., and R. Stradling, "Certificate
+              Transparency Version 2.0", RFC 9162, DOI 10.17487/RFC9162,
+              December 2021, <https://www.rfc-editor.org/rfc/rfc9162>.
 
    [SHORTLIVED]
               Engineering at Meta, "How Meta uses short-lived
@@ -2975,19 +3043,18 @@ C.1.  Motivation
    reject any data trailing it, so no field can be appended without
    amending the base specification (Section 9.1.1):
 
-struct {
-    MerkleTreeCertEntryExtension extensions<0..2^16-1>;  /* to be renamed to MTCLogEntryExtension */
-    uint48 start;
-    uint48 end;
-    HashValue inclusion_proof<0..2^16-1>;
-    MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
-} MTCProof;
+   struct {
+       MTCLogEntryExtension extensions<0..2^16-1>;
+       uint48 start;
+       uint48 end;
+       HashValue inclusion_proof<0..2^16-1>;
+       SubtreeSignature signatures<0..2^16-1>;
+   } MTCProof;
 
    The existing extensions field carries the log entry's
-   MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension)
-   values, which are committed to the Merkle Tree and so cannot carry
-   dynamic, per-period data like hash chain ticks: the inclusion proof
-   would fail.
+   MTCLogEntryExtension values, which are committed to the Merkle Tree
+   and so cannot carry dynamic, per-period data like hash chain ticks:
+   the inclusion proof would fail.
 
    A proof-level extensions field -- not committed to the tree and
    freely updatable by the authenticating party -- would let the
@@ -3000,21 +3067,21 @@ C.2.  Proposed Amendment
    This document proposes updating [I-D.ietf-plants-merkle-tree-certs]
    with the following extended MTCProof structure:
 
-enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
+   enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
 
-struct {
-    MTCProofExtensionType extension_type;
-    opaque extension_data<0..2^16-1>;
-} MTCProofExtension;
+   struct {
+       MTCProofExtensionType extension_type;
+       opaque extension_data<0..2^16-1>;
+   } MTCProofExtension;
 
-struct {
-    MerkleTreeCertEntryExtension entry_extensions<0..2^16-1>;  /* MerkleTreeCertEntryExtension to be renamed to MTCLogEntryExtension */
-    uint48 start;
-    uint48 end;
-    HashValue inclusion_proof<0..2^16-1>;
-    MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
-    MTCProofExtension proof_extensions<0..2^16-1>;
-} MTCProof;
+   struct {
+       MTCLogEntryExtension entry_extensions<0..2^16-1>;
+       uint48 start;
+       uint48 end;
+       HashValue inclusion_proof<0..2^16-1>;
+       SubtreeSignature signatures<0..2^16-1>;
+       MTCProofExtension proof_extensions<0..2^16-1>;
+   } MTCProof;
 
    The proof_extensions field is a variable-length list with a 2-byte
    length prefix.  When empty, it encodes as two zero bytes (0x0000),
@@ -3025,10 +3092,9 @@ struct {
    distinguish it from the new proof_extensions field.  Both are
    variable-length lists of tag-length-value structures, but they serve
    different roles: entry_extensions carries the log entry's
-   MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension)
-   values (committed to the Merkle Tree), while proof_extensions carries
-   proof-level data that can be freely updated without affecting the
-   inclusion proof.
+   MTCLogEntryExtension values (committed to the Merkle Tree), while
+   proof_extensions carries proof-level data that can be freely updated
+   without affecting the inclusion proof.
 
    Relying parties MUST ignore unrecognized proof extension types.
 
@@ -3167,7 +3233,8 @@ D.1.  Why Functional Revocation Is Superior to Passive Expiry
    These three intervals interact as follows.  The worst-case exposure
    time after a problem occurs is:
 
- exposure = min(remaining_lifetime, detection_time + revocation_latency)
+   exposure = min(remaining_lifetime,
+                  detection_time + revocation_latency)
 
    Without revocation, detection_time is irrelevant -- the certificate
    remains valid until it expires regardless of what the CA knows.  With
@@ -3908,23 +3975,21 @@ E.4.  Carrying the Anchor as a Merkle Tree Entry Extension
    This document carries the anchor in an X.509 certificate extension
    (id-pe-hashChainAnchor) placed in the extensions field of the
    TBSCertificateLogEntry, and thus also in the TBSCertificate.  An
-   alternative is to carry it as a MerkleTreeCertEntryExtension (to be
-   renamed to MTCLogEntryExtension) -- the entry-level extension point
-   defined in Section 5.2.1 of [I-D.ietf-plants-merkle-tree-certs] --
-   rather than as an X.509 extension.  Both are committed to the Merkle
-   Tree, so either home makes the anchor self-authenticating; the choice
-   is between two extension mechanisms, not between committed and
-   uncommitted storage.
+   alternative is to carry it as an MTCLogEntryExtension -- the entry-
+   level extension point defined in Section 5.2.1 of
+   [I-D.ietf-plants-merkle-tree-certs] -- rather than as an X.509
+   extension.  Both are committed to the Merkle Tree, so either home
+   makes the anchor self-authenticating; the choice is between two
+   extension mechanisms, not between committed and uncommitted storage.
 
-   In this alternative, a new MerkleTreeCertEntryExtensionType (to be
-   renamed to MTCLogEntryExtensionType) (for example, hash_chain_anchor)
-   is registered with the base specification, and its extension_data
-   carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-
-   encoded structure).  The verifier reads the anchor and tick_interval
-   from the entry's extensions, which it already reconstructs from the
-   MTCProof's extensions field during base MTC verification (Section 7.2
-   of [I-D.ietf-plants-merkle-tree-certs]), rather than from an X.509
-   extension.
+   In this alternative, a new MTCLogEntryExtensionType (for example,
+   hash_chain_anchor) is registered with the base specification, and its
+   extension_data carries the HashChainAnchorInfo (DER-encoded, or an
+   equivalent TLS-encoded structure).  The verifier reads the anchor and
+   tick_interval from the entry's extensions, which it already
+   reconstructs from the MTCProof's extensions field during base MTC
+   verification (Section 7.2 of [I-D.ietf-plants-merkle-tree-certs]),
+   rather than from an X.509 extension.
 
    Obtaining the anchor costs neither party any meaningful extra work.
    Both the anchor and the tick then travel in the MTCProof -- the entry
@@ -3947,10 +4012,9 @@ E.4.  Carrying the Anchor as a Merkle Tree Entry Extension
    This changes what tbs_cert_entry_hash (Section 11) covers, though not
    its role. tbs_cert_entry_hash is computed over tbs_cert_entry_data,
    which contains the TBSCertificateLogEntry but not the entry-level
-   extensions of the MerkleTreeCertEntry (to be renamed to MTCLogEntry).
-   In this alternative the anchor is therefore committed to the tree
-   through the MerkleTreeCertEntry (to be renamed to MTCLogEntry) rather
-   than through tbs_cert_entry_data, and does not contribute to
+   extensions of the MTCLogEntry.  In this alternative the anchor is
+   therefore committed to the tree through the MTCLogEntry rather than
+   through tbs_cert_entry_data, and does not contribute to
    tbs_cert_entry_hash; in the primary design the anchor, as an X.509
    extension of the TBSCertificateLogEntry, is part of
    tbs_cert_entry_data and does contribute.  Either way
@@ -3980,10 +4044,9 @@ E.4.  Carrying the Anchor as a Merkle Tree Entry Extension
    This has a natural symmetry with the tick's encoding: the immutable,
    committed anchor lives in the committed entry extensions, while the
    mutable, per-period tick lives in the uncommitted trailing field or
-   proof_extensions (Section 9).  It is also more compact, because a
-   MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension)
-   uses a short TLS type-and-length framing rather than an X.509
-   extension's OBJECT IDENTIFIER and DER wrapper.
+   proof_extensions (Section 9).  It is also more compact, because an
+   MTCLogEntryExtension uses a short TLS type-and-length framing rather
+   than an X.509 extension's OBJECT IDENTIFIER and DER wrapper.
 
    It has three costs, however:
 
@@ -4092,7 +4155,9 @@ E.7.  Shorter Certificate Lifetimes
 
    *  *Deployment constraints:* Root program policies such as
       [CHROME-MTC] have set maximum lifetimes (e.g., 47 days) based on
-      ecosystem-wide operational feasibility assessments.  Not all
+      ecosystem-wide operational feasibility assessments, and permit
+      them alongside a shorter recommended validity precisely because
+      not every deployment can renew on the shorter cadence.  Not all
       deployments can support arbitrarily short lifetimes.
 
    Matching a one-hour period's revocation latency with lifetime alone
@@ -4165,6 +4230,13 @@ Acknowledgments
    name "MTCRS" is a nod to Micali's Certificate Revocation System
    (CRS); and coincidentally, "RS" also happens to be the initials of
    the author of this document.
+
+Change log
+
+      *RFC Editor's Note:* Please remove this section prior to
+      publication of a final version of this document.
+
+   This is the initial revision, so there are no changes to record yet.
 
 Author's Address
 
