@@ -368,7 +368,9 @@ Periods are numbered starting from 0.
 Period 0 begins at the certificate's `notBefore` time and each subsequent period begins `tick_interval` seconds later.
 The period number at any given time t is:
 
-    period = floor((t - not_before) / tick_interval)
+~~~pseudocode
+period = floor((t - not_before) / tick_interval)
+~~~
 
 `not_before` is the `notBefore` time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
 It anchors the period schedule to a value that both the CA and every verifier read from the certificate, so they compute identical period boundaries regardless of their wall-clock differences; it is not necessarily the exact instant of issuance.
@@ -433,12 +435,14 @@ A collision there would merely cause two entries to share a URL and misroute a f
 
 The HashChainInput structure provides domain separation for hash chain computations:
 
-    struct {
-        uint8 label[7] = "MTCRS\n\0";
-        TrustAnchorID issuer_id<1..2^8-1>;
-        uint64 serial_number;
-        HashValue preimage;
-    } HashChainInput;
+~~~tls-presentation
+struct {
+    uint8 label[7] = "MTCRS\n\0";
+    TrustAnchorID issuer_id<1..2^8-1>;
+    uint64 serial_number;
+    HashValue preimage;
+} HashChainInput;
+~~~
 
 label:
 : A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a hash chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
@@ -481,16 +485,20 @@ The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 
 This document defines a new X.509 certificate extension for carrying the hash chain anchor.
 This extension is included in the TBSCertificateLogEntry's extensions field (Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}), and thus appears in the TBSCertificate of the resulting Merkle Tree Certificate and in the entry's `tbs_cert_entry_data` that the base specification commits to the Merkle Tree.
 
-    id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
-        iso(1) identified-organization(3) dod(6) internet(1)
-        security(5) mechanisms(5) pkix(7) pe(1) TBD }
+~~~asn.1
+id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) dod(6) internet(1)
+    security(5) mechanisms(5) pkix(7) pe(1) TBD }
+~~~
 
 The extension value contains the DER encoding of the following ASN.1 structure:
 
-    HashChainAnchorInfo ::= SEQUENCE {
-        tickInterval      INTEGER (1..MAX) DEFAULT 3600,
-        anchor            OCTET STRING
-    }
+~~~asn.1
+HashChainAnchorInfo ::= SEQUENCE {
+    tickInterval      INTEGER (1..MAX) DEFAULT 3600,
+    anchor            OCTET STRING
+}
+~~~
 
 `tickInterval`:
 : The tick interval in seconds for this certificate ({{construction}}), with a default of 3600 (one hour).
@@ -536,10 +544,12 @@ When a hash chain anchor extension is present in the certificate, the authentica
 The tick is the certificate's non-revocation proof: where the inclusion proof and cosignatures attest that the certificate is authentic, the tick attests that it has not been revoked as of the current period.
 The tick is a HashChainTick:
 
-    struct {
-        uint32 period;
-        HashValue value;
-    } HashChainTick;
+~~~tls-presentation
+struct {
+    uint32 period;
+    HashValue value;
+} HashChainTick;
+~~~
 
 period:
 : The period number for which this tick is valid.
@@ -567,17 +577,19 @@ Whichever encoding the base specification selects becomes the single encoding us
 In the RECOMMENDED encoding, the base MTC specification is amended to append the HashChainTick to the MTCProof as a trailing `status_tick` field.
 The field is not a bare optional field -- the base MTCProof has no discriminant for one -- but a variant selected by whether the entry carries a hash chain anchor ({{assertion-integration}}), occupying zero bytes when it does not:
 
-    struct {
-        MTCLogEntryExtension extensions<0..2^16-1>;
-        uint48 start;
-        uint48 end;
-        HashValue inclusion_proof<0..2^16-1>;
-        SubtreeSignature signatures<0..2^16-1>;
-        select (certificate_has_anchor) {
-            case false: Empty;
-            case true:  HashChainTick;
-        } status_tick;
-    } MTCProof;
+~~~tls-presentation
+struct {
+    MTCLogEntryExtension extensions<0..2^16-1>;
+    uint48 start;
+    uint48 end;
+    HashValue inclusion_proof<0..2^16-1>;
+    SubtreeSignature signatures<0..2^16-1>;
+    select (certificate_has_anchor) {
+        case false: Empty;
+        case true:  HashChainTick;
+    } status_tick;
+} MTCProof;
+~~~
 
 certificate_has_anchor is the contextual boolean "the entry carries a hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}) -- read from whichever home the deployment uses.
 This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` of Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
@@ -684,7 +696,9 @@ This document defines an HTTP interface for this purpose.
 The CA (or a mirror) serves ticks over HTTP.
 Given a tick base URL for the CA (see {{discovery}}), the tick for a particular certificate is fetched from:
 
-    GET {tick_base_url}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}
+~~~http-message
+GET {tick_base_url}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}
+~~~
 
 where `tbs_cert_entry_hash` is the SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}), and the final path segment is its lowercase hexadecimal encoding (64 characters for SHA-256), so that the CA and the authenticating party derive an identical URL.
 Throughout this document `tbs_cert_entry_hash` denotes that binary hash value (32 bytes for SHA-256); only the URL path segment carries it hex-encoded.
@@ -716,7 +730,9 @@ CAs whose deployments consider this metadata sensitive SHOULD publish an `https:
 
 For example, if a CA's tick base URL is `http://mtcrs.ca.example`, ticks are served at:
 
-    http://mtcrs.ca.example/.well-known/mtcrs/v1/tick/a1b2c3...f0
+~~~
+http://mtcrs.ca.example/.well-known/mtcrs/v1/tick/a1b2c3...f0
+~~~
 
 The base URL is an origin (scheme, host, and optional port); the `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` path is rooted at that origin.
 A CA MAY point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.
@@ -755,7 +771,9 @@ Because MTC certificates are renewed frequently (Section 10.4 of {{!I-D.ietf-pla
 
 When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the ACME order object as a new field:
 
-    "tickBaseURL": "https://mtcrs.cdn.ca.example"
+~~~json
+"tickBaseURL": "https://mtcrs.cdn.ca.example"
+~~~
 
 The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}).
 A single value covers all of the CA's certificates and lets the CA direct authenticating parties to a CDN, regional mirror, or any origin, without adding bytes to the certificate or log entry.
@@ -773,7 +791,9 @@ The tick fetch path described above is `.well-known/mtcrs/v1/tick/{tbs_cert_entr
 Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
 A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, MAY replace the derivable path component with an unguessable per-certificate capability token:
 
-    {tick_base_url}/.well-known/mtcrs/v1/tick/{tick_token}
+~~~
+{tick_base_url}/.well-known/mtcrs/v1/tick/{tick_token}
+~~~
 
 `tick_token`:
 : A high-entropy (at least 128-bit) value that does not appear anywhere in the certificate.
@@ -829,7 +849,9 @@ The ambiguity is therefore neither introduced nor removed by the period 0 case, 
 The CA SHOULD set HTTP cache headers with a max-age no longer than `tick_interval` seconds.
 For example:
 
-    Cache-Control: public, max-age=3600
+~~~http-message
+Cache-Control: public, max-age=3600
+~~~
 
 ## Operational Model
 
@@ -879,7 +901,9 @@ Two complementary mechanisms exploit this slack to prevent a period-boundary thu
 
 Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own `tbs_cert_entry_hash`:
 
-    offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
+~~~pseudocode
+offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
+~~~
 
 where `tbs_cert_entry_hash` is the binary hash defined in {{distribution}}, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
 The authenticating party computes this from its own entry, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by `tbs_cert_entry_hash`.
@@ -1259,7 +1283,9 @@ IANA is requested to register the following entry in the "SMI Security for PKIX 
 The id-ad-mtcrsTicks access method is used as a Subject Information Access access method ({{!RFC5280}}) in a Merkle Tree CA certificate (Section 5.5 of {{!I-D.ietf-plants-merkle-tree-certs}}).
 Its accessLocation is a uniformResourceIdentifier giving the CA's tick base URL ({{discovery}}).
 
-    id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
+~~~asn.1
+id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
+~~~
 
 ## Well-Known URI
 
@@ -1299,47 +1325,49 @@ When the RECOMMENDED trailing `status_tick` encoding ({{tick-trailing-field}}) i
 
 This appendix provides an ASN.1 module for the structures this document defines, following the conventions of {{!RFC5912}}.
 
-    MTCRS-2026
-      { iso(1) identified-organization(3) dod(6) internet(1)
-        security(5) mechanisms(5) pkix(7) id-mod(0)
-        id-mod-mtcrs-2026(TBD) }
+~~~asn.1
+MTCRS-2026
+  { iso(1) identified-organization(3) dod(6) internet(1)
+    security(5) mechanisms(5) pkix(7) id-mod(0)
+    id-mod-mtcrs-2026(TBD) }
 
-    DEFINITIONS IMPLICIT TAGS ::= BEGIN
+DEFINITIONS IMPLICIT TAGS ::= BEGIN
 
-    IMPORTS
-      EXTENSION
-      FROM PKIX-CommonTypes-2009 -- in [RFC5912]
-        { iso(1) identified-organization(3) dod(6) internet(1)
-          security(5) mechanisms(5) pkix(7) id-mod(0)
-          id-mod-pkixCommon-02(57) } ;
+IMPORTS
+  EXTENSION
+  FROM PKIX-CommonTypes-2009 -- in [RFC5912]
+    { iso(1) identified-organization(3) dod(6) internet(1)
+      security(5) mechanisms(5) pkix(7) id-mod(0)
+      id-mod-pkixCommon-02(57) } ;
 
-    -- PKIX arcs
+-- PKIX arcs
 
-    id-pkix OBJECT IDENTIFIER ::=
-      { iso(1) identified-organization(3) dod(6) internet(1)
-        security(5) mechanisms(5) pkix(7) }
+id-pkix OBJECT IDENTIFIER ::=
+  { iso(1) identified-organization(3) dod(6) internet(1)
+    security(5) mechanisms(5) pkix(7) }
 
-    id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }
-    id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
+id-pe OBJECT IDENTIFIER ::= { id-pkix 1 }
+id-ad OBJECT IDENTIFIER ::= { id-pkix 48 }
 
-    -- Hash chain anchor certificate extension
+-- Hash chain anchor certificate extension
 
-    ext-hashChainAnchor EXTENSION ::= {
-      SYNTAX HashChainAnchorInfo
-      IDENTIFIED BY id-pe-hashChainAnchor
-      CRITICALITY { TRUE | FALSE } }
+ext-hashChainAnchor EXTENSION ::= {
+  SYNTAX HashChainAnchorInfo
+  IDENTIFIED BY id-pe-hashChainAnchor
+  CRITICALITY { TRUE | FALSE } }
 
-    id-pe-hashChainAnchor OBJECT IDENTIFIER ::= { id-pe TBD }
+id-pe-hashChainAnchor OBJECT IDENTIFIER ::= { id-pe TBD }
 
-    HashChainAnchorInfo ::= SEQUENCE {
-      tickInterval      INTEGER (1..MAX) DEFAULT 3600,
-      anchor            OCTET STRING }
+HashChainAnchorInfo ::= SEQUENCE {
+  tickInterval      INTEGER (1..MAX) DEFAULT 3600,
+  anchor            OCTET STRING }
 
-    -- Tick distribution Subject Information Access method
+-- Tick distribution Subject Information Access method
 
-    id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
+id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 
-    END
+END
+~~~
 
 The id-mod-mtcrs-2026, id-pe-hashChainAnchor, and id-ad-mtcrsTicks arcs contain TBD values to be replaced with the OIDs assigned by IANA ({{iana-considerations}}).
 
@@ -1357,38 +1385,48 @@ The example uses:
 
 The fixed fields of HashChainInput therefore encode as:
 
-    label          4d544352530a00        ("MTCRS\n\0")
-    issuer_id      0481fd5901
-    serial_number  000100000000002a
+~~~
+label          4d544352530a00        ("MTCRS\n\0")
+issuer_id      0481fd5901
+serial_number  000100000000002a
+~~~
 
 Each step computes h\[i\] = SHA-256(HashChainInput(h\[i-1\])), where HashChainInput(preimage) is the concatenation label || `issuer_id` || `serial_number` || preimage.
 For example, HashChainInput(h\[0\]) is the following 52 bytes:
 
-    4d544352530a000481fd5901000100000000002a000102030405060708090a0b
-    0c0d0e0f101112131415161718191a1b1c1d1e1f
+~~~
+4d544352530a000481fd5901000100000000002a000102030405060708090a0b
+0c0d0e0f101112131415161718191a1b1c1d1e1f
+~~~
 
 The resulting hash chain is:
 
-    h[0]  000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
-    h[1]  a99c801b389eed84c31eb04c970d2fbe63608bbd8911d54e63eb7f18adcf286a
-    h[2]  8721e95cbd26d1f2789c859d89858ca1c37193f0772aa171da6f02b71acb51cd
-    h[3]  4dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697c9d21ec4
-    h[4]  b8c0f6b6aac2f65177c9c2481e50b1070cfd31a348f27f94d5318ecfea385aca
-    h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+~~~
+h[0]  000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+h[1]  a99c801b389eed84c31eb04c970d2fbe63608bbd8911d54e63eb7f18adcf286a
+h[2]  8721e95cbd26d1f2789c859d89858ca1c37193f0772aa171da6f02b71acb51cd
+h[3]  4dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697c9d21ec4
+h[4]  b8c0f6b6aac2f65177c9c2481e50b1070cfd31a348f27f94d5318ecfea385aca
+h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+~~~
 
 The anchor committed in the certificate is h\[`hash_chain_length`\] = h\[5\].
 
 For period t = 2, the CA reveals h\[`hash_chain_length` - t\] = h\[3\].
 The HashChainTick is { period = 2, value = h\[3\] }, which serializes (a 4-byte big-endian period followed by the 32-byte value; {{response-format}}) as the following 36 bytes:
 
-    000000024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697
-    c9d21ec4
+~~~
+000000024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697
+c9d21ec4
+~~~
 
 To verify, a relying party hashes `tick.value` forward `tick.period` (2) times ({{verification}}):
 
-    v0 = h[3] = 4dab657f...c9d21ec4
-    v1 = SHA-256(HashChainInput(v0)) = b8c0f6b6...ea385aca  (= h[4])
-    v2 = SHA-256(HashChainInput(v1)) = f855b713...5bdeb234  (= h[5])
+~~~
+v0 = h[3] = 4dab657f...c9d21ec4
+v1 = SHA-256(HashChainInput(v0)) = b8c0f6b6...ea385aca  (= h[4])
+v2 = SHA-256(HashChainInput(v1)) = f855b713...5bdeb234  (= h[5])
+~~~
 
 v2 equals the anchor h\[5\], so verification succeeds.
 
@@ -1397,13 +1435,17 @@ The two encodings below pin the DEFAULT handling of `tickInterval`.
 
 With the default `tick_interval` of 3600, DER omits the field (Section 11.5 of {{X.690}}), so the HashChainAnchorInfo is a SEQUENCE carrying only the anchor OCTET STRING (36 bytes):
 
-    30220420
-    f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+~~~
+30220420
+f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+~~~
 
 With a non-default `tick_interval` -- for example 86400 (one day) -- the field is present as an INTEGER preceding the anchor (41 bytes):
 
-    302702030151800420
-    f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+~~~
+302702030151800420
+f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+~~~
 
 Here `30` is SEQUENCE, `04 20` the 32-byte anchor OCTET STRING, and `02 03 015180` the INTEGER 86400.
 A relying party that finds `tickInterval` absent MUST use the default of 3600 ({{assertion-integration}}).
@@ -1420,13 +1462,15 @@ This appendix defines the field and how the tick would be encoded within it; the
 
 The current MTCProof is a fixed sequence of fields with no extensibility point, and Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}} requires relying parties to reject any data trailing it, so no field can be appended without amending the base specification ({{tick-trailing-field}}):
 
-    struct {
-        MTCLogEntryExtension extensions<0..2^16-1>;
-        uint48 start;
-        uint48 end;
-        HashValue inclusion_proof<0..2^16-1>;
-        SubtreeSignature signatures<0..2^16-1>;
-    } MTCProof;
+~~~tls-presentation
+struct {
+    MTCLogEntryExtension extensions<0..2^16-1>;
+    uint48 start;
+    uint48 end;
+    HashValue inclusion_proof<0..2^16-1>;
+    SubtreeSignature signatures<0..2^16-1>;
+} MTCProof;
+~~~
 
 The existing `extensions` field carries the log entry's MTCLogEntryExtension values, which are committed to the Merkle Tree and so cannot carry dynamic, per-period data like hash chain ticks: the inclusion proof would fail.
 
@@ -1436,21 +1480,23 @@ A proof-level extensions field -- not committed to the tree and freely updatable
 
 This document proposes updating {{!I-D.ietf-plants-merkle-tree-certs}} with the following extended MTCProof structure:
 
-    enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
+~~~tls-presentation
+enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
 
-    struct {
-        MTCProofExtensionType extension_type;
-        opaque extension_data<0..2^16-1>;
-    } MTCProofExtension;
+struct {
+    MTCProofExtensionType extension_type;
+    opaque extension_data<0..2^16-1>;
+} MTCProofExtension;
 
-    struct {
-        MTCLogEntryExtension entry_extensions<0..2^16-1>;
-        uint48 start;
-        uint48 end;
-        HashValue inclusion_proof<0..2^16-1>;
-        SubtreeSignature signatures<0..2^16-1>;
-        MTCProofExtension proof_extensions<0..2^16-1>;
-    } MTCProof;
+struct {
+    MTCLogEntryExtension entry_extensions<0..2^16-1>;
+    uint48 start;
+    uint48 end;
+    HashValue inclusion_proof<0..2^16-1>;
+    SubtreeSignature signatures<0..2^16-1>;
+    MTCProofExtension proof_extensions<0..2^16-1>;
+} MTCProof;
+~~~
 
 The `proof_extensions` field is a variable-length list with a 2-byte length prefix.
 When empty, it encodes as two zero bytes (0x0000), adding minimal overhead to certificates that do not use any proof extensions.
@@ -1525,7 +1571,9 @@ Three independent time intervals govern the security of a certificate:
 These three intervals interact as follows.
 The worst-case exposure time after a problem occurs is:
 
-    exposure = min(remaining_lifetime, detection_time + revocation_latency)
+~~~pseudocode
+exposure = min(remaining_lifetime, detection_time + revocation_latency)
+~~~
 
 Without revocation, detection_time is irrelevant -- the certificate remains valid until it expires regardless of what the CA knows.
 With revocation, the CA can act as soon as it detects the problem, and the certificate becomes unusable within the revocation latency.
@@ -1662,8 +1710,10 @@ Instead of the whole hash chain or just the seed, the CA maintains a small set o
 When the value for the current period is needed, a pebble is already there; between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
 The scheduling guarantees:
 
-    storage  ~ log2(L)      hash values per certificate
-    work     ~ (1/2) log2(L) hash evaluations per revealed value
+~~~
+storage  ~ log2(L)      hash values per certificate
+work     ~ (1/2) log2(L) hash evaluations per revealed value
+~~~
 
 For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
 Across 1 billion certificates that is roughly 340 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
