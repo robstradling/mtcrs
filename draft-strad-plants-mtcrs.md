@@ -45,7 +45,9 @@ informative:
     title: "Efficient Certificate Revocation"
     author:
       - name: Silvio Micali
-    date: 1996
+    date: 1996-03
+    seriesinfo:
+      MIT: "Technical Memo TM-542b"
     target: https://dl.acm.org/doi/10.5555/889659
   CHROME-MTC:
     title: "Chrome Quantum-resistant Root Program Policy (Draft), Version 0.3.0"
