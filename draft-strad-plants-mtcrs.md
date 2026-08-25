@@ -366,7 +366,7 @@ The hash chain mechanism introduces the following additional parameter:
   The RECOMMENDED and default value is 3600 (one hour); {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no `tick_interval` bytes.
   The number of periods in a certificate's lifetime is `hash_chain_length = ceil(lifetime / tick_interval)`.
 
-Because a tick carries its period in a 32-bit field ({{cert-format}}), `hash_chain_length` MUST be less than 2^32, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
+Because a tick carries its period in a 32-bit field ({{cert-format}}), `hash_chain_length` MUST be less than 2<sup>32</sup>, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
 This is not a practical constraint: reaching it would require, for example, a one-second period sustained over more than a century.
 
 `tick_interval` need not evenly divide the lifetime; if it does not, the final period is shorter than `tick_interval`, ending when the certificate expires.
@@ -555,7 +555,7 @@ Because the anchor is committed to the Merkle Tree, this extension enlarges ever
 With the default `tick_interval`, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing -- about 50 bytes per entry for SHA-256, of which 36 are the HashChainAnchorInfo itself ({{test-vectors}}) and the rest the X.509 extension's OBJECT IDENTIFIER and wrapper.
 Relative to a TBSCertificateLogEntry, typically a few hundred bytes (a subject name, validity, a hashed SubjectPublicKeyInfo, and any other extensions), this is a modest increase, and -- being a fixed-size hash -- it does not grow with post-quantum key or signature sizes, unlike much of what MTC was designed to keep out of the log.
 The cost lands in two bounded places.
-The first is monitor bandwidth: monitors download every entry, so the ecosystem-wide cost is those bytes times the number of participating entries -- on the order of tens of gigabytes at 10^9 entries, incurred once per entry rather than per period, and far below the per-certificate signatures ({{per-cert-signatures}}) this mechanism avoids.
+The first is monitor bandwidth: monitors download every entry, so the ecosystem-wide cost is those bytes times the number of participating entries -- on the order of tens of gigabytes at 10<sup>9</sup> entries, incurred once per entry rather than per period, and far below the per-certificate signatures ({{per-cert-signatures}}) this mechanism avoids.
 The second is the certificate presentation, where the same anchor bytes travel in each handshake as ordinary TBSCertificate content.
 The inclusion proof is unaffected: its size depends on tree depth, not entry size, so the anchor adds no hashes to the proof path.
 This committed cost is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
@@ -927,7 +927,7 @@ Once that runway is exhausted, the certificate becomes unusable until a fresh ti
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
-A CA serving 10^9 active certificates with a one-hour period sees on the order of 10^5 to 10^6 tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
+A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
 At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
 {{load-distribution}} describes recommended techniques.
 
@@ -1051,7 +1051,7 @@ With a one-hour `tick_interval` and a 47-day lifetime, the hash chain length is 
 ## Post-Quantum Considerations {#post-quantum}
 
 This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
-Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up: against SHA-256 that leaves work on the order of 2^128, an ample margin for all foreseeable certificate lifetimes.
+Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up: against SHA-256 that leaves work on the order of 2<sup>128</sup>, an ample margin for all foreseeable certificate lifetimes.
 The non-revocation proof relies on no collision resistance -- a revealed value is bound to a specific hash chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property -- so the weaker quantum bounds on collision finding do not apply (`tbs_cert_entry_hash`, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{distribution}}).
 It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
 
@@ -1417,7 +1417,7 @@ All values are hexadecimal, and the hash function is SHA-256 (HASH_SIZE = 32).
 
 The example uses:
 
-- `issuer_id`: TrustAnchorID 32473.1, whose binary representation is 81fd5901; as a <1..2^8-1> vector it encodes with its length prefix as 04 81fd5901.
+- `issuer_id`: TrustAnchorID 32473.1, whose binary representation is 81fd5901; as a `<1..2^8-1>` vector it encodes with its length prefix as 04 81fd5901.
 - `serial_number` = 281474976710698, which is `(log_number << 48) | index` for log number 1 and entry index 42
 - `hash_chain_length` = 5
 - seed h\[0\] = the 32 bytes 00 01 ... 1f (a fixed value for this example; a real CA uses a cryptographically random, secret seed)
@@ -1571,7 +1571,7 @@ If the base MTC specification adopts `proof_extensions` as a general mechanism, 
 
 Bounded size and count:
 : `proof_extensions` is transmitted in every handshake, so an unbounded ignored field undercuts MTC's compactness and creates a bloat and denial-of-service surface.
-  The base specification MUST set a small maximum total size and extension count, well below the 2^16-1 the length prefix permits, and relying parties MUST reject certificates that exceed it.
+  The base specification MUST set a small maximum total size and extension count, well below the 2<sup>16</sup>-1 the length prefix permits, and relying parties MUST reject certificates that exceed it.
 
 Committed admissibility:
 : The strongest control on stuffing is to make the permissible extensions a function of committed data.
@@ -1741,7 +1741,7 @@ Within a single hash chain, a CA does not have to choose between the two naive e
   For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
 
 - **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
-  Over a certificate's lifetime this is O(L^2) hashing.
+  Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.
 
 A CA MAY instead use **fractal hash-chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
 The hash chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
@@ -1755,8 +1755,8 @@ work     ~ (1/2) log2(L) hash evaluations per revealed value
 ~~~
 
 For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
-Across 1 billion certificates that is roughly 340 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10^6 hash evaluations per second in aggregate.
-This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L^2) lifetime cost into O(L log L).
+Across 1 billion certificates that is roughly 340 GB of state and, if the traversal is advanced once per period and the resulting value served to all requests in that period, on the order of 10<sup>6</sup> hash evaluations per second in aggregate.
+This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
 
 The pebbles are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
 
