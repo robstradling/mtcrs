@@ -2092,3 +2092,14 @@ This approach was rejected because:
 
 The hash chain revocation concept is based on Silvio Micali's foundational work on efficient certificate revocation {{MICALI}}.
 The name "MTCRS" is a nod to Micali's Certificate Revocation System (CRS); and coincidentally, "RS" also happens to be the initials of the author of this document.
+
+# Change log
+{:numbered="false"}
+
+> **RFC Editor's Note:** Please remove this section prior to publication of a
+> final version of this document.
+
+<!-- One "## Since draft-strad-plants-mtcrs-NN {:numbered="false"}" subsection per
+published revision, most recent first. -->
+
+This is the initial revision, so there are no changes to record yet.
