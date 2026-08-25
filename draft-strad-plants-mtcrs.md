@@ -1651,7 +1651,7 @@ A working group that adopts this document should expect to settle them; nothing 
 6. **Is "tick" the right name for the revealed value?**
    The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
    "Tick" was chosen for its clock connotation: one per period, on a fixed cadence.
-   It is also unclaimed in TLS and PKI, unlike "token" (time-stamp tokens, bearer tokens, Privacy Pass), "witness" and "checkpoint" (already used in transparency systems, and this document has cosigners), and "heartbeat" (a TLS extension).
+   It is also unclaimed in TLS and PKI, unlike "token" (timestamp tokens, bearer tokens, Privacy Pass), "witness" and "checkpoint" (already used in transparency systems, and this document has cosigners), and "heartbeat" (a TLS extension).
    "Token" is doubly unavailable here.
    This document already uses it for the optional per-certificate capability that addresses a tick URL ({{unguessable-urls}}).
    Its bearer-credential connotation is also the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
