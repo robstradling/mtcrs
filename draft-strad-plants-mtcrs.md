@@ -183,6 +183,9 @@ The author's intent is that it advance to the Standards Track if the PLANTS work
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (Section 5 of {{I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 
+Structure names from the base specification follow its editor's copy, in which MerkleTreeCertEntry, MerkleTreeCertEntryExtension, MerkleTreeCertEntryExtensionType, and MTCSignature have been renamed to MTCLogEntry, MTCLogEntryExtension, MTCLogEntryExtensionType, and SubtreeSignature respectively.
+Readers comparing against draft-ietf-plants-merkle-tree-certs-05 should substitute the older names.
+
 The HashChainTick that this mechanism embeds in the MTCProof ({{cert-format}}) is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of the current period, complementing the inclusion proof and cosignatures that attest authenticity.
 The separate `tbs_cert_entry_hash` used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
 
@@ -287,7 +290,7 @@ Exactly one change to the base specification is required:
 
 The following item is optional; a base specification MAY adopt it but need not:
 
-- **Register a `hash_chain_anchor` entry-extension type** in the MerkleTreeCertEntryExtensionType (to be renamed to MTCLogEntryExtensionType) registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
+- **Register a `hash_chain_anchor` entry-extension type** in the MTCLogEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
 
 Everything else this document defines -- the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}) -- layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
 
@@ -537,7 +540,7 @@ The inclusion proof is unaffected: its size depends on tree depth, not entry siz
 This committed cost is the unavoidable price of self-authentication: unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
 The DEFAULT encoding of `tickInterval` keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself; the more compact entry-extension encoding ({{anchor-entry-extension}}) trims the framing further.
 
-This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension), so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
+This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MTCLogEntryExtension, so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
 The entry-extension alternative -- more compact and symmetric with the tick's encoding, but requiring MTCRS-aware cosigner software and lacking a criticality lever -- is described in {{anchor-entry-extension}}.
 The anchor's home is the one design choice this document explicitly refers to the working group.
 This document's preference is the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment ({{base-spec-amendments}}); a base specification willing to make its entry-extension registry and cosigners MTCRS-aware MAY instead adopt the entry-extension encoding, gaining the compactness and committed/uncommitted symmetry noted above.
@@ -591,11 +594,11 @@ In the RECOMMENDED encoding, the base MTC specification is amended to append the
 The field is not a bare optional field -- the base MTCProof has no discriminant for one -- but a variant selected by whether the entry carries a hash chain anchor ({{assertion-integration}}), occupying zero bytes when it does not:
 
     struct {
-        MerkleTreeCertEntryExtension extensions<0..2^16-1>;  /* to be renamed to MTCLogEntryExtension */
+        MTCLogEntryExtension extensions<0..2^16-1>;
         uint48 start;
         uint48 end;
         HashValue inclusion_proof<0..2^16-1>;
-        MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
+        SubtreeSignature signatures<0..2^16-1>;
         select (certificate_has_anchor) {
             case false: Empty;
             case true:  HashChainTick;
@@ -1444,14 +1447,14 @@ This appendix defines the field and how the tick would be encoded within it; the
 The current MTCProof is a fixed sequence of fields with no extensibility point, and Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}} requires relying parties to reject any data trailing it, so no field can be appended without amending the base specification ({{tick-trailing-field}}):
 
     struct {
-        MerkleTreeCertEntryExtension extensions<0..2^16-1>;  /* to be renamed to MTCLogEntryExtension */
+        MTCLogEntryExtension extensions<0..2^16-1>;
         uint48 start;
         uint48 end;
         HashValue inclusion_proof<0..2^16-1>;
-        MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
+        SubtreeSignature signatures<0..2^16-1>;
     } MTCProof;
 
-The existing `extensions` field carries the log entry's MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension) values, which are committed to the Merkle Tree and so cannot carry dynamic, per-period data like hash chain ticks: the inclusion proof would fail.
+The existing `extensions` field carries the log entry's MTCLogEntryExtension values, which are committed to the Merkle Tree and so cannot carry dynamic, per-period data like hash chain ticks: the inclusion proof would fail.
 
 A proof-level extensions field -- not committed to the tree and freely updatable by the authenticating party -- would let the MTCProof carry revocation ticks and other future self-authenticating proof-level values without a new version of the base specification for each.
 
@@ -1467,11 +1470,11 @@ This document proposes updating {{I-D.ietf-plants-merkle-tree-certs}} with the f
     } MTCProofExtension;
 
     struct {
-        MerkleTreeCertEntryExtension entry_extensions<0..2^16-1>;  /* MerkleTreeCertEntryExtension to be renamed to MTCLogEntryExtension */
+        MTCLogEntryExtension entry_extensions<0..2^16-1>;
         uint48 start;
         uint48 end;
         HashValue inclusion_proof<0..2^16-1>;
-        MTCSignature signatures<0..2^16-1>;  /* to be renamed to SubtreeSignature */
+        SubtreeSignature signatures<0..2^16-1>;
         MTCProofExtension proof_extensions<0..2^16-1>;
     } MTCProof;
 
@@ -1479,7 +1482,7 @@ The `proof_extensions` field is a variable-length list with a 2-byte length pref
 When empty, it encodes as two zero bytes (0x0000), adding minimal overhead to certificates that do not use any proof extensions.
 
 The existing `extensions` field is renamed to `entry_extensions` to distinguish it from the new `proof_extensions` field.
-Both are variable-length lists of tag-length-value structures, but they serve different roles: `entry_extensions` carries the log entry's MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension) values (committed to the Merkle Tree), while `proof_extensions` carries proof-level data that can be freely updated without affecting the inclusion proof.
+Both are variable-length lists of tag-length-value structures, but they serve different roles: `entry_extensions` carries the log entry's MTCLogEntryExtension values (committed to the Merkle Tree), while `proof_extensions` carries proof-level data that can be freely updated without affecting the inclusion proof.
 
 Relying parties MUST ignore unrecognized proof extension types.
 
@@ -1902,10 +1905,10 @@ CAs MAY additionally publish the base URL in the CA certificate SIA ({{discovery
 ## Carrying the Anchor as a Merkle Tree Entry Extension {#anchor-entry-extension}
 
 This document carries the anchor in an X.509 certificate extension (id-pe-hashChainAnchor) placed in the extensions field of the TBSCertificateLogEntry, and thus also in the TBSCertificate.
-An alternative is to carry it as a MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension) -- the entry-level extension point defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}} -- rather than as an X.509 extension.
+An alternative is to carry it as an MTCLogEntryExtension -- the entry-level extension point defined in Section 5.2.1 of {{I-D.ietf-plants-merkle-tree-certs}} -- rather than as an X.509 extension.
 Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating; the choice is between two extension mechanisms, not between committed and uncommitted storage.
 
-In this alternative, a new MerkleTreeCertEntryExtensionType (to be renamed to MTCLogEntryExtensionType) (for example, `hash_chain_anchor`) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
+In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and `tick_interval` from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (Section 7.2 of {{I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
 Obtaining the anchor costs neither party any meaningful extra work.
@@ -1915,8 +1918,8 @@ One detail is in fact simpler: `certificate_has_anchor`, the discriminant of the
 The costs of this alternative lie elsewhere, as below.
 
 This changes what `tbs_cert_entry_hash` ({{distribution}}) covers, though not its role.
-`tbs_cert_entry_hash` is computed over `tbs_cert_entry_data`, which contains the TBSCertificateLogEntry but not the entry-level extensions of the MerkleTreeCertEntry (to be renamed to MTCLogEntry).
-In this alternative the anchor is therefore committed to the tree through the MerkleTreeCertEntry (to be renamed to MTCLogEntry) rather than through `tbs_cert_entry_data`, and does not contribute to `tbs_cert_entry_hash`; in the primary design the anchor, as an X.509 extension of the TBSCertificateLogEntry, is part of `tbs_cert_entry_data` and does contribute.
+`tbs_cert_entry_hash` is computed over `tbs_cert_entry_data`, which contains the TBSCertificateLogEntry but not the entry-level extensions of the MTCLogEntry.
+In this alternative the anchor is therefore committed to the tree through the MTCLogEntry rather than through `tbs_cert_entry_data`, and does not contribute to `tbs_cert_entry_hash`; in the primary design the anchor, as an X.509 extension of the TBSCertificateLogEntry, is part of `tbs_cert_entry_data` and does contribute.
 Either way `tbs_cert_entry_hash` remains well-defined and identical for a given entry's standalone and landmark-relative certificates ({{cert-profiles}}), and continues to serve only as the tick-URL identifier.
 
 Excluding the anchor does, however, remove the uniqueness the tick URL relies on.
@@ -1925,7 +1928,7 @@ In the primary design the anchor separates such entries, each carrying an indepe
 A base specification adopting the entry-extension encoding MUST therefore address ticks by a value that covers the anchor -- for example the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})`, which is computed over the entry extensions as well as `tbs_cert_entry_data` ({{distribution}}) -- in place of `tbs_cert_entry_hash`.
 
 This has a natural symmetry with the tick's encoding: the immutable, committed anchor lives in the committed entry extensions, while the mutable, per-period tick lives in the uncommitted trailing field or `proof_extensions` ({{cert-format}}).
-It is also more compact, because a MerkleTreeCertEntryExtension (to be renamed to MTCLogEntryExtension) uses a short TLS type-and-length framing rather than an X.509 extension's OBJECT IDENTIFIER and DER wrapper.
+It is also more compact, because an MTCLogEntryExtension uses a short TLS type-and-length framing rather than an X.509 extension's OBJECT IDENTIFIER and DER wrapper.
 
 It has three costs, however:
 
