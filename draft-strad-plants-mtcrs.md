@@ -109,8 +109,8 @@ This mechanism provides timely revocation without requiring signatures per revoc
 Merkle Tree Certificates {{!I-D.ietf-plants-merkle-tree-certs}} authenticate TLS connections using compact inclusion proofs into a Merkle Tree maintained by a certification authority (CA).
 The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope: it notes that existing mechanisms such as CRLs and OCSP apply unchanged (Section 12.7 of {{!I-D.ietf-plants-merkle-tree-certs}}), and its own serial-range revocation (Section 7.5) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.
 
-However, deployments such as Chrome's draft MTC policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days.
-At this timescale, key compromise or certificate misissuance can cause significant harm before natural expiry.
+However, deployments such as Chrome's draft Quantum-resistant Root Program policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days: that policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
+Without revocation, exposure to key compromise or certificate misissuance is bounded only by expiry -- a week in the recommended case, and a month and a half at the permitted maximum.
 Relying parties that have them may fall back to out-of-band systems such as {{CRLite}} or {{CRLSets}}, but these are vendor-controlled and not universal, and no in-band mechanism exists.
 
 This document defines such a mechanism based on hash chains {{MICALI}}.
@@ -2045,7 +2045,7 @@ The general case for functional revocation over passive expiry is made once, in 
 
 - **Trusted subtree state:** The number of landmark subtrees relying parties must maintain grows with shorter lifetimes and more frequent landmark allocation, at the cost of increased CA operational complexity.
 
-- **Deployment constraints:** Root program policies such as {{CHROME-MTC}} have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments.
+- **Deployment constraints:** Root program policies such as {{CHROME-MTC}} have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments, and permit them alongside a shorter recommended validity precisely because not every deployment can renew on the shorter cadence.
   Not all deployments can support arbitrarily short lifetimes.
 
 Matching a one-hour period's revocation latency with lifetime alone would mean certificates expiring about every two hours.
