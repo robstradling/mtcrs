@@ -152,6 +152,9 @@ The author's intent is that it advance to the Standards Track if the PLANTS work
 
 {::boilerplate bcp14-tagged}
 
+This document uses the TLS presentation language defined in Section 3 of {{!RFC8446}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{assertion-integration}}).
+The HashValue and TrustAnchorID types are those of {{!I-D.ietf-plants-merkle-tree-certs}}.
+
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (Section 5 of {{!I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 
@@ -160,12 +163,48 @@ Hash chain values, the anchor, and the tick all use this hash.
 Structure names from the base specification follow its editor's copy, in which MerkleTreeCertEntry, MerkleTreeCertEntryExtension, MerkleTreeCertEntryExtensionType, and MTCSignature have been renamed to MTCLogEntry, MTCLogEntryExtension, MTCLogEntryExtensionType, and SubtreeSignature respectively.
 Readers comparing against draft-ietf-plants-merkle-tree-certs-05 should substitute the older names.
 
-The HashChainTick that this mechanism embeds in the MTCProof ({{cert-format}}) is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of the current period, complementing the inclusion proof and cosignatures that attest authenticity.
-The separate `tbs_cert_entry_hash` used only to address ticks ({{distribution}}) is always computed with SHA-256, independent of the CA's tree hash.
+## Terminology
 
-Every hash chain value in this mechanism is *self-authenticating*: a relying party verifies it offline by hashing it forward to the anchor committed in the certificate ({{verification}}), needing no signature over the value and no trust beyond the CA's existing trust anchor.
-Because a tampered or forged value cannot reach the committed anchor in the number of steps its claimed period implies, this holds even though the MTCProof that carries the tick is itself unsigned and mutable.
-Later sections use the term in this sense.
+This document uses the roles defined in {{!I-D.ietf-plants-merkle-tree-certs}}: the *certification authority (CA)* that issues certificates, the *authenticating party* (in TLS, the server) that presents one, the *relying party* (in TLS, the client) that validates it, and the *monitor* that watches issuance logs.
+It adds the following terms, each specified in full in the section cited.
+
+Hash chain:
+: The sequence of values `h[0]` through `h[hash_chain_length]` that the CA generates for a log entry at issuance, each the hash of its predecessor ({{construction}}).
+
+Seed:
+: The first value of a hash chain, `h[0]`.
+  It is secret, is never revealed, and yields the entire hash chain to anyone who learns it ({{seed-confidentiality}}).
+
+Anchor:
+: The last value of a hash chain, `h[hash_chain_length]`.
+  It is public, is committed to the Merkle Tree as part of the certificate, and is the value against which every tick is verified ({{assertion-integration}}).
+
+Period:
+: One interval of `tick_interval` seconds.
+  Periods are numbered from 0, with period 0 beginning at the certificate's `notBefore` ({{construction}}).
+
+`tick_interval`:
+: The duration of one period, in seconds.
+  It is a per-certificate value carried in the certificate, and defaults to 3600 ({{construction}}).
+
+`hash_chain_length`:
+: The number of periods in the certificate's lifetime, `ceil(lifetime / tick_interval)`, which is also the index of the anchor within the hash chain ({{construction}}).
+
+Tick:
+: The pair `{period, value}` that the CA reveals for a period and the authenticating party embeds in the MTCProof ({{cert-format}}).
+  A tick is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of that period, complementing the inclusion proof and cosignatures that attest authenticity.
+
+`tbs_cert_entry_hash`:
+: The value that addresses an entry's tick in the distribution interface: the SHA-256 hash of the entry's `tbs_cert_entry_data`, always computed with SHA-256 independent of the CA's tree hash ({{distribution}}).
+
+Tick distributor:
+: A party other than the CA that serves ticks over the HTTP interface of {{distribution}}.
+  Because ticks are self-authenticating, a distributor is trusted for availability only, never for integrity ({{delegated-distribution}}).
+
+Self-authenticating:
+: Verifiable offline by hashing forward to the anchor committed in the certificate ({{verification}}), needing no signature over the value and no trust beyond the CA's existing trust anchor.
+  Every hash chain value in this mechanism has this property.
+  Because a tampered or forged value cannot reach the committed anchor in the number of steps its claimed period implies, it holds even though the MTCProof that carries the tick is itself unsigned and mutable.
 
 # Overview {#overview}
 
