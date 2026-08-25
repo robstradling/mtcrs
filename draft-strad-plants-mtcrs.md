@@ -45,22 +45,7 @@ normative:
       org: ITU-T
     date: 2021
     target: https://www.itu.int/rec/T-REC-X.690
-  SHS:
-    title: "Secure Hash Standard"
-    author:
-      org: National Institute of Standards and Technology (U.S.)
-    date: 2015
-    target: https://doi.org/10.6028/nist.fips.180-4
   I-D.ietf-plants-merkle-tree-certs:
-    title: "Merkle Tree Certificates"
-    author:
-      - name: David Benjamin
-      - name: Devon O'Brien
-      - name: Bas Westerbaan
-      - name: Luke Valenta
-      - name: Filippo Valsorda
-    date: 2026-07
-    target: https://datatracker.ietf.org/doc/draft-ietf-plants-merkle-tree-certs/
 
 informative:
   RFC4086:
@@ -1010,7 +995,7 @@ It also need not reach the CA at all: because ticks are self-authenticating, dis
 ## Hash Function Requirements {#hash-function-requirements}
 
 The security of this mechanism depends on the preimage resistance of the hash function used.
-SHA-256 {{SHS}} provides 256 bits of preimage resistance, which is sufficient for all foreseeable certificate lifetimes.
+SHA-256 {{!SHS=DOI.10.6028/NIST.FIPS.180-4}} provides 256 bits of preimage resistance, which is sufficient for all foreseeable certificate lifetimes.
 With a one-hour `tick_interval` and a 47-day lifetime, the hash chain length is 1,128, which does not meaningfully degrade the security margin.
 
 ## Post-Quantum Considerations {#post-quantum}
