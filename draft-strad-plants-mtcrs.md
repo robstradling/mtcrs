@@ -94,7 +94,7 @@ informative:
 
 --- abstract
 
-This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC) {{!I-D.ietf-plants-merkle-tree-certs}}.
+This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC).
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
 Periodically, the CA reveals the previous hash chain value for each non-revoked certificate.
 The authenticating party packages the current value with its period as a *tick* and embeds it in the certificate's MTCProof as the certificate's non-revocation proof -- alongside the inclusion proof that establishes authenticity -- enabling the relying party to cryptographically verify that the certificate has not been revoked, with granularity as fine as a fraction of a day.
@@ -152,7 +152,7 @@ The author's intent is that it advance to the Standards Track if the PLANTS work
 
 {::boilerplate bcp14-tagged}
 
-This document uses the TLS presentation language defined in Section 3 of {{!RFC8446}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{assertion-integration}}).
+This document uses the TLS presentation language defined in Section 3 of {{!RFC9846}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{assertion-integration}}).
 The HashValue and TrustAnchorID types are those of {{!I-D.ietf-plants-merkle-tree-certs}}.
 
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (Section 5 of {{!I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
@@ -497,7 +497,7 @@ label:
 preimage:
 : The previous hash chain value being hashed.
 
-All fields are encoded with the TLS presentation language ({{!RFC8446}}): `serial_number` is in network byte order (big-endian), and `issuer_id` is the binary TrustAnchorID carried with its one-byte length prefix as the `<1..2^8-1>` vector -- for TrustAnchorID 32473.1, the five bytes 04 81fd5901 ({{test-vectors}}).
+All fields are encoded with the TLS presentation language ({{!RFC9846}}): `serial_number` is in network byte order (big-endian), and `issuer_id` is the binary TrustAnchorID carried with its one-byte length prefix as the `<1..2^8-1>` vector -- for TrustAnchorID 32473.1, the five bytes 04 81fd5901 ({{test-vectors}}).
 
 Carrying the serial number whole, rather than its `log_number` and index components as separate fields, encodes the identical eight bytes, since those components are exactly its high 16 and low 48 bits.
 It matches what both parties hold and removes a split-and-rejoin step in which the field widths could be mistaken.
@@ -634,8 +634,8 @@ certificate_has_anchor is the contextual boolean "the entry carries a hash chain
 This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` of Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
 It is instead a property of the enclosing certificate, and it is well-defined for the same reason the base verifier can already read it: an MTCProof is never decoded standalone.
 It is only ever parsed as the `signatureValue` of a specific certificate, and Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}} already parses it strictly in that certificate context -- indeed it reconstructs the entry and its extensions from the certificate to check the inclusion proof -- so whether the anchor is present is known before `status_tick` is read, from exactly the data the base procedure already has in hand.
-No new parsing capability is introduced; this is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears ({{!RFC8446}}).
-The false case uses the Empty type -- the empty structure `struct {} Empty;` of {{!RFC8446}} -- so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
+No new parsing capability is introduced; this is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears ({{!RFC9846}}).
+The false case uses the Empty type -- the empty structure `struct {} Empty;` of {{!RFC9846}} -- so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
 
 This resolves precisely the "extra data after the MTCProof" check in Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
@@ -700,7 +700,7 @@ Using these inputs, the verifier performs the following steps:
 4. Check that `tick.period` lies within the *acceptance window*.
    The default acceptance window is `expected_period` - 1, `expected_period`, and `expected_period` + 1; a relying party MAY widen it in either direction as a matter of policy, with the consequences described in {{clock-skew}} and collected in {{rp-policy}}.
    A relying party MUST reject a certificate whose `tick.period` falls outside the acceptance window it applies, with a certificate_expired error.
-   That alert covers both directions, because {{!RFC8446}} defines it as "a certificate has expired or is not currently valid": a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
+   That alert covers both directions, because {{!RFC9846}} defines it as "a certificate has expired or is not currently valid": a tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}; a verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
@@ -1076,7 +1076,7 @@ A compromised or malicious CA could withhold ticks from a legitimate authenticat
 This is analogous to a CA refusing to issue OCSP responses, or refusing to issue or renew certificates at all: it is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behaviour today:
 
 - **Detectability.** The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
-- **Third-party observability.** The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC6962}}), making selective withholding observable.
+- **Third-party observability.** The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), making selective withholding observable.
 - **Market pressure.** An authenticating party that cannot reliably obtain ticks will switch CAs.
 
 Because ticks are small and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
@@ -1273,7 +1273,7 @@ Two common TLS behaviours mean this check does not recur for the life of a conne
 
 - **Established connections.** Once a full handshake completes, the certificate -- and hence the tick -- is not re-evaluated for the lifetime of that connection. A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
 
-- **Session resumption.** A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked. A client may therefore resume without re-checking revocation for as long as its session tickets remain usable. TLS 1.3 caps a ticket's lifetime at seven days ({{!RFC8446}}, Section 4.6.1), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
+- **Session resumption.** A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked. A client may therefore resume without re-checking revocation for as long as its session tickets remain usable. TLS 1.3 caps a ticket's lifetime at seven days (Section 4.7.1 of {{!RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
 
 - **Renegotiation.** TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick. There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
 
