@@ -401,6 +401,35 @@ Once the previous value expires (at the start of the next period), the certifica
 Because period 0's value is the public anchor, the earliest period for which the CA can withhold a secret value is period 1.
 A certificate therefore cannot be revoked during period 0, and one the CA wishes to revoke from the moment of issuance becomes unusable at the start of period 2 ({{period-zero-rationale}}).
 
+{{fig-revocation}} traces the two-period bound for a certificate the CA decides to revoke during period 1.
+
+~~~aasvg
+  period:        0          1          2          3
+            |----------|----------|----------|----------|
+
+  CA         h[5]        h[4]       nothing revealed
+  reveals:  (anchor)       |        from here onward
+                           |
+              revoke decision, taken during period 1,
+              after h[4] had already been revealed
+                           |
+  newest    {0, h[5]}   {1, h[4]}  {1, h[4]}  {1, h[4]}
+  tick the                          (stale)    (stale)
+  server                               |          |
+  holds:                               |          |
+                                       |          |
+  relying      accept      accept    accept     REJECT
+  party                                            |
+  verdict:                                         |
+                                                   v
+            The certificate becomes unusable at the start
+            of period 3, two periods after the decision.
+            In period 2 the relying party still accepts
+            periods 1, 2 and 3, so {1, h[4]} passes; in
+            period 3 it accepts only 2, 3 and 4.
+~~~
+{: #fig-revocation title="Revocation timing: the CA stops revealing values, and the newest tick the server holds falls outside the relying party's acceptance window two periods after the decision"}
+
 Withholding is the entirety of the revocation action, but a CA must discharge it across every channel through which it publishes ticks, and pair it with the base MTC mechanism where this one does not reach.
 On deciding to revoke an entry, a CA:
 
