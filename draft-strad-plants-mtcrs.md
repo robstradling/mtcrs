@@ -31,8 +31,6 @@ author:
     email: rob@sectigo.com
 
 normative:
-  RFC2119:
-  RFC8174:
   X.690:
     title: "Information technology - ASN.1 encoding rules: Specification of Basic Encoding Rules (BER), Canonical Encoding Rules (CER) and Distinguished Encoding Rules (DER)"
     author:
@@ -943,7 +941,8 @@ Two complementary mechanisms exploit this slack to prevent a period-boundary thu
 Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own `tbs_cert_entry_hash`:
 
 ~~~pseudocode
-offset = UINT32(tbs_cert_entry_hash[0..3]) mod max(1, tick_interval / 2)
+offset = UINT32(tbs_cert_entry_hash[0..3])
+         mod max(1, tick_interval / 2)
 ~~~
 
 where `tbs_cert_entry_hash` is the binary hash defined in {{distribution}}, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
@@ -1613,7 +1612,8 @@ These three intervals interact as follows.
 The worst-case exposure time after a problem occurs is:
 
 ~~~pseudocode
-exposure = min(remaining_lifetime, detection_time + revocation_latency)
+exposure = min(remaining_lifetime,
+               detection_time + revocation_latency)
 ~~~
 
 Without revocation, detection_time is irrelevant -- the certificate remains valid until it expires regardless of what the CA knows.
