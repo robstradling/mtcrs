@@ -87,7 +87,7 @@ informative:
     author:
       - name: Don Coppersmith
       - name: Markus Jakobsson
-    date: 2002
+    date: 2003
     target: https://doi.org/10.1007/3-540-36504-4_8
 
 ...
