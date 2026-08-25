@@ -107,7 +107,7 @@ This mechanism provides timely revocation without requiring signatures per revoc
 # Introduction
 
 Merkle Tree Certificates {{!I-D.ietf-plants-merkle-tree-certs}} authenticate TLS connections using compact inclusion proofs into a Merkle Tree maintained by a certification authority (CA).
-The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope: it notes that existing mechanisms such as CRLs and OCSP apply unchanged (Section 12.7 of {{!I-D.ietf-plants-merkle-tree-certs}}), and its own serial-range revocation (Section 7.5) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.
+The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope: it notes that existing mechanisms such as CRLs and OCSP apply unchanged ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}), and its own serial-range revocation ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.
 
 However, deployments such as Chrome's draft Quantum-resistant Root Program policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days: that policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
 Without revocation, exposure to key compromise or certificate misissuance is bounded only by expiry -- a week in the recommended case, and a month and a half at the permitted maximum.
@@ -152,10 +152,10 @@ The author's intent is that it advance to the Standards Track if the PLANTS work
 
 {::boilerplate bcp14-tagged}
 
-This document uses the TLS presentation language defined in Section 3 of {{!RFC9846}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{assertion-integration}}).
+This document uses the TLS presentation language defined in {{Section 3 of !RFC9846}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{assertion-integration}}).
 The HashValue and TrustAnchorID types are those of {{!I-D.ietf-plants-merkle-tree-certs}}.
 
-This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (Section 5 of {{!I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
+This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 
 <!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-06 is published, since the renamed structures will then be in the published reference. -->
@@ -492,7 +492,7 @@ label:
 : The CA's trust anchor ID.
 
 `serial_number`:
-: The certificate's serial number, which the base specification defines as `(log_number << 48) | index` and which therefore identifies both the issuance log and the entry within it (Section 6.2 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+: The certificate's serial number, which the base specification defines as `(log_number << 48) | index` and which therefore identifies both the issuance log and the entry within it ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 preimage:
 : The previous hash chain value being hashed.
@@ -503,7 +503,7 @@ Carrying the serial number whole, rather than its `log_number` and index compone
 It matches what both parties hold and removes a split-and-rejoin step in which the field widths could be mistaken.
 
 Both parties read `serial_number` directly from the certificate: the relying party when verifying ({{verification}}), and the authenticating party for its pre-installation check ({{distribution}}).
-It cannot be taken from the TBSCertificateLogEntry, which omits `serialNumber` (Section 12.6 of {{!I-D.ietf-plants-merkle-tree-certs}}); an authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
+It cannot be taken from the TBSCertificateLogEntry, which omits `serialNumber` ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}); an authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
 
 The `issuer_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
 This salting is not load-bearing for the core guarantee: each hash chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific hash chain.
@@ -522,7 +522,7 @@ The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 
 ## Hash Chain Anchor Extension
 
 This document defines a new X.509 certificate extension for carrying the hash chain anchor.
-This extension is included in the TBSCertificateLogEntry's extensions field (Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}), and thus appears in the TBSCertificate of the resulting Merkle Tree Certificate and in the entry's `tbs_cert_entry_data` that the base specification commits to the Merkle Tree.
+This extension is included in the TBSCertificateLogEntry's extensions field ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), and thus appears in the TBSCertificate of the resulting Merkle Tree Certificate and in the entry's `tbs_cert_entry_data` that the base specification commits to the Merkle Tree.
 
 ~~~asn.1
 id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
@@ -631,13 +631,13 @@ struct {
 ~~~
 
 certificate_has_anchor is the contextual boolean "the entry carries a hash chain anchor" -- the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}) -- read from whichever home the deployment uses.
-This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` of Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
+This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` in {{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
 It is instead a property of the enclosing certificate, and it is well-defined for the same reason the base verifier can already read it: an MTCProof is never decoded standalone.
-It is only ever parsed as the `signatureValue` of a specific certificate, and Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}} already parses it strictly in that certificate context -- indeed it reconstructs the entry and its extensions from the certificate to check the inclusion proof -- so whether the anchor is present is known before `status_tick` is read, from exactly the data the base procedure already has in hand.
+It is only ever parsed as the `signatureValue` of a specific certificate, and {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} already parses it strictly in that certificate context -- indeed it reconstructs the entry and its extensions from the certificate to check the inclusion proof -- so whether the anchor is present is known before `status_tick` is read, from exactly the data the base procedure already has in hand.
 No new parsing capability is introduced; this is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears ({{!RFC9846}}).
 The false case uses the Empty type -- the empty structure `struct {} Empty;` of {{!RFC9846}} -- so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
 
-This resolves precisely the "extra data after the MTCProof" check in Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
+This resolves precisely the "extra data after the MTCProof" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
 - If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes; 36 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there. A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
 - If the entry does not carry a hash chain anchor (the false case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
@@ -667,8 +667,8 @@ Hash chain revocation is keyed by the log entry, not by the certificate profile:
 - `tbs_cert_entry_hash` ({{distribution}}) is computed over the entry's `tbs_cert_entry_data`, which is identical for both profiles, so both resolve to the same tick URL and the same tick.
 - The HashChainTick for a given period is therefore identical in both certificates.
 
-An authenticating party that holds both a standalone and a landmark-relative certificate for the same entry -- for example, during the renewal overlap described in Section 10.4 of {{!I-D.ietf-plants-merkle-tree-certs}} -- fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
-Refreshing the tick is independent of profile selection: the authenticating party selects between the two certificates using the base MTC mechanism (Section 8 of {{!I-D.ietf-plants-merkle-tree-certs}}), and updates the HashChainTick in whichever MTCProof it sends.
+An authenticating party that holds both a standalone and a landmark-relative certificate for the same entry -- for example, during the renewal overlap described in {{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}} -- fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
+Refreshing the tick is independent of profile selection: the authenticating party selects between the two certificates using the base MTC mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and updates the HashChainTick in whichever MTCProof it sends.
 
 # Verification {#verification}
 
@@ -678,8 +678,8 @@ The steps below name the id-pe-hashChainAnchor X.509 extension of the primary de
 The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to the period computation ({{construction}}).
 All of them are obtained from the certificate and the trust anchor being validated against; no data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
 
-- **`issuer_id`:** the TrustAnchorID of the trust anchor against which the certificate is being validated (Section 5.1 of {{!I-D.ietf-plants-merkle-tree-certs}}).
-- **`serial_number`:** the certificate's serial number, read directly from the certificate (Section 6.2 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+- **`issuer_id`:** the TrustAnchorID of the trust anchor against which the certificate is being validated ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+- **`serial_number`:** the certificate's serial number, read directly from the certificate ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
 - **`tick_interval` and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension; if `tickInterval` is absent, use its default of 3600 ({{assertion-integration}}).
 - **`not_before`:** the `notBefore` time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
 
@@ -739,26 +739,26 @@ Given a tick base URL for the CA (see {{discovery}}), the tick for a particular 
 GET {tick_base_url}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}
 ~~~
 
-where `tbs_cert_entry_hash` is the SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}}), and the final path segment is its lowercase hexadecimal encoding (64 characters for SHA-256), so that the CA and the authenticating party derive an identical URL.
+where `tbs_cert_entry_hash` is the SHA-256 hash of the entry's `tbs_cert_entry_data` byte string (the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in {{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), and the final path segment is its lowercase hexadecimal encoding (64 characters for SHA-256), so that the CA and the authenticating party derive an identical URL.
 Throughout this document `tbs_cert_entry_hash` denotes that binary hash value (32 bytes for SHA-256); only the URL path segment carries it hex-encoded.
 The authenticating party computes it from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.
 
 **Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value: the SHA-256 of the entry's `tbs_cert_entry_data`, fixed to SHA-256 independent of the CA's tree HASH.
-It is distinct from the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})` used for inclusion proofs (Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}}), which is computed with the tree HASH over the entire log entry; `tbs_cert_entry_hash` hashes only `tbs_cert_entry_data` and is never verified as a proof.
+It is distinct from the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})` used for inclusion proofs ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), which is computed with the tree HASH over the entire log entry; `tbs_cert_entry_hash` hashes only `tbs_cert_entry_data` and is never verified as a proof.
 It carries no security weight: the sole property it needs is collision resistance so that two entries do not share a URL, and even that is non-load-bearing, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches ({{verification}}).
 Fixing it to SHA-256 keeps tick distribution and caching independent of the CA's tree hash; algorithm agility lives where it matters, in the security-relevant hashing that follows the agile tree HASH ({{post-quantum}}), and the `v1` path segment is the migration lever should the addressing hash ever need to change.
 
-The tick URL is keyed by `tbs_cert_entry_hash` rather than by the certificate's serial number, even though the serial (`(log_number << 48) | index`; Section 6.2 of {{!I-D.ietf-plants-merkle-tree-certs}}) also uniquely identifies the entry, is shorter, and needs no hashing.
+The tick URL is keyed by `tbs_cert_entry_hash` rather than by the certificate's serial number, even though the serial (`(log_number << 48) | index`; {{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}) also uniquely identifies the entry, is shorter, and needs no hashing.
 The serial's index component is assigned sequentially, so a serial-keyed URL would let anyone enumerate a CA's whole certificate population and probe each certificate's revocation status simply by counting indices -- with no certificate and no log data in hand.
 `tbs_cert_entry_hash` raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter, and -- being a derived value that need not appear in the certificate -- it can be replaced by the unguessable per-certificate capability token of {{unguessable-urls}} when a CA wants to remove URL derivability entirely; a serial carried in the certificate offers no such option.
 Keying on `tbs_cert_entry_hash` therefore aligns with the design's preference that the tick endpoint not be treated as an enumerable status oracle ({{rp-no-fetch}}).
 Its one cost -- a reliance on the addressing hash's collision resistance to keep entries' URLs distinct -- is amply met and non-load-bearing (the Note above).
-Distinct URLs also require the hashed data itself to differ between entries, which `serialNumber` cannot supply, being omitted from the TBSCertificateLogEntry (Section 12.6 of {{!I-D.ietf-plants-merkle-tree-certs}}); in this design the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{assertion-integration}}).
+Distinct URLs also require the hashed data itself to differ between entries, which `serialNumber` cannot supply, being omitted from the TBSCertificateLogEntry ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}); in this design the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{assertion-integration}}).
 An encoding that moves the anchor out of `tbs_cert_entry_data` must therefore key ticks on something else ({{anchor-entry-extension}}).
 Where positive, monitorable revocation transparency is wanted, it is provided deliberately and separately ({{revocation-transparency}}), not as a side effect of an enumerable endpoint.
 
 The tick base URL is not derived from the CA's identifier.
-A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier (Section 5.1 of {{!I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
+A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
 The base URL is instead conveyed to the authenticating party out of band, as described in {{discovery}}.
 
 The scheme (`http://` or `https://`) is whatever the CA specifies as part of the base URL.
@@ -793,7 +793,7 @@ A CA MUST make the tick base URL available through at least one of the following
   A provisioning binding is moreover required for unguessable tick URLs ({{unguessable-urls}}), which the SIA cannot carry; a protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.
 
 - **CA certificate SIA (optional).**
-  The base URL MAY additionally be published in the CA's certificate representation (Section 5.5 of {{!I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
+  The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
   Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}).
   Its value is therefore as a published fallback and tooling record: where a provisioning binding exists (for example ACME; {{acme-integration}}) it is redundant with that channel, which takes precedence when the two disagree; where none exists, it is the only interoperable carrier of the base URL.
@@ -804,7 +804,7 @@ Keeping the base URL out of the certificate is not a secrecy measure -- the URL 
 Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents; relying parties verify the embedded tick offline ({{verification}}) and MUST NOT fetch ticks ({{rp-no-fetch}}).
 The base URL (or, for unguessable tick URLs, the full per-certificate URL) is delivered once at provisioning; the authenticating party MUST retain it for as long as it presents the certificate and reuse it to refresh the tick each period ({{distribution}}), rather than rediscovering it per fetch.
 
-Because MTC certificates are renewed frequently (Section 10.4 of {{!I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
+Because MTC certificates are renewed frequently ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime), a CA that migrates its tick infrastructure can update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
 
 ## ACME Integration {#acme-integration}
 
@@ -1014,14 +1014,14 @@ A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}) with 
 
 This prohibition holds even in disaster recovery: a CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret or per-certificate seeds to a successor operator as a continuity measure.
 That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event that destroys forward security and hands over unbounded forging power.
-It is also unnecessary: the bounded buffer above keeps already-issued certificates usable through the outage, and because MTC certificates are short-lived (Section 10.4 of {{!I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
+It is also unnecessary: the bounded buffer above keeps already-issued certificates usable through the outage, and because MTC certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
 If the disaster is itself a seed or key compromise, the response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), not wider custody of a possibly-tainted secret.
 
 The feed from CA to distributor SHOULD be authenticated and integrity-protected; this is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
 
 # Privacy Considerations
 
-The Privacy Considerations of {{!I-D.ietf-plants-merkle-tree-certs}} (Section 11) apply to Merkle Tree Certificates that use this mechanism.
+The Privacy Considerations of the base MTC specification ({{Section 11 of !I-D.ietf-plants-merkle-tree-certs}}) apply to Merkle Tree Certificates that use this mechanism.
 This mechanism adds one network interaction -- the authenticating party's periodic tick fetch ({{distribution}}) -- and deliberately adds none on the relying-party side.
 
 No relying-party activity is exposed.
@@ -1110,7 +1110,7 @@ Hash chain revocation does not rely on its authenticity -- the tick is self-auth
 ## Interaction with Base MTC Revocation {#interaction-with-base-mtc-revocation}
 
 The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
-Revoked ranges are relying-party configuration: each relying party maintains, per CA, a list of revoked serial-number ranges, seeded from the CA certificate's minSerial and maxSerial and extended from out-of-band sources (Section 7.5 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+Revoked ranges are relying-party configuration: each relying party maintains, per CA, a list of revoked serial-number ranges, seeded from the CA certificate's minSerial and maxSerial and extended from out-of-band sources ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 They are therefore closer in kind to CRLite {{CRLite}} or CRLSets {{CRLSets}} -- pushed state, distributed out of band, effective only for relying parties that receive it -- than to a logged or signed artifact; nothing about a revoked range is committed to the Merkle Tree.
 Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:
 
@@ -1145,7 +1145,7 @@ Four consequences follow, each bounded:
 - **No revocation-event transparency in the log.**
   Because revealed ticks are not committed to the tree, the fact and time of a revocation are not recorded there.
   Nor do base MTC revoked ranges supply such a record, being relying-party configuration rather than log content ({{interaction-with-base-mtc-revocation}}), so no in-band, logged revocation record exists anywhere in MTC.
-  A deployment that requires one uses an external system that provides it -- CRLs or OCSP, which apply to Merkle Tree Certificates unchanged (Section 12.7 of {{!I-D.ietf-plants-merkle-tree-certs}}) -- or a signed revocation feed published by the CA (see below).
+  A deployment that requires one uses an external system that provides it -- CRLs or OCSP, which apply to Merkle Tree Certificates unchanged ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}) -- or a signed revocation feed published by the CA (see below).
 
 - **No revocation reason codes.**
   A tick's absence carries no reason (keyCompromise, cessationOfOperation, and so on).
@@ -1160,7 +1160,7 @@ Four consequences follow, each bounded:
 
 None of this weakens enforcement, which is what the mechanism exists to provide.
 A revoked certificate stops verifying at every relying party within the two-period bound ({{clock-skew}}) whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
-Auditability, where a deployment needs it, therefore comes from outside both this mechanism and the base revoked-ranges mechanism: from CRLs or OCSP, which apply unchanged (Section 12.7 of {{!I-D.ietf-plants-merkle-tree-certs}}), or from a signed revocation feed the CA publishes.
+Auditability, where a deployment needs it, therefore comes from outside both this mechanism and the base revoked-ranges mechanism: from CRLs or OCSP, which apply unchanged ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}), or from a signed revocation feed the CA publishes.
 This document neither defines nor requires such a feed.
 
 ## Downgrade to a Non-MTCRS Certificate {#downgrade}
@@ -1252,7 +1252,7 @@ The goal is therefore to bound the dependency, not to eliminate it; several fact
 - **Multiple independent CAs remove the single point of failure.**
   Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
   This is the preferred resilience mechanism, because -- unlike widening the acceptance window -- it restores availability at no cost to revocation freshness.
-  Failover needs no new protocol: the tick is embedded in the MTCProof rather than negotiated as a separate stapled response, so a server holding certificates from several CAs simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism (Section 8 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+  Failover needs no new protocol: the tick is embedded in the MTCProof rather than negotiated as a separate stapled response, so a server holding certificates from several CAs simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
   This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange; its one precondition is that the relying party support the alternate CA's trust anchor.
   Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
@@ -1273,7 +1273,7 @@ Two common TLS behaviours mean this check does not recur for the life of a conne
 
 - **Established connections.** Once a full handshake completes, the certificate -- and hence the tick -- is not re-evaluated for the lifetime of that connection. A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
 
-- **Session resumption.** A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked. A client may therefore resume without re-checking revocation for as long as its session tickets remain usable. TLS 1.3 caps a ticket's lifetime at seven days (Section 4.7.1 of {{!RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
+- **Session resumption.** A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked. A client may therefore resume without re-checking revocation for as long as its session tickets remain usable. TLS 1.3 caps a ticket's lifetime at seven days ({{Section 4.7.1 of !RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
 
 - **Renegotiation.** TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick. There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
 
@@ -1320,7 +1320,7 @@ IANA is requested to register the following entry in the "SMI Security for PKIX 
 |---------|------------------|---------------|
 | TBD     | id-ad-mtcrsTicks | This document |
 
-The id-ad-mtcrsTicks access method is used as a Subject Information Access access method ({{!RFC5280}}) in a Merkle Tree CA certificate (Section 5.5 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+The id-ad-mtcrsTicks access method is used as a Subject Information Access access method ({{!RFC5280}}) in a Merkle Tree CA certificate ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 Its accessLocation is a uniformResourceIdentifier giving the CA's tick base URL ({{discovery}}).
 
 ~~~asn.1
@@ -1500,7 +1500,7 @@ This appendix defines the field and how the tick would be encoded within it; the
 
 ## Motivation
 
-The current MTCProof is a fixed sequence of fields with no extensibility point, and Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}} requires relying parties to reject any data trailing it, so no field can be appended without amending the base specification ({{tick-trailing-field}}):
+The current MTCProof is a fixed sequence of fields with no extensibility point, and {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} requires relying parties to reject any data trailing it, so no field can be appended without amending the base specification ({{tick-trailing-field}}):
 
 ~~~tls-presentation
 struct {
@@ -1546,7 +1546,7 @@ Both are variable-length lists of tag-length-value structures, but they serve di
 
 Relying parties MUST ignore unrecognized proof extension types.
 
-The "extra data" check in Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}} would be amended to account for the trailing `proof_extensions` field.
+The "extra data" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} would be amended to account for the trailing `proof_extensions` field.
 
 ## Hash Chain Tick as a Proof Extension
 
@@ -1584,7 +1584,7 @@ Security-relevant extensions must be anchored:
   Otherwise "ignore if unknown" becomes a strippable soft-fail ({{ocsp-stapling-comparison}}).
 
 A base specification SHOULD also consider: a canonical encoding (ascending `extension_type`, no duplicate types, exact-length consumption); an IANA registry for `MTCProofExtensionType` with a private-use range; fail-closed rejection of unknown types, optionally softened by a per-extension criticality bit, which closes the ignore channel but trades incremental deployability for hard enforcement -- the same trade-off as marking the anchor extension critical ({{extension-criticality}}); and a deterministic fixed-length region, where each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
-Two properties are inherent and MUST be respected: proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{assertion-integration}}); and because `proof_extensions` widen `signatureValue` malleability (Section 12.6 of {{!I-D.ietf-plants-merkle-tree-certs}}), applications MUST derive any certificate identifier from the TBSCertificate, never from the MTCProof.
+Two properties are inherent and MUST be respected: proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{assertion-integration}}); and because `proof_extensions` widen `signatureValue` malleability ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}), applications MUST derive any certificate identifier from the TBSCertificate, never from the MTCProof.
 
 Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots -- much of why this document RECOMMENDS the fixed trailing `status_tick` field ({{tick-trailing-field}}) for the single use it needs.
 
@@ -1882,7 +1882,7 @@ Marking id-pe-hashChainAnchor non-critical ({{extension-criticality}}) lets CAs 
 This mirrors how many X.509 extensions are specified as non-critical (Authority Information Access, Authority Key Identifier, CRL Distribution Points per {{!RFC5280}}).
 Because the marking is SHOULD rather than MUST, an ecosystem in which all relying parties are known to support the mechanism -- or a root program, once adoption is sufficient -- MAY mark it critical for hard enforcement from day one.
 
-Amending MTCProof needs more care, because the base MTCProof has no extensibility point and Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}} rejects any trailing bytes.
+Amending MTCProof needs more care, because the base MTCProof has no extensibility point and {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} rejects any trailing bytes.
 Appending the tick therefore causes an unaware relying party to reject the certificate regardless of the anchor extension's criticality: it ignores the non-critical extension, parses the MTCProof, finds unexpected trailing bytes, and fails.
 Deploying the mechanism thus requires one of:
 
@@ -1970,11 +1970,11 @@ CAs MAY additionally publish the base URL in the CA certificate SIA ({{discovery
 ## Carrying the Anchor as a Merkle Tree Entry Extension {#anchor-entry-extension}
 
 This document carries the anchor in an X.509 certificate extension (id-pe-hashChainAnchor) placed in the extensions field of the TBSCertificateLogEntry, and thus also in the TBSCertificate.
-An alternative is to carry it as an MTCLogEntryExtension -- the entry-level extension point defined in Section 5.2.1 of {{!I-D.ietf-plants-merkle-tree-certs}} -- rather than as an X.509 extension.
+An alternative is to carry it as an MTCLogEntryExtension -- the entry-level extension point defined in {{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}} -- rather than as an X.509 extension.
 Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating; the choice is between two extension mechanisms, not between committed and uncommitted storage.
 
 In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
-The verifier reads the anchor and `tick_interval` from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (Section 7.2 of {{!I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
+The verifier reads the anchor and `tick_interval` from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
 Obtaining the anchor costs neither party any meaningful extra work.
 Both the anchor and the tick then travel in the MTCProof -- the entry extensions in its leading field, the tick in its trailing one -- so a relying party finds the anchor by scanning a short type-length-value list it has already parsed to reconstruct the entry, in place of the scan of the certificate's X.509 extensions that the primary design performs; each is a lookup in a list the party decodes regardless.
@@ -1988,7 +1988,7 @@ In this alternative the anchor is therefore committed to the tree through the MT
 Either way `tbs_cert_entry_hash` remains well-defined and identical for a given entry's standalone and landmark-relative certificates ({{cert-profiles}}), and continues to serve only as the tick-URL identifier.
 
 Excluding the anchor does, however, remove the uniqueness the tick URL relies on.
-`serialNumber` is omitted from the TBSCertificateLogEntry, its value being authenticated instead by the inclusion proof index (Section 12.6 of {{!I-D.ietf-plants-merkle-tree-certs}}), so `tbs_cert_entry_data` carries nothing that distinguishes two entries certifying the same subject, public key, validity, and extensions -- which a CA that rounds `notBefore` readily produces for a repeated issuance request.
+`serialNumber` is omitted from the TBSCertificateLogEntry, its value being authenticated instead by the inclusion proof index ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}), so `tbs_cert_entry_data` carries nothing that distinguishes two entries certifying the same subject, public key, validity, and extensions -- which a CA that rounds `notBefore` readily produces for a repeated issuance request.
 In the primary design the anchor separates such entries, each carrying an independent random value; in this alternative it does not, so both resolve to a single tick URL while holding different hash chains, and the authenticating party for whichever entry the CA does not serve there would reject every tick it fetched ({{verification}}).
 A base specification adopting the entry-extension encoding MUST therefore address ticks by a value that covers the anchor -- for example the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})`, which is computed over the entry extensions as well as `tbs_cert_entry_data` ({{distribution}}) -- in place of `tbs_cert_entry_hash`.
 
@@ -1998,14 +1998,14 @@ It is also more compact, because an MTCLogEntryExtension uses a short TLS type-a
 It has three costs, however:
 
 - **No criticality lever.**
-  Entry extensions have no critical marking, and relying parties ignore unrecognized ones (Section 12.5 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+  Entry extensions have no critical marking, and relying parties ignore unrecognized ones ({{Section 12.5 of !I-D.ietf-plants-merkle-tree-certs}}).
   The transition strategy of marking the X.509 extension critical to force unaware relying parties to hard-fail ({{extension-criticality}}) is therefore unavailable; enforcement rests entirely on relying parties that implement this mechanism.
 
 - **Not visible to generic X.509 tooling.**
   The anchor no longer appears in the TBSCertificate, so only MTC-aware software can observe that a certificate uses this mechanism.
 
 - **The log-signing infrastructure must be MTCRS-aware.**
-  Section 5.4 of {{!I-D.ietf-plants-merkle-tree-certs}} forbids a CA cosigner from signing a subtree containing an entry with an extension_type it does not recognize.
+  {{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}} forbids a CA cosigner from signing a subtree containing an entry with an extension_type it does not recognize.
   A `hash_chain_anchor` entry extension therefore forces the CA's log and cosigner components to recognize it before they can sign any subtree containing an MTCRS certificate.
   With the X.509 extension, the anchor rides inside the entry's `tbs_cert_entry_data` as ordinary certificate bytes, so that recognition gate (which concerns the entry type and extension_type, not X.509 extensions) never fires: the generic log and cosigner infrastructure remain MTCRS-agnostic, and only the issuance front-end and the tick distribution service ({{distribution}}) need be MTCRS-aware.
 
