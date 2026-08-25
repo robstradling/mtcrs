@@ -48,11 +48,11 @@ informative:
     date: 1996
     target: https://dl.acm.org/doi/10.5555/889659
   CHROME-MTC:
-    title: "Chrome MTC Policy"
+    title: "Chrome Quantum-resistant Root Program Policy (Draft), Version 0.3.0"
     author:
       org: Google Chrome
-    date: 2025
-    target: https://googlechrome.github.io/CertificateTransparency/mtc_policy.html
+    date: 2026-08-14
+    target: https://googlechrome.github.io/chromerootprogram/cqrp/draft-policy
   CRLite:
     title: "CRLite: A Scalable System for Pushing All TLS Revocations to All Browsers"
     author:
