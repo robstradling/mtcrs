@@ -110,7 +110,7 @@ This mechanism provides timely revocation without requiring signatures per revoc
 Merkle Tree Certificates {{!I-D.ietf-plants-merkle-tree-certs}} authenticate TLS connections using compact inclusion proofs into a Merkle Tree maintained by a certification authority (CA).
 The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope.
 It notes that existing mechanisms such as CRLs and OCSP apply unchanged ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}).
-Its own serial-range revocation ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.
+Its own serial-range revocation ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}) is a complementary mitigation for CA misbehavior rather than a per-certificate revocation service.
 
 However, deployments such as Chrome's draft Quantum-resistant Root Program policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days.
 That policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
@@ -1137,7 +1137,7 @@ If the CA's seed storage is compromised, the CA MUST revoke all affected certifi
 A compromised or malicious CA could withhold ticks from a legitimate authenticating party, either broadly or targeted at a specific subscriber.
 In the targeted case it revokes that certificate with no auditable signal.
 This is analogous to a CA refusing to issue OCSP responses, or refusing to issue or renew certificates at all.
-It is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behaviour today:
+It is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behavior today:
 
 - **Detectability.** The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
 - **Third-party observability.** The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), making selective withholding observable.
@@ -1163,7 +1163,7 @@ The tick distribution URL is not secret: the fetch path is `.well-known/mtcrs/v1
 By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
 A CA that wishes to remove this derivability entirely MAY use the optional per-certificate capability-token hardening in {{unguessable-urls}}, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick, since the authenticating party already presents the current value.
-It would meanwhile reintroduce the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP {{?RFC6960}} problematic.
+It would meanwhile reintroduce the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behavior that made client-driven OCSP {{?RFC6960}} problematic.
 
 The CA certificate SIA access method ({{discovery}}) exists to convey the base URL to authenticating-party tooling.
 Relying parties possess the CA certificate but MUST NOT use its tick base URL to fetch tick status.
@@ -1193,7 +1193,7 @@ Whether to check the base MTC revoked ranges in addition to the hash chain is a 
 This composition is one-directional.
 Other revocation signals may only add grounds for revocation: the base MTC revoked ranges, or external systems such as CRLite {{CRLite}} or CRLSets {{CRLSets}}.
 A relying party MAY consult them and MUST reject if any reports the certificate revoked.
-A relying party MUST NOT, however, treat a "not revoked" result from any such mechanism as licence to accept a certificate whose tick is absent, stale, or fails verification.
+A relying party MUST NOT, however, treat a "not revoked" result from any such mechanism as license to accept a certificate whose tick is absent, stale, or fails verification.
 Doing so would reduce this mechanism's hard-fail to the strippable soft-fail it is designed to prevent ({{ocsp-stapling-comparison}}).
 A missing tick is thus a rejection in its own right.
 Consulting another mechanism can nonetheless serve two diagnostic purposes when a tick is absent.
@@ -1284,7 +1284,7 @@ Both this and the window width are relying-party policy choices ({{rp-policy}}).
 
 ## Relying-Party Policy Levers {#rp-policy}
 
-Several behaviours of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
+Several behaviors of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
 This section collects them for convenience; each is specified in full in the section cited, and nothing here is a new requirement.
 
 Acceptance window:
@@ -1322,7 +1322,7 @@ This section covers the operational characteristics of the mechanism that are no
 Because an authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
 It is intrinsic to enforceable revocation rather than a defect.
-A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behaviour this design rejects ({{ocsp-stapling-comparison}}).
+A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects ({{ocsp-stapling-comparison}}).
 The goal is therefore to bound the dependency, not to eliminate it; several factors and mitigations limit its impact:
 
 - **The tick interval is the outage-tolerance budget.**
@@ -1368,7 +1368,7 @@ The alternative, no in-band revocation at all, instead makes the ecosystem depen
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
 A relying party checks the non-revocation proof ({{verification}}) only when it validates the certificate, which happens during a full TLS handshake.
-Two common TLS behaviours mean this check does not recur for the life of a connection or a resumed session.
+Two common TLS behaviors mean this check does not recur for the life of a connection or a resumed session.
 The effective client-side revocation latency is therefore bounded not by `tick_interval` alone but by how long a client keeps or resumes a connection:
 
 - **Established connections.** Once a full handshake completes, the certificate, and hence the tick, is not re-evaluated for the lifetime of that connection. A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
@@ -1610,7 +1610,7 @@ That covers the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}),
 The MTCProof changes themselves are edits to a structure that the base specification owns: the trailing `status_tick` field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the `proof_extensions` field ({{mtcproof-extensibility}}).
 This document specifies them in full so that the required change is concrete and reviewable.
 The intent, however, is to hand them to the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
-If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.
+If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behavior and can be reduced to a reference.
 
 # Open Questions for the Working Group {#open-questions}
 
@@ -1826,7 +1826,7 @@ With hash chain revocation, frequent CA validation translates directly into secu
 The CA can act on a detected problem at the very next period boundary, by withholding that certificate's tick, and the certificate stops verifying within at most two periods of the decision ({{revealing-values}}, {{clock-skew}}).
 This creates an incentive structure where CAs that validate more frequently provide measurably better security, an incentive that does not exist in a pure short-lived-certificate model without revocation.
 
-Root program policies can leverage this by requiring both short tick intervals and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.
+Root program policies can leverage this by requiring both short tick intervals and minimum re-validation frequencies, achieving a defense-in-depth posture that neither mechanism provides alone.
 
 This reframes where certificate lifetime sits in the security argument.
 Much of the pressure to shorten certificate lifetimes is a substitute for revocation: with no reliable in-band revocation, expiry is the only enforceable bound on exposure after key compromise or misissuance.
@@ -1842,7 +1842,7 @@ A root program can then set each on its own merits, rather than using lifetime a
 
 ## Why Hash Chains (Micali) Instead of Other Revocation Mechanisms
 
-Several alternative revocation mechanisms were considered and rejected; {{alternatives}} analyses each.
+Several alternative revocation mechanisms were considered and rejected; {{alternatives}} analyzes each.
 Hash chains {{MICALI}} were selected because they are the only known mechanism that provides *all* of the properties listed in the Introduction at once.
 Those are timely revocation, zero per-period CA signing, self-authentication against the committed anchor, mandatory hard-fail enforcement, and a 36-byte per-handshake cost.
 They achieve this using nothing but a hash function and basic arithmetic, with no new cryptographic primitive.
@@ -2250,7 +2250,7 @@ That means either a new TLS or CertificateEntry extension, or the existing `stat
 
 All such approaches share a disqualifying property: a TLS-carried status is opt-in and strippable.
 A separate extension can be omitted by a middlebox or misconfigured server, and `status_request` is requested by the client and may be omitted by the server.
-In either case there is no signal that one was expected, forcing relying parties to soft-fail, exactly the failure mode analysed in {{ocsp-stapling-comparison}}.
+In either case there is no signal that one was expected, forcing relying parties to soft-fail, exactly the failure mode analyzed in {{ocsp-stapling-comparison}}.
 Embedding the tick in the MTCProof instead makes it inseparable from the certificate's acceptance, so stripping forces a hard failure rather than a silent soft-fail ({{why-embed}}).
 
 Two further points weigh against a TLS encoding.
@@ -2270,7 +2270,7 @@ This document treats that surface as unjustified for a single tick, and therefor
 ## Shorter Certificate Lifetimes {#short-lifetimes}
 
 The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
-The general case for functional revocation over passive expiry is made once, in {{revocation-vs-expiry}}; this section only catalogues the specific operational costs that nonetheless motivate longer lifetimes:
+The general case for functional revocation over passive expiry is made once, in {{revocation-vs-expiry}}; this section only catalogs the specific operational costs that nonetheless motivate longer lifetimes:
 
 - **Issuance infrastructure load:** Shorter lifetimes require more frequent issuance.
   With millions of subscribers, daily certificate issuance produces proportionally larger logs and more frequent Merkle Tree constructions.
@@ -2284,7 +2284,7 @@ The general case for functional revocation over passive expiry is made once, in 
   Not all deployments can support arbitrarily short lifetimes.
 
 Matching a one-hour period's revocation latency with lifetime alone would mean certificates expiring about every two hours.
-That attains comparable worst-case exposure but does not remove the cost; it moves it to the heavier places catalogued above.
+That attains comparable worst-case exposure but does not remove the cost; it moves it to the heavier places cataloged above.
 For the CA that means a roughly hundredfold increase in issuance, tree cosigning, and log growth, and for relying parties the same increase in trusted-subtree sync, discarding the batched compactness MTC exists to provide.
 It also imposes a stricter availability dependency, since re-issuance (key generation, CSR, challenge, log inclusion) is far heavier to keep continuously live than a lightweight tick fetch.
 Hash chain revocation buys the same fine-grained revocation for a few microseconds of hashing instead, which is why the microseconds are the cheap side of the trade, not over-engineering.
