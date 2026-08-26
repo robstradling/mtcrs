@@ -139,7 +139,8 @@ This approach achieves the following properties:
 - **Self-authenticating:** The hash chain value is verified against the anchor already committed in the Merkle Tree.
   No new trust relationships or authenticated channels are needed.
 
-- **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof. The committed anchor adds about 50 bytes to each log entry ({{assertion-integration}}).
+- **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
+  The committed anchor adds about 50 bytes to each log entry ({{assertion-integration}}).
 
 These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
 First, enforcement introduces an availability dependency: because an authenticating party must refresh its tick each period, a tick-distribution outage that outlasts the certificate's buffer renders it unusable ({{availability-considerations}}).
@@ -672,7 +673,8 @@ The false case uses the Empty type, the empty structure `struct {} Empty;` of {{
 
 This resolves precisely the "extra data after the MTCProof" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
-- If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes, or 36 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there. A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
+- If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes, or 36 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there.
+  A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
 - If the entry does not carry a hash chain anchor (the false case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
 
 A relying party predating the amendment would reject the certificate at the MTCProof parsing stage.
@@ -1173,8 +1175,11 @@ For a public-facing server this reveals little, since the certificate it serves 
 The request identifies the authenticating party's own certificate, not any relying party.
 Two points nonetheless bear noting:
 
-- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}). Plain HTTP leaves the requested `tbs_cert_entry_hash` or `tick_token` visible to on-path observers. A deployment that considers this metadata sensitive, for example one serving certificates that are not otherwise publicly enumerable, SHOULD publish an https base URL instead.
-- Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the `tick_token` appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch. Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
+- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}).
+  Plain HTTP leaves the requested `tbs_cert_entry_hash` or `tick_token` visible to on-path observers.
+  A deployment that considers this metadata sensitive, for example one serving certificates that are not otherwise publicly enumerable, SHOULD publish an https base URL instead.
+- Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the `tick_token` appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch.
+  Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
 
 Pushed revocation lists such as {{CRLite}} and {{CRLSets}} are checked by the client entirely offline.
 This mechanism preserves the same relying-party privacy, since the client fetches nothing either way, and does so universally, for any TLS client rather than only browsers that ship the list.
@@ -1628,7 +1633,8 @@ All values are hexadecimal, and the hash function is SHA-256 (HASH_SIZE = 32).
 
 The example uses:
 
-- `issuer_id`: TrustAnchorID 32473.1, whose binary representation is 81fd5901. As a `<1..2^8-1>` vector it encodes with its length prefix as 04 81fd5901.
+- `issuer_id`: TrustAnchorID 32473.1, whose binary representation is 81fd5901.
+  As a `<1..2^8-1>` vector it encodes with its length prefix as 04 81fd5901.
 - `serial_number` = 281474976710698, which is `(log_number << 48) | index` for log number 1 and entry index 42
 - `hash_chain_length` = 5
 - seed h\[0\] = the 32 bytes 00 01 ... 1f (a fixed value for this example, whereas a real CA uses a cryptographically random, secret seed)
@@ -1773,7 +1779,8 @@ Nothing in this section is itself a normative requirement.
    Its bearer-credential connotation is also the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
    Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number.
    This document therefore always presents the tick as the pair `{period, value}`.
-   *Preference:* keep "tick". A descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.
+   *Preference:* keep "tick".
+   A descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
@@ -2140,7 +2147,10 @@ The major browsers' migration away from live OCSP and stapling toward pushed rev
 OCSP stapling ({{?RFC6960}}, carried via the TLS status_request extension) is optional and strippable: the client requests it, and the server, or a network attacker, can omit the stapled response with no signal that one was expected.
 A relying party therefore cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail (treat missing status as "not revoked") to avoid breaking legitimate connections.
 Soft-fail, in turn, provides almost no protection against an active attacker, who can simply suppress the response.
-This is a self-reinforcing loop. Because enforcement is impossible, stapling yields little security benefit. Because it yields little benefit, servers have weak incentive to deploy it. And because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.
+This is a self-reinforcing loop.
+Because enforcement is impossible, stapling yields little security benefit.
+Because it yields little benefit, servers have weak incentive to deploy it.
+And because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.
 
 OCSP Must-Staple ({{?RFC7633}}) was introduced to break this loop by letting a certificate commit to requiring a stapled response.
 It saw little adoption: enabling it risks self-inflicted outages if the responder or the server's stapling path fails, and the ecosystem never reached the coverage that would let relying parties depend on it.
@@ -2231,7 +2241,8 @@ Amending MTCProof needs more care, because the base MTCProof has no extensibilit
 Appending the tick therefore causes an unaware relying party to reject the certificate regardless of the anchor extension's criticality: it ignores the non-critical extension, parses the MTCProof, finds unexpected trailing bytes, and fails.
 Deploying the mechanism thus requires one of:
 
-1. **Amend the base MTC specification** so conforming parsers accept the tick, using either the RECOMMENDED trailing `status_tick` field ({{tick-trailing-field}}) or the general `proof_extensions` field ({{mtcproof-extensibility}}). This is the approach this document proposes ({{base-spec-amendments}}).
+1. **Amend the base MTC specification** so conforming parsers accept the tick, using either the RECOMMENDED trailing `status_tick` field ({{tick-trailing-field}}) or the general `proof_extensions` field ({{mtcproof-extensibility}}).
+   This is the approach this document proposes ({{base-spec-amendments}}).
 2. **Mark the anchor extension critical**, so unaware implementations reject at the X.509 stage rather than on an opaque parse failure, at the cost of incremental deployment.
 3. **Deploy concurrently**, adopting the extended MTCProof from the start while MTC is still greenfield.
 
