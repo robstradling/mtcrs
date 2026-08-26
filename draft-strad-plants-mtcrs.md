@@ -165,6 +165,9 @@ The HashValue and TrustAnchorID types are those of {{!I-D.ietf-plants-merkle-tre
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
 For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
+HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
+Every party already holds it.
+A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA, taking it from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 <!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-06 is published, since the renamed structures will then be in the published reference. -->
 
@@ -507,7 +510,10 @@ label:
   The label's length is not otherwise security-relevant, and this short value keeps a typical HashChainInput within a single hash compression block.
 
 `issuer_id`:
-: The CA's trust anchor ID.
+: The issuing CA's ID, which is its trust anchor ID.
+  Both parties read it from the certificate's `issuer` field, which the base specification defines as that CA ID encoded as a PKIX distinguished name ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+  Taking it from the certificate rather than from the verifier's own trust anchor keeps this input a property of the certificate, so it does not depend on path-building state, and it gives the authenticating party a source too, since it has no trust anchor of its own to consult.
+  It is the same value the base verification procedure already extracts from `issuer` to construct the log ID ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 `serial_number`:
 : The certificate's serial number, which the base specification defines as `(log_number << 48) | index` and which therefore identifies both the issuance log and the entry within it ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -541,7 +547,7 @@ HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 ti
 Substituting a 32-byte hash for the 8-byte serial number would push a typical structure past the 55 bytes that SHA-256 accommodates in a single compression block, roughly doubling that work.
 The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
 
-The Hash function is the same hash function used by the Merkle Tree CA (SHA-256 for CAs using SHA-256).
+The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 # Integration with MTC Log Entries {#assertion-integration}
 
@@ -568,7 +574,7 @@ HashChainAnchorInfo ::= SEQUENCE {
 `tickInterval`:
 : The tick interval in seconds for this certificate ({{construction}}), with a default of 3600 (one hour).
   Under DER, a certificate using the default value MUST omit this field (Section 11.5 of {{X.690}}), so the common one-hour case adds no per-entry bytes.
-  A relying party that finds the field absent MUST use the default of 3600.
+  A relying party that finds the field absent MUST use the default of 3600, and MUST reject a certificate that carries the field with the value 3600 ({{verification}}).
   The relying party reads this value (or the default) from here.
   It is used to number periods and to compute the expected period during verification ({{verification}}).
 
@@ -765,7 +771,9 @@ All of them are obtained from the certificate and the trust anchor being validat
 No data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
 
 `issuer_id`:
-: The TrustAnchorID of the trust anchor against which the certificate is being validated ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+: The issuing CA's ID, read from the certificate's `issuer` field ({{encoding}}), which is the same value the base procedure extracts to construct the log ID ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
+  A relying party MUST take it from the certificate rather than from whichever trust anchor it is chaining to.
+  For a correctly chaining certificate the two are equal, and a relying party MAY check that they are.
 
 `serial_number`:
 : The certificate's serial number, read directly from the certificate ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -782,7 +790,9 @@ Using these inputs, the verifier performs the following steps:
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
    If the extension value does not DER-decode as a well-formed HashChainAnchorInfo, reject the certificate with a bad_certificate error.
-   Examples are a malformed SEQUENCE, a `tickInterval` outside INTEGER (1..MAX), or trailing data after the structure.
+   Examples are a malformed SEQUENCE, a `tickInterval` outside INTEGER (1..MAX), a `tickInterval` present carrying the DEFAULT value 3600, which DER requires to be omitted (Section 11.5 of {{X.690}}), or trailing data after the structure.
+   A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it MUST be checked explicitly.
+   The anchor extension is committed to the Merkle Tree, so a non-canonical encoding of it would be a distinct entry certifying the same thing.
    If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
 
 2. Extract the HashChainTick from the MTCProof (in the certificate's `signatureValue`), according to the encoding fixed by the base MTC specification: the trailing `status_tick` field ({{tick-trailing-field}}) or, if the general `proof_extensions` amendment was adopted instead, the `hash_chain_tick` proof extension ({{tick-proof-extension}}).
