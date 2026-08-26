@@ -669,7 +669,7 @@ Whether the anchor is present is therefore known before `status_tick` is read, f
 
 No new parsing capability is introduced.
 This is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears ({{!RFC9846}}).
-The false case uses the Empty type, the empty structure `struct {} Empty;` of {{!RFC9846}}, so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
+The false case reuses the base specification's own Empty type ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which it defines for the same purpose in the MTCLogEntry select, so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
 
 This resolves precisely the "extra data after the MTCProof" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
