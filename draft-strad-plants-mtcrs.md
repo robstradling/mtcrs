@@ -139,7 +139,7 @@ This approach achieves the following properties:
 - **Self-authenticating:** The hash chain value is verified against the anchor already committed in the Merkle Tree.
   No new trust relationships or authenticated channels are needed.
 
-- **Minimal overhead:** A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
+- **Minimal overhead:** A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
   The committed anchor adds about 50 bytes to each log entry ({{assertion-integration}}).
 
 These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
@@ -322,9 +322,18 @@ The hash chain mechanism introduces the following additional parameter:
   {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no `tick_interval` bytes.
   The number of periods in a certificate's lifetime is `hash_chain_length = ceil(lifetime / tick_interval)`.
 
-Because a tick carries its period in a 32-bit field ({{cert-format}}), `hash_chain_length` MUST be less than 2<sup>32</sup>, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
-This is not a practical constraint.
-Reaching it would require, for example, a one-second period sustained over more than a century.
+Because a tick carries its period in a 16-bit field ({{cert-format}}), `hash_chain_length` MUST NOT exceed 65,535, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
+A CA MUST NOT issue a certificate with the id-pe-hashChainAnchor extension whose lifetime and `tick_interval` imply a longer hash chain.
+
+This ceiling is deliberate, and it is the reason the period field is 16 bits rather than wider.
+Verification hashes forward up to `tick.period` times ({{verification}}), so the relying party's work per full handshake is set by the CA's choice of `tick_interval` relative to the certificate lifetime.
+A wider field would let a CA impose an arbitrarily large number of forward hashes on every relying party that validates its certificates, which is a cost those relying parties cannot decline.
+Bounding the field at 16 bits caps that work at 65,535 hash evaluations for any certificate from any CA, and does so in the parser rather than by CA compliance: a `tick.period` read from a 16-bit field cannot exceed 65,535 whatever the issuer did.
+
+The ceiling is on the number of periods, not on `tick_interval` directly, so the shortest usable period scales with the certificate's lifetime.
+It is about 62 seconds for a 47-day certificate, 10 seconds for a 7-day one, and 2 seconds for a 1-day one.
+The RECOMMENDED one-hour period is far inside it: 1,128 periods for a 47-day lifetime ({{why-one-hour}}), some 58 times below the ceiling.
+Deployments SHOULD stay well within it rather than treating it as a target, since the verification cost a certificate imposes is borne by every relying party that validates it ({{verification-cost}}).
 
 `tick_interval` need not evenly divide the lifetime.
 If it does not, the final period is shorter than `tick_interval`, ending when the certificate expires.
@@ -619,7 +628,7 @@ The tick is a HashChainTick:
 
 ~~~tls-presentation
 struct {
-    uint32 period;
+    uint16 period;
     HashValue value;
 } HashChainTick;
 ~~~
@@ -630,7 +639,7 @@ period:
   The first is the freshness the tick asserts: that the certificate was not revoked as of this period, checked against the relying party's clock ({{verification}}).
   The second is how many times to hash value forward to reach the committed anchor.
   That count cannot be taken from the relying party's own expected period, because clock skew and caching allow the presented tick to be for an adjacent period.
-  The field is 32 bits so that fine `tick_interval` values remain usable across the full certificate lifetime: a 16-bit field would overflow at 65,535 periods, which a minute-granularity period already exceeds within a 47-day lifetime.
+  The field is 16 bits, which caps both the period number and the relying party's forward-hash count at 65,535 for every certificate, whatever `tick_interval` its issuer chose ({{construction}}).
 
 value:
 : The hash chain value `h[hash_chain_length - period]`.
@@ -687,7 +696,7 @@ The false case reuses the base specification's own Empty type ({{Section 5.2.1 o
 
 This resolves precisely the "extra data after the MTCProof" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
-- If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes, or 36 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there.
+- If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (2 + HASH_SIZE bytes, or 34 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there.
   A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
 - If the entry does not carry a hash chain anchor (the false case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
 
@@ -726,6 +735,8 @@ Refreshing the tick is independent of profile selection: the authenticating part
 # Verification {#verification}
 
 When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs hash chain verification in addition to the base MTC verification procedure.
+The relying party MUST complete the base MTC validity check, which bounds the certificate between its `notBefore` and `notAfter` ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), before computing any period or performing any of the forward hashing of step 5.
+That ordering is what confines the work of step 5 to a certificate the relying party is otherwise willing to accept.
 The steps below name the id-pe-hashChainAnchor X.509 extension of the primary design.
 Under the entry-extension alternative ({{anchor-entry-extension}}) the relying party instead reads the same HashChainAnchorInfo from the entry's extensions, and the procedure is otherwise identical.
 
@@ -769,6 +780,7 @@ Using these inputs, the verifier performs the following steps:
    A tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
+   It MUST likewise compute the window in arithmetic wider than the 16-bit period field, since `expected_period` + 1 can reach 65,536 in a certificate's final period and would wrap to 0 in 16 bits, admitting a period-0 tick.
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
 
@@ -780,10 +792,16 @@ Using these inputs, the verifier performs the following steps:
    A relying party therefore never needs `hash_chain_length`, which is not carried in the certificate ({{assertion-integration}}).
    As the period counts up, the hash chain index counts down, and the number of forward hashes to the anchor is the period itself.
 
-   Because step 4 has already constrained `tick.period` to the acceptance window, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
+   Two independent bounds confine this iteration, so a forged or oversized tick cannot inflate it into a denial-of-service vector.
+   The first is structural: `tick.period` is read from a 16-bit field, so the count cannot exceed 65,535 for any certificate from any issuer, without the relying party trusting the CA to have chosen sensible parameters ({{construction}}).
+   The second is the certificate's own: step 4 has already constrained `tick.period` to the acceptance window, whose upper end is bounded by the certificate's lifetime.
    The largest legitimate `tick.period` is `hash_chain_length - 1`, the certificate's final period, which requires `hash_chain_length - 1` forward hashes: 1,127 for the 1,128-period hash chain of a 47-day, one-hour-period certificate ({{why-one-hour}}).
    Under the default acceptance window, the `expected_period` + 1 allowance ({{clock-skew}}) raises the defensive upper bound the verifier must tolerate by one, to `hash_chain_length`.
    A relying party that widens the window raises that bound correspondingly.
+
+   A relying party MAY additionally impose a local ceiling well below 65,535.
+   It can compute the certificate's implied maximum period as `ceil((notAfter - notBefore) / tick_interval)` from the certificate alone, and reject with a bad_certificate error if that exceeds its configured limit.
+   Implementations for which even the structural bound is too costly, such as constrained devices, SHOULD configure such a limit and SHOULD apply it before beginning the iteration, so that the check costs one division rather than the hashing it avoids ({{verification-cost}}).
 
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
@@ -969,7 +987,7 @@ Its benefit is that a relying party, or a third party holding a captured certifi
 
 ## Response Format {#response-format}
 
-The response body is the serialized HashChainTick structure: a 4-byte big-endian period followed by HASH_SIZE bytes of value (36 bytes total for SHA-256).
+The response body is the serialized HashChainTick structure: a 2-byte big-endian period followed by HASH_SIZE bytes of value (34 bytes total for SHA-256).
 The response Content-Type MUST be `application/octet-stream`.
 
 The CA uses HTTP status codes ({{!RFC9110}}) as follows:
@@ -1115,7 +1133,7 @@ A specific load-shaping or availability target is left to root-program or CA ope
 The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates, such as a large hosting provider or CDN, issues on the order of N fetches per period for N certificates.
 The per-entry offset ({{load-distribution}}) spreads them across the period but does not reduce their number.
 This stays inexpensive.
-Each tick is a 36-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
+Each tick is a 34-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
 An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}).
 The CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.
 
@@ -1230,7 +1248,7 @@ The weaker quantum bounds on collision finding therefore do not apply (`tbs_cert
 It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
 
 Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
-A signed-status approach, using OCSP-like per-certificate signatures ({{per-cert-signatures}}), would require a post-quantum signature per certificate per period (for example an ML-DSA-65 signature of roughly 3,309 bytes), whereas a tick is 36 bytes of hash output and is never signed.
+A signed-status approach, using OCSP-like per-certificate signatures ({{per-cert-signatures}}), would require a post-quantum signature per certificate per period (for example an ML-DSA-65 signature of roughly 3,309 bytes), whereas a tick is 34 bytes of hash output and is never signed.
 Adopting hash-chain revocation is therefore aligned with a post-quantum transition rather than a distraction from it: it removes post-quantum signing from the revocation path instead of adding it.
 
 ## Seed Confidentiality {#seed-confidentiality}
@@ -1353,7 +1371,7 @@ Four consequences follow, each bounded:
   CRLs and OCSP can in principle answer past `notAfter`, which profiles for long-term signature validation depend on.
   This is out of scope for the TLS use case that motivates this mechanism, where an expired certificate is rejected on validity grounds before any tick is examined.
   A tick retained while the certificate was valid does remain verifiable indefinitely, since verification is offline hashing against the anchor in the certificate ({{verification}}).
-  It is therefore durable, self-authenticating evidence of non-revocation as of its own period, in 36 bytes rather than an archived signed response.
+  It is therefore durable, self-authenticating evidence of non-revocation as of its own period, in 34 bytes rather than an archived signed response.
   Only the negative cannot be reconstructed later.
 
 None of this weakens enforcement, which is what the mechanism exists to provide.
@@ -1699,11 +1717,11 @@ h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
 The anchor committed in the certificate is h\[`hash_chain_length`\] = h\[5\].
 
 For period t = 2, the CA reveals h\[`hash_chain_length` - t\] = h\[3\].
-The HashChainTick is { period = 2, value = h\[3\] }, which serializes as the following 36 bytes, a 4-byte big-endian period followed by the 32-byte value ({{response-format}}):
+The HashChainTick is { period = 2, value = h\[3\] }, which serializes as the following 34 bytes, a 2-byte big-endian period followed by the 32-byte value ({{response-format}}):
 
 ~~~
-000000024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697
-c9d21ec4
+00024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697c9d2
+1ec4
 ~~~
 
 To verify, a relying party hashes `tick.value` forward `tick.period` (2) times ({{verification}}):
@@ -1794,6 +1812,8 @@ Nothing in this section is itself a normative requirement.
    *Preference:* one hour with k = 1.
    Neither is a protocol question.
    Both concern recommended defaults and what root programs should require.
+   The one protocol question adjacent to them is the width of the tick's period field, which caps how short a period can be at all: 16 bits, and so 65,535 periods, deliberately bounds the forward hashing a CA can impose on relying parties ({{construction}}).
+   A working group that wanted sub-minute periods for multi-week certificates would have to widen that field and accept the corresponding verification cost.
 
 5. **Should period 0 enforce revocation?**
    The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
@@ -1877,7 +1897,7 @@ The "extra data" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} 
 
 ## Hash Chain Tick as a Proof Extension
 
-With this extensibility mechanism, the HashChainTick ({{cert-format}}) is carried as a proof extension rather than as a bare trailing field: as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized tick (4 + HASH_SIZE bytes).
+With this extensibility mechanism, the HashChainTick ({{cert-format}}) is carried as a proof extension rather than as a bare trailing field: as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized tick (2 + HASH_SIZE bytes).
 
 ## Backward Compatibility
 
@@ -2007,7 +2027,7 @@ A root program can then set each on its own merits, rather than using lifetime a
 
 Several alternative revocation mechanisms were considered and rejected, and {{alternatives}} analyzes each.
 Hash chains {{MICALI}} were selected because they are the only known mechanism that provides *all* of the properties listed in the Introduction at once.
-Those are timely revocation, zero per-period CA signing, self-authentication against the committed anchor, mandatory hard-fail enforcement, and a 36-byte per-handshake cost.
+Those are timely revocation, zero per-period CA signing, self-authentication against the committed anchor, mandatory hard-fail enforcement, and a 34-byte per-handshake cost.
 They achieve this using nothing but a hash function and basic arithmetic, with no new cryptographic primitive.
 Each alternative in {{alternatives}} secures some of these but sacrifices at least one.
 Signed per-certificate status reintroduces per-period signing ({{operational-resilience}}), a separate TLS or stapled channel reintroduces the strippable soft-fail ({{ocsp-stapling-comparison}}), and pushed external lists give up universal, CA-anchored enforcement ({{browser-revocation-history}}).
@@ -2053,7 +2073,7 @@ A one-hour `tick_interval` provides a good balance:
 - **Operational feasibility:** Authenticating parties must fetch a new tick once per hour.
   This is a trivial HTTP request for a small response.
 
-- **Hash chain length:** For 47-day certificates, the hash chain length is 1,128.
+- **Hash chain length:** For 47-day certificates, the hash chain length is 1,128, well inside the 65,535 the 16-bit period field permits ({{construction}}).
   Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
 
 - **CA storage:** A CA MAY store one seed per active certificate (32 bytes each, or 32 GB for 1 billion), but need not.
@@ -2300,6 +2320,10 @@ That is negligible beside the handshake's asymmetric cryptography (one signature
 On constrained IoT devices SHA-256 is usually hardware-accelerated and the computation finishes in under a millisecond.
 A shorter certificate lifetime or a longer `tick_interval` both reduce `hash_chain_length` and so bound the cost directly.
 
+Those figures are for the RECOMMENDED one-hour period.
+The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}), which is a few milliseconds on general-purpose hardware but is a poor fit for a constrained verifier.
+A relying party that cannot afford it rejects such a certificate outright, having computed its implied maximum period from the certificate before hashing anything (step 5 of {{verification}}).
+
 Across the many connections a page load opens, three effects keep the total small.
 The hashing is a small fraction of what each full handshake already spends on asymmetric cryptography, so summing it across several origins remains a small fraction of that cryptography summed across the same handshakes.
 Most connections pay nothing.
@@ -2518,7 +2542,7 @@ This approach was rejected because:
   With post-quantum signature algorithms, this is computationally expensive.
 
 - **Response size:** OCSP responses include a full signature (e.g., 3,309 bytes for ML-DSA-65).
-  Hash chain ticks are 36 bytes.
+  Hash chain ticks are 34 bytes.
 
 - **Complexity:** OCSP requires its own responder infrastructure, certificate chain, and protocol.
   Hash chains require only a hash function.
