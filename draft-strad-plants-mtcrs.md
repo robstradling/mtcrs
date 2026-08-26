@@ -707,6 +707,26 @@ This is the minimal change to the base MTCProof structure.
 Because the appended field is fixed-size and, for a conforming relying party, fully verified against the committed anchor ({{verification}}), it adds no variable-length "ignore if unknown" region and hence no general stuffing or covert-channel surface (contrast {{tick-proof-extension}} and {{proof-extensions-considerations}}).
 Its only cost is that carrying a second proof-level mechanism in future would require a further base-specification change.
 
+## Certificate Identifier Stability {#cert-identity}
+
+Because the authenticating party rewrites the tick once per period, the complete certificate it presents is not stable over the certificate's lifetime.
+The TBSCertificate is fixed at issuance and never changes, but the `signatureValue` that carries the MTCProof changes at least once per `tick_interval`, for every certificate that uses this mechanism.
+The base specification already treats the `signatureValue` as malleable ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}), so this introduces no new property.
+Rather, it makes an existing property routine rather than incidental, and at a predictable cadence.
+
+Applications MUST therefore derive any stable certificate identifier from the TBSCertificate, never from the complete certificate and never from the MTCProof.
+This applies wherever a certificate is used as a cache key, compared for equality, or recorded for later comparison, including:
+
+- certificate pinning and fingerprint allow-lists;
+- caches, session state, and connection-reuse decisions keyed by certificate, such as HTTP/2 and HTTP/3 connection coalescing;
+- logging, auditing, and monitoring pipelines that deduplicate by certificate fingerprint, which would otherwise record a distinct value for each certificate in each period.
+
+The failure modes here are quiet rather than loud: a cache that stops hitting, a pin that no longer matches, an audit log that grows by a factor of the number of periods.
+None of them produces an error that points at its cause, which is why this requirement is stated normatively rather than left to be inferred from the mutability of the MTCProof.
+
+Monitors are unaffected.
+They consume log entries rather than presented certificates ({{revocation-transparency}}), and the entry, including the committed anchor, is fixed for the life of the certificate.
+
 ## Use in TLS {#tls-use}
 
 No new TLS extension type is required.
@@ -1309,6 +1329,9 @@ The RECOMMENDED trailing `status_tick` encoding ({{tick-trailing-field}}) append
 If the base specification instead adopts the alternative `proof_extensions` encoding ({{mtcproof-extensibility}}), note that this field is not committed to the Merkle Tree and is covered by no signature: it is mutable and can carry data that relying parties ignore.
 Hash chain revocation does not rely on its authenticity, because the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension.
 {{proof-extensions-considerations}} discusses the general risks of this field (bloat, covert channels, and a strippable soft-fail for other mechanisms) and the constraints recommended for the base specification.
+
+Independently of which encoding is chosen, the MTCProof changes once per period, which constrains how an application may identify a certificate ({{cert-identity}}).
+Deriving an identifier from anything but the TBSCertificate breaks pinning and fingerprint allow-lists.
 
 ## Interaction with Base MTC Revocation {#interaction-with-base-mtc-revocation}
 
@@ -1951,7 +1974,7 @@ This closes the ignore channel but trades incremental deployability for hard enf
 A fourth is a deterministic fixed-length region, where each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
 Two properties are inherent and MUST be respected.
 Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{assertion-integration}}).
-And because `proof_extensions` widen `signatureValue` malleability ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}), applications MUST derive any certificate identifier from the TBSCertificate, never from the MTCProof.
+And because `proof_extensions` widen `signatureValue` malleability ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}) beyond the single fixed-size tick, they broaden the identifier-stability requirement of {{cert-identity}}, which applies whichever encoding is chosen.
 
 Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots.
 That is much of why this document RECOMMENDS the fixed trailing `status_tick` field ({{tick-trailing-field}}) for the single use it needs.
@@ -2191,6 +2214,7 @@ It is embedded directly in the MTCProof (the certificate's `signatureValue`) rat
 
 3. **Safe to update dynamically:** The MTCProof is not committed to the Merkle Tree, and only the TBSCertificateLogEntry is.
    The authenticating party can freely replace the `signatureValue` each period without invalidating the inclusion proof or cosignatures.
+   The cost is that the complete certificate then differs from period to period, so identifiers must be taken from the TBSCertificate ({{cert-identity}}).
 
 4. **No additional round-trips:** The tick travels with the certificate in the same TLS message.
    No DNS lookups or side-channel fetches are needed by the relying party.
