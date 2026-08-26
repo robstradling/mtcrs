@@ -1053,7 +1053,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Stradling</td>
-<td class="center">Expires 26 February 2027</td>
+<td class="center">Expires 27 February 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1066,12 +1066,12 @@ svg {
 <dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-08-25" class="published">25 August 2026</time>
+<time datetime="2026-08-26" class="published">26 August 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-02-26">26 February 2027</time></dd>
+<dd class="expires"><time datetime="2027-02-27">27 February 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1126,7 +1126,7 @@ The relying party can then cryptographically verify that the certificate has not
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 26 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 27 February 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1507,7 +1507,7 @@ The relying party can then cryptographically verify that the certificate has not
 <p id="section-1-1">Merkle Tree Certificates <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> authenticate TLS connections using compact inclusion proofs into a Merkle Tree maintained by a certification authority (CA).
 The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope.
 It notes that existing mechanisms such as CRLs and OCSP apply unchanged (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.7" class="relref">Section 12.7</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
-Its own serial-range revocation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.5" class="relref">Section 7.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) is a complementary mitigation for CA misbehaviour rather than a per-certificate revocation service.<a href="#section-1-1" class="pilcrow">¶</a></p>
+Its own serial-range revocation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.5" class="relref">Section 7.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) is a complementary mitigation for CA misbehavior rather than a per-certificate revocation service.<a href="#section-1-1" class="pilcrow">¶</a></p>
 <p id="section-1-2">However, deployments such as Chrome's draft Quantum-resistant Root Program policy <span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span> permit certificate lifetimes of up to 47 days.
 That policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
 Without revocation, exposure to key compromise or certificate misissuance is bounded only by expiry: a week in the recommended case, and a month and a half at the permitted maximum.
@@ -1537,7 +1537,7 @@ Unlike OCSP stapling, the mechanism cannot be silently omitted by the authentica
 No new trust relationships or authenticated channels are needed.<a href="#section-1-6.4.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-1-6.5">
-          <p id="section-1-6.5.1"><strong>Minimal overhead:</strong> A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof; the committed anchor adds about 50 bytes to each log entry (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).<a href="#section-1-6.5.1" class="pilcrow">¶</a></p>
+          <p id="section-1-6.5.1"><strong>Minimal overhead:</strong> A single tick (36 bytes for SHA-256: a 4-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof. The committed anchor adds about 50 bytes to each log entry (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).<a href="#section-1-6.5.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 <p id="section-1-7">These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
@@ -1563,7 +1563,8 @@ described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</s
 appear in all capitals, as shown here.<a href="#section-2-1" class="pilcrow">¶</a></p>
 <p id="section-2-2">This document uses the TLS presentation language defined in <span><a href="https://rfc-editor.org/rfc/rfc9846#section-3" class="relref">Section 3</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span> for the HashChainInput (<a href="#encoding" class="auto internal xref">Section 5</a>), HashChainTick (<a href="#cert-format" class="auto internal xref">Section 7</a>), and amended MTCProof (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>) structures, and ASN.1 <span>[<a href="#X.690" class="cite xref">X.690</a>]</span> for the certificate extension it defines (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).
 The HashValue and TrustAnchorID types are those of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.<a href="#section-2-2" class="pilcrow">¶</a></p>
-<p id="section-2-3">This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5" class="relref">Section 5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>); for a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
+<p id="section-2-3">This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5" class="relref">Section 5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
+For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.<a href="#section-2-3" class="pilcrow">¶</a></p>
 <p id="section-2-4">Structure names from the base specification follow its editor's copy, in which MerkleTreeCertEntry, MerkleTreeCertEntryExtension, MerkleTreeCertEntryExtensionType, and MTCSignature have been renamed to MTCLogEntry, MTCLogEntryExtension, MTCLogEntryExtensionType, and SubtreeSignature respectively.
 Readers comparing against draft-ietf-plants-merkle-tree-certs-05 should substitute the older names.<a href="#section-2-4" class="pilcrow">¶</a></p>
@@ -1647,7 +1648,8 @@ Because a tampered or forged value cannot reach the committed anchor in the numb
       <h2 id="name-overview">
 <a href="#section-3" class="section-number selfRef">3. </a><a href="#name-overview" class="section-name selfRef">Overview</a>
       </h2>
-<p id="section-3-1">This section is a non-normative walk-through of the mechanism's lifecycle; the normative details follow in <a href="#construction" class="auto internal xref">Section 4</a> through <a href="#distribution" class="auto internal xref">Section 9</a>.
+<p id="section-3-1">This section is a non-normative walk-through of the mechanism's lifecycle.
+The normative details follow in <a href="#construction" class="auto internal xref">Section 4</a> through <a href="#distribution" class="auto internal xref">Section 9</a>.
 It reuses the small example of <a href="#test-vectors" class="auto internal xref">Appendix B</a>: a hash chain of length <code>hash_chain_length = 5</code> (a real certificate uses a much longer one, for example 1,128 for a 47-day lifetime with a one-hour period).
 <a href="#fig-actors" class="auto internal xref">Figure 1</a> shows how the parties interact, and <a href="#fig-hash-chain" class="auto internal xref">Figure 2</a> depicts the hash chain lifecycle that the five steps below trace.<a href="#section-3-1" class="pilcrow">¶</a></p>
 <span id="name-mtcrs-actors-and-their-inte"></span><div id="fig-actors">
@@ -1920,7 +1922,8 @@ It reuses the small example of <a href="#test-vectors" class="auto internal xref
           <p id="section-3-4.1.1"><strong>Issuance.</strong>
 For each log entry, the CA generates a secret random seed <code>h[0]</code> and hashes it forward <code>hash_chain_length</code> times to obtain <code>h[1], h[2], ..., h[5]</code> (<a href="#construction" class="auto internal xref">Section 4</a>).
 The final value <code>h[5]</code> is the <em>anchor</em>.
-The CA commits it into the certificate as the id-pe-hashChainAnchor extension (<a href="#assertion-integration" class="auto internal xref">Section 6</a>); because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.<a href="#section-3-4.1.1" class="pilcrow">¶</a></p>
+The CA commits it into the certificate as the id-pe-hashChainAnchor extension (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).
+Because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.<a href="#section-3-4.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-3-4.2">
           <p id="section-3-4.2.1"><strong>Per-period reveal.</strong>
@@ -1939,7 +1942,8 @@ The MTCProof is not committed to the tree, so refreshing the tick each period do
 </li>
         <li id="section-3-4.4">
           <p id="section-3-4.4.1"><strong>Relying-party verification.</strong>
-A relying party reads the tick and the committed anchor from the certificate, hashes <code>tick.value</code> forward <code>tick.period</code> times, and checks that the result equals the anchor (<a href="#verification" class="auto internal xref">Section 8</a>); hashing <code>h[3]</code> twice yields <code>h[5]</code>.
+A relying party reads the tick and the committed anchor from the certificate, hashes <code>tick.value</code> forward <code>tick.period</code> times, and checks that the result equals the anchor (<a href="#verification" class="auto internal xref">Section 8</a>).
+Hashing <code>h[3]</code> twice yields <code>h[5]</code>.
 It also checks that <code>tick.period</code> agrees with its own clock to within one period.
 Verification is entirely offline: the relying party fetches nothing (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).<a href="#section-3-4.4.1" class="pilcrow">¶</a></p>
 </li>
@@ -1970,18 +1974,20 @@ The certificate therefore becomes unusable within at most two periods.<a href="#
             <p id="section-4.1-2.2.1">A duration, in seconds: the length of one period, and so the cadence at which the CA reveals a value and the authenticating party refreshes its tick (<a href="#distribution" class="auto internal xref">Section 9</a>).
 It sets the granularity of revocation but not the latency, which is about two intervals under the default acceptance window (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>).
 This <span class="bcp14">MUST</span> be greater than zero.
-The <span class="bcp14">RECOMMENDED</span> and default value is 3600 (one hour); <a href="#assertion-integration" class="auto internal xref">Section 6</a> specifies how this default is encoded so that a certificate using it carries no <code>tick_interval</code> bytes.
+The <span class="bcp14">RECOMMENDED</span> and default value is 3600 (one hour).
+<a href="#assertion-integration" class="auto internal xref">Section 6</a> specifies how this default is encoded so that a certificate using it carries no <code>tick_interval</code> bytes.
 The number of periods in a certificate's lifetime is <code>hash_chain_length = ceil(lifetime / tick_interval)</code>.<a href="#section-4.1-2.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
 <p id="section-4.1-3">Because a tick carries its period in a 32-bit field (<a href="#cert-format" class="auto internal xref">Section 7</a>), <code>hash_chain_length</code> <span class="bcp14">MUST</span> be less than 2<sup>32</sup>, so that every period number (0 through <code>hash_chain_length</code> - 1) and the verifier's one-period acceptance allowance (<a href="#verification" class="auto internal xref">Section 8</a>) are representable.
 This is not a practical constraint: reaching it would require, for example, a one-second period sustained over more than a century.<a href="#section-4.1-3" class="pilcrow">¶</a></p>
-<p id="section-4.1-4"><code>tick_interval</code> need not evenly divide the lifetime; if it does not, the final period is shorter than <code>tick_interval</code>, ending when the certificate expires.
+<p id="section-4.1-4"><code>tick_interval</code> need not evenly divide the lifetime.
+If it does not, the final period is shorter than <code>tick_interval</code>, ending when the certificate expires.
 This is harmless.
 The verifier computes the period from <code>not_before</code> (<a href="#construction" class="auto internal xref">Section 4</a>) and the base MTC validity check bounds the certificate at <code>notAfter</code>, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.<a href="#section-4.1-4" class="pilcrow">¶</a></p>
 <p id="section-4.1-5">The certificate's validity period <span class="bcp14">MUST</span> be longer than <code>tick_interval</code>.
-A certificate whose validity period is not longer than <code>tick_interval</code> would have <code>hash_chain_length = 1</code>: its only tick is the public period-0 anchor, which enforces nothing (revocation is only enforceable from period 1 onwards; see <a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>).
+A certificate whose validity period is not longer than <code>tick_interval</code> would have <code>hash_chain_length = 1</code>: its only tick is the public period-0 anchor, which enforces nothing, because revocation is only enforceable from period 1 onwards (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>).
 A CA <span class="bcp14">MUST NOT</span> include the id-pe-hashChainAnchor extension, and <span class="bcp14">MUST NOT</span> use this mechanism, for such a certificate.
 Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>), deployments <span class="bcp14">SHOULD</span> choose a validity period substantially longer than twice <code>tick_interval</code> so that revocation is effective for most of the certificate's life.<a href="#section-4.1-5" class="pilcrow">¶</a></p>
 <p id="section-4.1-6"><code>tick_interval</code> is a per-certificate value: it is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree (<a href="#assertion-integration" class="auto internal xref">Section 6</a>), rather than being a CA-wide configuration constant.
@@ -1989,7 +1995,8 @@ This is deliberate.
 Because a relying party verifies offline and has no provisioning relationship with the CA, the only way it can obtain <code>tick_interval</code> without a new authenticated distribution channel is to read it from the certificate.
 Carrying it in the tree-committed extension makes it both discoverable by the relying party and self-authenticating.
 It also lets a CA change <code>tick_interval</code> for newly issued certificates without redistributing anything or invalidating existing certificates, each of which keeps the value it was issued with.
-A CA <span class="bcp14">MAY</span> of course use the same <code>tick_interval</code> for every certificate it issues; the point is only that the value each verifier uses comes from the certificate, not from CA-wide configuration that verifiers cannot see.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
+A CA <span class="bcp14">MAY</span> of course use the same <code>tick_interval</code> for every certificate it issues.
+The point is only that the value each verifier uses comes from the certificate, not from CA-wide configuration that verifiers cannot see.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="chain-generation">
@@ -2035,7 +2042,8 @@ period = floor((t - not_before) / tick_interval)
 </pre><a href="#section-4.3-2" class="pilcrow">¶</a>
 </div>
 <p id="section-4.3-3"><code>not_before</code> is the <code>notBefore</code> time of the certificate's validity period, expressed in the same units as t (seconds since the Unix epoch).
-It anchors the period schedule to a value that both the CA and every verifier read from the certificate, so they compute identical period boundaries regardless of their wall-clock differences; it is not necessarily the exact instant of issuance.
+It anchors the period schedule to a value that both the CA and every verifier read from the certificate, so they compute identical period boundaries regardless of their wall-clock differences.
+It is not necessarily the exact instant of issuance.
 The CA <span class="bcp14">MUST</span> number periods from <code>notBefore</code> and <span class="bcp14">MUST NOT</span> begin revealing ticks before period 0 starts at <code>notBefore</code>.<a href="#section-4.3-3" class="pilcrow">¶</a></p>
 <p id="section-4.3-4">Period numbering depends only on <code>notBefore</code>.
 It is independent of the MTCProof's <code>start</code> and <code>end</code> fields, which describe the chosen subtree interval used for the inclusion proof and play no part in the period schedule.
@@ -2061,11 +2069,13 @@ This value can be verified by hashing it t times and comparing with the anchor.<
 <p id="section-4.4-2">Periods run from 0 to <code>hash_chain_length</code> - 1, so the last value the CA ever reveals is <code>h[1]</code>, one step from the seed, in the certificate's final period.
 The CA <span class="bcp14">MUST NOT</span> reveal a value for any period at or beyond <code>hash_chain_length</code>, and <span class="bcp14">MUST NOT</span> reveal the seed <code>h[0]</code> under any circumstances.
 <code>h[0]</code> is the whole hash chain, and disclosing it would let any party forge ticks for every remaining period (<a href="#seed-confidentiality" class="auto internal xref">Section 11.3</a>).
-A CA that derives the period to serve from a clock <span class="bcp14">MUST</span> therefore bound that period at <code>hash_chain_length</code> - 1 rather than evaluating <code>h[hash_chain_length - t]</code> for an arbitrary t; tick publication for a certificate stops when the certificate expires.<a href="#section-4.4-2" class="pilcrow">¶</a></p>
-<p id="section-4.4-3">For period 0, <code>hash_chain_length - t</code> equals <code>hash_chain_length</code>, so the value revealed is the anchor <code>h[hash_chain_length]</code> itself, which is already public (it is committed in the certificate; see <a href="#assertion-integration" class="auto internal xref">Section 6</a>).
+A CA that derives the period to serve from a clock <span class="bcp14">MUST</span> therefore bound that period at <code>hash_chain_length</code> - 1 rather than evaluating <code>h[hash_chain_length - t]</code> for an arbitrary t.
+Tick publication for a certificate stops when the certificate expires.<a href="#section-4.4-2" class="pilcrow">¶</a></p>
+<p id="section-4.4-3">For period 0, <code>hash_chain_length - t</code> equals <code>hash_chain_length</code>, so the value revealed is the anchor <code>h[hash_chain_length]</code> itself, which is already public, being committed in the certificate (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).
 The period 0 tick therefore provides no cryptographic assurance of non-revocation.
 Any party holding the certificate can construct it by pairing that anchor with period 0, which takes no hashing at all, and a verifier hashes forward zero times and compares the anchor with itself.
-This is an intentional design choice; see <a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a> for the rationale.<a href="#section-4.4-3" class="pilcrow">¶</a></p>
+This is an intentional design choice.
+<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a> gives the rationale.<a href="#section-4.4-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="revoking">
@@ -2279,11 +2289,13 @@ The label's length is not otherwise security-relevant, and this short value keep
       <dd class="break"></dd>
 </dl>
 <p id="section-5-4">All fields are encoded with the TLS presentation language (<span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>).
-<code>serial_number</code> is in network byte order (big-endian), and <code>issuer_id</code> is the binary TrustAnchorID carried with its one-byte length prefix as the <code>&lt;1..2^8-1&gt;</code> vector; for TrustAnchorID 32473.1, that is the five bytes 04 81fd5901 (<a href="#test-vectors" class="auto internal xref">Appendix B</a>).<a href="#section-5-4" class="pilcrow">¶</a></p>
+<code>serial_number</code> is in network byte order (big-endian), and <code>issuer_id</code> is the binary TrustAnchorID carried with its one-byte length prefix as the <code>&lt;1..2^8-1&gt;</code> vector.
+For TrustAnchorID 32473.1, that is the five bytes 04 81fd5901 (<a href="#test-vectors" class="auto internal xref">Appendix B</a>).<a href="#section-5-4" class="pilcrow">¶</a></p>
 <p id="section-5-5">Carrying the serial number whole, rather than its <code>log_number</code> and index components as separate fields, encodes the identical eight bytes, since those components are exactly its high 16 and low 48 bits.
 It matches what both parties hold and removes a split-and-rejoin step in which the field widths could be mistaken.<a href="#section-5-5" class="pilcrow">¶</a></p>
 <p id="section-5-6">Both parties read <code>serial_number</code> directly from the certificate: the relying party when verifying (<a href="#verification" class="auto internal xref">Section 8</a>), and the authenticating party for its pre-installation check (<a href="#distribution" class="auto internal xref">Section 9</a>).
-It cannot be taken from the TBSCertificateLogEntry, which omits <code>serialNumber</code> (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.6" class="relref">Section 12.6</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>); an authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives <code>tbs_cert_entry_hash</code> and its fetch offset (<a href="#distribution" class="auto internal xref">Section 9</a>, <a href="#load-distribution" class="auto internal xref">Section 9.7</a>).<a href="#section-5-6" class="pilcrow">¶</a></p>
+It cannot be taken from the TBSCertificateLogEntry, which omits <code>serialNumber</code> (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.6" class="relref">Section 12.6</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
+An authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives <code>tbs_cert_entry_hash</code> and its fetch offset (<a href="#distribution" class="auto internal xref">Section 9</a>, <a href="#load-distribution" class="auto internal xref">Section 9.7</a>).<a href="#section-5-6" class="pilcrow">¶</a></p>
 <p id="section-5-7">The <code>issuer_id</code> and <code>serial_number</code> fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
 This salting is not load-bearing for the core guarantee: each hash chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate (<a href="#assertion-integration" class="auto internal xref">Section 6</a>) binds each revealed value to that specific hash chain.
 Its contribution is defense in depth.
@@ -2332,19 +2344,23 @@ HashChainAnchorInfo ::= SEQUENCE {
 <code>tickInterval</code>:</dt>
           <dd style="margin-left: 1.5em" id="section-6.1-5.2">
             <p id="section-6.1-5.2.1">The tick interval in seconds for this certificate (<a href="#construction" class="auto internal xref">Section 4</a>), with a default of 3600 (one hour).
-Under DER, a certificate using the default value <span class="bcp14">MUST</span> omit this field (Section 11.5 of <span>[<a href="#X.690" class="cite xref">X.690</a>]</span>), so the common one-hour case adds no per-entry bytes; a relying party that finds the field absent <span class="bcp14">MUST</span> use the default of 3600.
-The relying party reads this value (or the default) from here; it is used to number periods and to compute the expected period during verification (<a href="#verification" class="auto internal xref">Section 8</a>).<a href="#section-6.1-5.2.1" class="pilcrow">¶</a></p>
+Under DER, a certificate using the default value <span class="bcp14">MUST</span> omit this field (Section 11.5 of <span>[<a href="#X.690" class="cite xref">X.690</a>]</span>), so the common one-hour case adds no per-entry bytes.
+A relying party that finds the field absent <span class="bcp14">MUST</span> use the default of 3600.
+The relying party reads this value (or the default) from here.
+It is used to number periods and to compute the expected period during verification (<a href="#verification" class="auto internal xref">Section 8</a>).<a href="#section-6.1-5.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-6.1-5.3">anchor:</dt>
           <dd style="margin-left: 1.5em" id="section-6.1-5.4">
             <p id="section-6.1-5.4.1">The hash chain anchor value <code>h[hash_chain_length]</code>.
-This OCTET STRING <span class="bcp14">MUST</span> be exactly HASH_SIZE bytes long; a relying party <span class="bcp14">MUST</span> reject the certificate if it is not (<a href="#verification" class="auto internal xref">Section 8</a>).<a href="#section-6.1-5.4.1" class="pilcrow">¶</a></p>
+This OCTET STRING <span class="bcp14">MUST</span> be exactly HASH_SIZE bytes long.
+A relying party <span class="bcp14">MUST</span> reject the certificate if it is not (<a href="#verification" class="auto internal xref">Section 8</a>).<a href="#section-6.1-5.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
 <p id="section-6.1-6">The extension <span class="bcp14">MUST</span> appear at most once in a certificate.
-The extension <span class="bcp14">MUST NOT</span> be present in a certificate whose validity period is not longer than <code>tick_interval</code> (<a href="#construction" class="auto internal xref">Section 4</a>); such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.<a href="#section-6.1-6" class="pilcrow">¶</a></p>
+The extension <span class="bcp14">MUST NOT</span> be present in a certificate whose validity period is not longer than <code>tick_interval</code> (<a href="#construction" class="auto internal xref">Section 4</a>).
+Such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.<a href="#section-6.1-6" class="pilcrow">¶</a></p>
 <p id="section-6.1-7">Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
 With the default <code>tick_interval</code>, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing.
 That is about 50 bytes per entry for SHA-256, of which 36 are the HashChainAnchorInfo itself (<a href="#test-vectors" class="auto internal xref">Appendix B</a>) and the rest the X.509 extension's OBJECT IDENTIFIER and wrapper.
@@ -2358,7 +2374,8 @@ The second is the certificate presentation, where the same anchor bytes travel i
 The inclusion proof is unaffected: its size depends on tree depth, not entry size, so the anchor adds no hashes to the proof path.
 This committed cost is the unavoidable price of self-authentication.
 Unlike the tick base URL, which is deliberately kept out of the certificate (<a href="#discovery" class="auto internal xref">Section 9.2</a>), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
-The DEFAULT encoding of <code>tickInterval</code> keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself; the more compact entry-extension encoding (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>) trims the framing further.<a href="#section-6.1-7" class="pilcrow">¶</a></p>
+The DEFAULT encoding of <code>tickInterval</code> keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
+The more compact entry-extension encoding (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>) trims the framing further.<a href="#section-6.1-7" class="pilcrow">¶</a></p>
 <p id="section-6.1-8">This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MTCLogEntryExtension, so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
 The entry-extension alternative is described in <a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>.
 It is more compact and symmetric with the tick's encoding, but requires MTCRS-aware cosigner software and lacks a criticality lever.
@@ -2376,7 +2393,8 @@ The two are mutually exclusive: whichever the base specification selects becomes
 <p id="section-6.2-1">The id-pe-hashChainAnchor extension <span class="bcp14">SHOULD</span> be marked non-critical, so that relying parties that do not implement this mechanism can still process the certificate.
 However, relying parties that do implement this mechanism <span class="bcp14">MUST</span> enforce hash chain verification as described in <a href="#verification" class="auto internal xref">Section 8</a> when the extension is present.
 An MTC ecosystem in which all relying parties are expected to support hash chain revocation <span class="bcp14">MAY</span> mark the extension critical, causing implementations that do not recognize it to reject the certificate.
-Marking the extension critical is the transition lever that forces relying parties unaware of this mechanism to hard-fail rather than silently ignore it; the entry-extension encoding (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>) lacks this lever.
+Marking the extension critical is the transition lever that forces relying parties unaware of this mechanism to hard-fail rather than silently ignore it.
+The entry-extension encoding (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>) lacks this lever.
 During a transition in which not all relying parties yet implement this mechanism, the base MTC revoked-ranges mechanism and external revocation systems continue to provide coverage, and a root program <span class="bcp14">MAY</span> mandate critical marking once adoption is deemed sufficient.<a href="#section-6.2-1" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -2422,7 +2440,8 @@ The field is 32 bits so that fine <code>tick_interval</code> values remain usabl
 </dl>
 <p id="section-7.1-4">The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the <code>signatureValue</code> with a fresh tick while reusing the same inclusion proof and signatures.<a href="#section-7.1-4" class="pilcrow">¶</a></p>
-<p id="section-7.1-5">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick whose period falls within the acceptance window the relying party applies (step 4 of <a href="#verification" class="auto internal xref">Section 8</a>); in practice this is the most recent tick it has fetched and verified (<a href="#distribution" class="auto internal xref">Section 9</a>).
+<p id="section-7.1-5">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick whose period falls within the acceptance window the relying party applies (step 4 of <a href="#verification" class="auto internal xref">Section 8</a>).
+In practice this is the most recent tick it has fetched and verified (<a href="#distribution" class="auto internal xref">Section 9</a>).
 It <span class="bcp14">SHOULD</span> present the current period's tick once it holds one, but is not required to switch at the period boundary.
 The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period (<a href="#load-distribution" class="auto internal xref">Section 9.7</a>), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one (<a href="#availability-considerations" class="auto internal xref">Section 12.1</a>).
 The relying party checks <code>tick.period</code> against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of <a href="#verification" class="auto internal xref">Section 8</a>.<a href="#section-7.1-5" class="pilcrow">¶</a></p>
@@ -2431,7 +2450,8 @@ Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>) is <span class="bcp14">RECOMMENDED</span>: it appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
 The proof-extension encoding (<a href="#tick-proof-extension" class="auto internal xref">Appendix G.6</a>) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>).
 As a general "ignore if unknown" channel it carries the abuse surface discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>, which for a single tick is not otherwise justified.
-Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem; the other is discarded.<a href="#section-7.1-6" class="pilcrow">¶</a></p>
+Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem.
+The other is discarded.<a href="#section-7.1-6" class="pilcrow">¶</a></p>
 <div id="tick-trailing-field">
 <section id="section-7.1.1">
           <h4 id="name-preferred-encoding-trailing">
@@ -2460,18 +2480,20 @@ This discriminant is not a field of the MTCProof, unlike the base specification'
 It is instead a property of the enclosing certificate, and it is well-defined for the same reason the base verifier can already read it: an MTCProof is never decoded standalone.
 It is only ever parsed as the <code>signatureValue</code> of a specific certificate, and <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.2" class="relref">Section 7.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> already parses it strictly in that certificate context, reconstructing the entry and its extensions from the certificate to check the inclusion proof.
 Whether the anchor is present is therefore known before <code>status_tick</code> is read, from exactly the data the base procedure already has in hand.
-No new parsing capability is introduced; this is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears (<span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>).
+No new parsing capability is introduced.
+This is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears (<span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>).
 The false case uses the Empty type, the empty structure <code>struct {} Empty;</code> of <span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>, so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.<a href="#section-7.1.1-3" class="pilcrow">¶</a></p>
 <p id="section-7.1.1-4">This resolves precisely the "extra data after the MTCProof" check in <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.2" class="relref">Section 7.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>, which that section is amended to interpret as follows:<a href="#section-7.1.1-4" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-7.1.1-5.1">
-              <p id="section-7.1.1-5.1.1">If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes; 36 bytes for SHA-256) <span class="bcp14">MUST</span> immediately follow the signatures vector, and the <code>signatureValue</code> <span class="bcp14">MUST</span> end there. A relying party <span class="bcp14">MUST</span> reject the certificate if any bytes remain after this HashChainTick, or if the <code>signatureValue</code> ends before a complete HashChainTick has been read.<a href="#section-7.1.1-5.1.1" class="pilcrow">¶</a></p>
+              <p id="section-7.1.1-5.1.1">If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (4 + HASH_SIZE bytes, or 36 bytes for SHA-256) <span class="bcp14">MUST</span> immediately follow the signatures vector, and the <code>signatureValue</code> <span class="bcp14">MUST</span> end there. A relying party <span class="bcp14">MUST</span> reject the certificate if any bytes remain after this HashChainTick, or if the <code>signatureValue</code> ends before a complete HashChainTick has been read.<a href="#section-7.1.1-5.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-7.1.1-5.2">
               <p id="section-7.1.1-5.2.1">If the entry does not carry a hash chain anchor (the false case), <code>status_tick</code> is Empty and the original rule is unchanged: the <code>signatureValue</code> <span class="bcp14">MUST</span> end immediately after the signatures vector, with no trailing bytes.<a href="#section-7.1.1-5.2.1" class="pilcrow">¶</a></p>
 </li>
           </ul>
-<p id="section-7.1.1-6">A relying party predating the amendment would reject the certificate at the MTCProof parsing stage; such a relying party could not verify hash chain revocation in any case.<a href="#section-7.1.1-6" class="pilcrow">¶</a></p>
+<p id="section-7.1.1-6">A relying party predating the amendment would reject the certificate at the MTCProof parsing stage.
+Such a relying party could not verify hash chain revocation in any case.<a href="#section-7.1.1-6" class="pilcrow">¶</a></p>
 <p id="section-7.1.1-7">This is the minimal change to the base MTCProof structure.
 Because the appended field is fixed-size and, for a conforming relying party, fully verified against the committed anchor (<a href="#verification" class="auto internal xref">Section 8</a>), it adds no variable-length "ignore if unknown" region and hence no general stuffing or covert-channel surface (contrast <a href="#tick-proof-extension" class="auto internal xref">Appendix G.6</a> and <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>).
 Its only cost is that carrying a second proof-level mechanism in future would require a further base-specification change.<a href="#section-7.1.1-7" class="pilcrow">¶</a></p>
@@ -2497,11 +2519,12 @@ If the tick is absent, malformed, or fails verification, the relying party <span
 <a href="#section-7.3" class="section-number selfRef">7.3. </a><a href="#name-standalone-and-landmark-rel" class="section-name selfRef">Standalone and Landmark-Relative Certificates</a>
         </h3>
 <p id="section-7.3-1">A Merkle Tree CA can issue two certificate profiles for the same log entry: a standalone certificate and a landmark-relative certificate (Sections 6.3 and 6.4 of <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
-The two differ only in the subtree and signatures carried in their MTCProof; they certify the same TBSCertificateLogEntry.<a href="#section-7.3-1" class="pilcrow">¶</a></p>
+The two differ only in the subtree and signatures carried in their MTCProof.
+They certify the same TBSCertificateLogEntry.<a href="#section-7.3-1" class="pilcrow">¶</a></p>
 <p id="section-7.3-2">Hash chain revocation is keyed by the log entry, not by the certificate profile:<a href="#section-7.3-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-7.3-3.1">
-            <p id="section-7.3-3.1.1">Both profiles commit to the same id-pe-hashChainAnchor extension (part of the TBSCertificateLogEntry, or of the entry's extensions; see <a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>), so a single anchor and hash chain per entry serves both.<a href="#section-7.3-3.1.1" class="pilcrow">¶</a></p>
+            <p id="section-7.3-3.1.1">Both profiles commit to the same id-pe-hashChainAnchor extension, which is part of the TBSCertificateLogEntry or of the entry's extensions (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>), so a single anchor and hash chain per entry serves both.<a href="#section-7.3-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-7.3-3.2">
             <p id="section-7.3-3.2.1"><code>tbs_cert_entry_hash</code> (<a href="#distribution" class="auto internal xref">Section 9</a>) is computed over the entry's <code>tbs_cert_entry_data</code>, which is identical for both profiles, so both resolve to the same tick URL and the same tick.<a href="#section-7.3-3.2.1" class="pilcrow">¶</a></p>
@@ -2523,9 +2546,11 @@ Refreshing the tick is independent of profile selection: the authenticating part
 <a href="#section-8" class="section-number selfRef">8. </a><a href="#name-verification" class="section-name selfRef">Verification</a>
       </h2>
 <p id="section-8-1">When a relying party receives a Merkle Tree Certificate with the id-pe-hashChainAnchor extension, it performs hash chain verification in addition to the base MTC verification procedure.
-The steps below name the id-pe-hashChainAnchor X.509 extension of the primary design; under the entry-extension alternative (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>) the relying party instead reads the same HashChainAnchorInfo from the entry's extensions, and the procedure is otherwise identical.<a href="#section-8-1" class="pilcrow">¶</a></p>
+The steps below name the id-pe-hashChainAnchor X.509 extension of the primary design.
+Under the entry-extension alternative (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>) the relying party instead reads the same HashChainAnchorInfo from the entry's extensions, and the procedure is otherwise identical.<a href="#section-8-1" class="pilcrow">¶</a></p>
 <p id="section-8-2">The verifier first assembles the inputs to HashChainInput (<a href="#encoding" class="auto internal xref">Section 5</a>) and to the period computation (<a href="#construction" class="auto internal xref">Section 4</a>).
-All of them are obtained from the certificate and the trust anchor being validated against; no data from the CA's tick distribution service (<a href="#distribution" class="auto internal xref">Section 9</a>) is needed, and the verifier <span class="bcp14">MUST NOT</span> fetch anything (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>):<a href="#section-8-2" class="pilcrow">¶</a></p>
+All of them are obtained from the certificate and the trust anchor being validated against.
+No data from the CA's tick distribution service (<a href="#distribution" class="auto internal xref">Section 9</a>) is needed, and the verifier <span class="bcp14">MUST NOT</span> fetch anything (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>):<a href="#section-8-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-8-3.1">
           <p id="section-8-3.1.1"><strong><code>issuer_id</code>:</strong> the TrustAnchorID of the trust anchor against which the certificate is being validated (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.1" class="relref">Section 5.1</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).<a href="#section-8-3.1.1" class="pilcrow">¶</a></p>
@@ -2534,7 +2559,7 @@ All of them are obtained from the certificate and the trust anchor being validat
           <p id="section-8-3.2.1"><strong><code>serial_number</code>:</strong> the certificate's serial number, read directly from the certificate (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.2" class="relref">Section 6.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).<a href="#section-8-3.2.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-8-3.3">
-          <p id="section-8-3.3.1"><strong><code>tick_interval</code> and anchor:</strong> read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension; if <code>tickInterval</code> is absent, use its default of 3600 (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).<a href="#section-8-3.3.1" class="pilcrow">¶</a></p>
+          <p id="section-8-3.3.1"><strong><code>tick_interval</code> and anchor:</strong> read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension. If <code>tickInterval</code> is absent, use its default of 3600 (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).<a href="#section-8-3.3.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-8-3.4">
           <p id="section-8-3.4.1"><strong><code>not_before</code>:</strong> the <code>notBefore</code> time of the certificate's validity period (<a href="#construction" class="auto internal xref">Section 4</a>), which is the same value the CA used to number periods.<a href="#section-8-3.4.1" class="pilcrow">¶</a></p>
@@ -2563,7 +2588,8 @@ expected_period = floor((current_time - not_before) / tick_interval)
 </li>
         <li id="section-8-5.4">
           <p id="section-8-5.4.1">Check that <code>tick.period</code> lies within the <em>acceptance window</em>.
-The default acceptance window is <code>expected_period</code> - 1, <code>expected_period</code>, and <code>expected_period</code> + 1; a relying party <span class="bcp14">MAY</span> widen it in either direction as a matter of policy, with the consequences described in <a href="#clock-skew" class="auto internal xref">Section 11.10</a> and collected in <a href="#rp-policy" class="auto internal xref">Section 11.11</a>.
+The default acceptance window is <code>expected_period</code> - 1, <code>expected_period</code>, and <code>expected_period</code> + 1.
+A relying party <span class="bcp14">MAY</span> widen it in either direction as a matter of policy, with the consequences described in <a href="#clock-skew" class="auto internal xref">Section 11.10</a> and collected in <a href="#rp-policy" class="auto internal xref">Section 11.11</a>.
 A relying party <span class="bcp14">MUST</span> reject a certificate whose <code>tick.period</code> falls outside the acceptance window it applies, with a certificate_expired error.
 That alert covers both directions, because <span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span> defines it as "a certificate has expired or is not currently valid".
 A tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
@@ -2581,11 +2607,13 @@ for i = 1 to tick.period:
 </div>
 <p id="section-8-5.5.3">
 The count is <code>tick.period</code>, not <code>hash_chain_length</code> - <code>tick.period</code>: the subtraction is applied when the CA chooses which value to reveal, since period t reveals <code>h[hash_chain_length - t]</code>, which lies exactly t hashes below the anchor (<a href="#revealing-values" class="auto internal xref">Section 4.4</a>).
-A relying party therefore never needs <code>hash_chain_length</code>, which is not carried in the certificate (<a href="#assertion-integration" class="auto internal xref">Section 6</a>); as the period counts up, the hash chain index counts down, and the number of forward hashes to the anchor is the period itself.<a href="#section-8-5.5.3" class="pilcrow">¶</a></p>
+A relying party therefore never needs <code>hash_chain_length</code>, which is not carried in the certificate (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).
+As the period counts up, the hash chain index counts down, and the number of forward hashes to the anchor is the period itself.<a href="#section-8-5.5.3" class="pilcrow">¶</a></p>
 <p id="section-8-5.5.4">
 Because step 4 has already constrained <code>tick.period</code> to the acceptance window, the iteration count is bounded by the certificate's own lifetime and cannot be inflated by a forged tick to mount a denial-of-service attack.
-The largest legitimate <code>tick.period</code> is <code>hash_chain_length - 1</code>, the certificate's final period, which requires <code>hash_chain_length - 1</code> forward hashes (1,127 for the 1,128-period hash chain of a 47-day, one-hour-period certificate; <a href="#why-one-hour" class="auto internal xref">Appendix F.4</a>).
-Under the default acceptance window, the <code>expected_period</code> + 1 allowance (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>) raises the defensive upper bound the verifier must tolerate by one, to <code>hash_chain_length</code>; a relying party that widens the window raises that bound correspondingly.<a href="#section-8-5.5.4" class="pilcrow">¶</a></p>
+The largest legitimate <code>tick.period</code> is <code>hash_chain_length - 1</code>, the certificate's final period, which requires <code>hash_chain_length - 1</code> forward hashes: 1,127 for the 1,128-period hash chain of a 47-day, one-hour-period certificate (<a href="#why-one-hour" class="auto internal xref">Appendix F.4</a>).
+Under the default acceptance window, the <code>expected_period</code> + 1 allowance (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>) raises the defensive upper bound the verifier must tolerate by one, to <code>hash_chain_length</code>.
+A relying party that widens the window raises that bound correspondingly.<a href="#section-8-5.5.4" class="pilcrow">¶</a></p>
 </li>
         <li id="section-8-5.6">
           <p id="section-8-5.6.1">Compare the result with anchor from the HashChainAnchorInfo.
@@ -2620,8 +2648,10 @@ GET {tick_base_url}/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}
 </div>
 <p id="section-9.1-3">where <code>tbs_cert_entry_hash</code> is the SHA-256 hash of the entry's <code>tbs_cert_entry_data</code> byte string: the contents octets of the DER-encoded TBSCertificateLogEntry, with no enclosing tag or length prefix, as defined in <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.2.1" class="relref">Section 5.2.1</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>.
 The final path segment is its lowercase hexadecimal encoding (64 characters for SHA-256), so that the CA and the authenticating party derive an identical URL.
-Throughout this document <code>tbs_cert_entry_hash</code> denotes that binary hash value (32 bytes for SHA-256); only the URL path segment carries it hex-encoded.
-The authenticating party computes it from the TBSCertificateLogEntry it already possesses; no additional per-request metadata from the CA is required.<a href="#section-9.1-3" class="pilcrow">¶</a></p>
+Throughout this document <code>tbs_cert_entry_hash</code> denotes that binary hash value (32 bytes for SHA-256).
+Only the URL path segment carries it hex-encoded.
+The authenticating party computes it from the TBSCertificateLogEntry it already possesses.
+No additional per-request metadata from the CA is required.<a href="#section-9.1-3" class="pilcrow">¶</a></p>
 <p id="section-9.1-4"><strong>Note:</strong> <code>tbs_cert_entry_hash</code> is a distribution-layer addressing value: the SHA-256 of the entry's <code>tbs_cert_entry_data</code>, fixed to SHA-256 independent of the CA's tree HASH.
 It is distinct from the base specification's own <code>entry_hash</code>, the Merkle leaf hash <code>MTH({entry})</code> used for inclusion proofs (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.2" class="relref">Section 7.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>), which is computed with the tree HASH over the entire log entry.
 By contrast, <code>tbs_cert_entry_hash</code> hashes only <code>tbs_cert_entry_data</code> and is never verified as a proof.
@@ -2629,7 +2659,7 @@ It carries no security weight.
 The sole property it needs is collision resistance so that two entries do not share a URL, and even that is non-load-bearing, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches (<a href="#verification" class="auto internal xref">Section 8</a>).
 Fixing it to SHA-256 keeps tick distribution and caching independent of the CA's tree hash.
 Algorithm agility lives where it matters, in the security-relevant hashing that follows the agile tree HASH (<a href="#post-quantum" class="auto internal xref">Section 11.2</a>), and the <code>v1</code> path segment is the migration lever should the addressing hash ever need to change.<a href="#section-9.1-4" class="pilcrow">¶</a></p>
-<p id="section-9.1-5">The tick URL is keyed by <code>tbs_cert_entry_hash</code> rather than by the certificate's serial number, even though the serial (<code>(log_number &lt;&lt; 48) | index</code>; <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.2" class="relref">Section 6.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) also uniquely identifies the entry, is shorter, and needs no hashing.
+<p id="section-9.1-5">The tick URL is keyed by <code>tbs_cert_entry_hash</code> rather than by the certificate's serial number, even though the serial, <code>(log_number &lt;&lt; 48) | index</code> (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.2" class="relref">Section 6.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>), also uniquely identifies the entry, is shorter, and needs no hashing.
 The serial's index component is assigned sequentially, so a serial-keyed URL would let anyone enumerate a CA's whole certificate population and probe each certificate's revocation status simply by counting indices, with no certificate and no log data in hand.
 <code>tbs_cert_entry_hash</code> raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter.
 Being a derived value that need not appear in the certificate, it can also be replaced by the unguessable per-certificate capability token of <a href="#unguessable-urls" class="auto internal xref">Section 9.4</a> when a CA wants to remove URL derivability entirely.
@@ -2654,7 +2684,8 @@ CAs whose deployments consider this metadata sensitive <span class="bcp14">SHOUL
 http://mtcrs.ca.example/.well-known/mtcrs/v1/tick/a1b2c3...f0
 </pre><a href="#section-9.1-9" class="pilcrow">¶</a>
 </div>
-<p id="section-9.1-10">The base URL is an origin (scheme, host, and optional port); the <code>.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}</code> path is rooted at that origin.
+<p id="section-9.1-10">The base URL is an origin (scheme, host, and optional port).
+The <code>.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}</code> path is rooted at that origin.
 A CA <span class="bcp14">MAY</span> point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.<a href="#section-9.1-10" class="pilcrow">¶</a></p>
 <p id="section-9.1-11">The <code>v1</code> segment versions the MTCRS HTTP interface as a whole: the SHA-256 addressing of {tbs_cert_entry_hash} and the response format (<a href="#response-format" class="auto internal xref">Section 9.5</a>).
 It is a migration lever, not a per-request parameter.
@@ -2678,7 +2709,8 @@ The base URL is delivered when the certificate is provisioned.
 <a href="#acme-integration" class="auto internal xref">Section 9.3</a> defines this binding for ACME.
 Each other issuance protocol needs an analogous binding, which this document does not define.
 A CA issuing over such a protocol <span class="bcp14">MUST</span> either specify one (for example, in a short companion document registering the equivalent of the ACME order field of <a href="#acme-integration" class="auto internal xref">Section 9.3</a>) or publish the base URL through the CA certificate SIA below.
-A provisioning binding is moreover required for unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>), which the SIA cannot carry; a protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.<a href="#section-9.2-3.1.1" class="pilcrow">¶</a></p>
+A provisioning binding is moreover required for unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>), which the SIA cannot carry.
+A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.<a href="#section-9.2-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.2-3.2">
             <p id="section-9.2-3.2.1"><strong>CA certificate SIA (optional).</strong>
@@ -2686,15 +2718,18 @@ The base URL <span class="bcp14">MAY</span> additionally be published in the CA'
 This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
 Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access (<a href="#aia-discovery" class="auto internal xref">Appendix G.3</a>).
 Its value is therefore as a published fallback and tooling record.
-Where a provisioning binding exists (for example ACME; <a href="#acme-integration" class="auto internal xref">Section 9.3</a>) it is redundant with that channel, which takes precedence when the two disagree; where none exists, it is the only interoperable carrier of the base URL.
-It carries only the base URL, so it does not apply when unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>) are used; in that case the full per-certificate URL is delivered through the provisioning channel and the SIA <span class="bcp14">SHOULD NOT</span> be published.
+Where a provisioning binding exists (for example ACME, <a href="#acme-integration" class="auto internal xref">Section 9.3</a>) it is redundant with that channel, which takes precedence when the two disagree.
+Where none exists, it is the only interoperable carrier of the base URL.
+It carries only the base URL, so it does not apply when unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>) are used.
+In that case the full per-certificate URL is delivered through the provisioning channel and the SIA <span class="bcp14">SHOULD NOT</span> be published.
 A deployment that uses unguessable tick URLs therefore has a single discovery channel, the provisioning channel, with no SIA fallback.
 The CA <span class="bcp14">MUST</span> ensure that channel reliably delivers the complete per-certificate URL.<a href="#section-9.2-3.2.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-9.2-4">Keeping the base URL out of the certificate is not a secrecy measure, since the URL is derivable by anyone holding the certificate (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).
 It is instead a way to avoid standardizing a per-certificate fetch affordance in a field relying parties routinely parse.
-Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents; relying parties verify the embedded tick offline (<a href="#verification" class="auto internal xref">Section 8</a>) and <span class="bcp14">MUST NOT</span> fetch ticks (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).
+Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents.
+Relying parties verify the embedded tick offline (<a href="#verification" class="auto internal xref">Section 8</a>) and <span class="bcp14">MUST NOT</span> fetch ticks (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).
 The base URL (or, for unguessable tick URLs, the full per-certificate URL) is delivered once at provisioning.
 The authenticating party <span class="bcp14">MUST</span> retain it for as long as it presents the certificate and reuse it to refresh the tick each period (<a href="#distribution" class="auto internal xref">Section 9</a>), rather than rediscovering it per fetch.<a href="#section-9.2-4" class="pilcrow">¶</a></p>
 <p id="section-9.2-5">MTC certificates are renewed frequently (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-10.4" class="relref">Section 10.4</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> recommends renewal at about 75% of lifetime).
@@ -2760,7 +2795,8 @@ tick_token = key_id || DAE(K_ca, tbs_cert_entry_hash)
 <p id="section-9.4-5.2.3">
 The CA recovers <code>tbs_cert_entry_hash</code> by decrypting the token, so no additional per-certificate state is required.
 The token is unguessable without K_ca and is stable for the certificate's lifetime, which preserves caching.
-The key_id prefix identifies K_ca so that it can be rotated; the CA retains superseded keys for decryption during an overlap window, and because MTC certificates are renewed frequently, rotated tokens propagate through renewal, as for base-URL migration (<a href="#discovery" class="auto internal xref">Section 9.2</a>).<a href="#section-9.4-5.2.3" class="pilcrow">¶</a></p>
+The key_id prefix identifies K_ca so that it can be rotated.
+The CA retains superseded keys for decryption during an overlap window, and because MTC certificates are renewed frequently, rotated tokens propagate through renewal, as for base-URL migration (<a href="#discovery" class="auto internal xref">Section 9.2</a>).<a href="#section-9.4-5.2.3" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-9.4-6">When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
@@ -2789,16 +2825,17 @@ The response Content-Type <span class="bcp14">MUST</span> be <code>application/o
             <p id="section-9.5-3.1.1"><strong>200 (OK):</strong> the response body is the current HashChainTick for the entry. During period 0 the current tick is the public anchor paired with period 0 (<a href="#revealing-values" class="auto internal xref">Section 4.4</a>), so a CA whose distribution service is already provisioned for the entry <span class="bcp14">MAY</span> serve it. This is permitted but not required. The period 0 grace exists precisely so that provisioning need not be complete at the instant of issuance (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>), and an authenticating party can construct that tick from the anchor committed in its own certificate in any case.<a href="#section-9.5-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.5-3.2">
-            <p id="section-9.5-3.2.1"><strong>404 (Not Found):</strong> the CA is not serving a current tick for this entry. This covers both a revoked certificate, for which the CA has stopped revealing values (<a href="#revoking" class="auto internal xref">Section 4.5</a>), and a tick that is merely not yet available, as during the period 0 grace (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>). The status code does not distinguish these cases, so an authenticating party <span class="bcp14">MUST NOT</span> treat a 404 as definitive proof of revocation; it means only that no fresh tick was obtained on this attempt. The authenticating party continues to serve its most recent still-valid tick and <span class="bcp14">MAY</span> retry (see the Operational Model below).<a href="#section-9.5-3.2.1" class="pilcrow">¶</a></p>
+            <p id="section-9.5-3.2.1"><strong>404 (Not Found):</strong> the CA is not serving a current tick for this entry. This covers both a revoked certificate, for which the CA has stopped revealing values (<a href="#revoking" class="auto internal xref">Section 4.5</a>), and a tick that is merely not yet available, as during the period 0 grace (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>). The status code does not distinguish these cases, so an authenticating party <span class="bcp14">MUST NOT</span> treat a 404 as definitive proof of revocation. It means only that no fresh tick was obtained on this attempt. The authenticating party continues to serve its most recent still-valid tick and <span class="bcp14">MAY</span> retry (see the Operational Model below).<a href="#section-9.5-3.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.5-3.3">
             <p id="section-9.5-3.3.1"><strong>410 (Gone), optional:</strong> the server knows that no further tick will ever be published for this entry, because the certificate has been revoked (<a href="#revoking" class="auto internal xref">Section 4.5</a>), or because it has expired and tick publication has stopped (<a href="#revealing-values" class="auto internal xref">Section 4.4</a>). A CA <span class="bcp14">MAY</span> return 410 in place of 404 where it holds that knowledge, but is never required to. A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given (<a href="#delegated-distribution" class="auto internal xref">Section 9.9</a>). A 410 is a diagnostic hint and nothing more. It is unsigned and <span class="bcp14">MAY</span> be carried over plain HTTP (<a href="#distribution" class="auto internal xref">Section 9</a>), so an on-path observer or a faulty distributor can forge one. An authenticating party <span class="bcp14">MUST NOT</span> let it curtail a tick that is still within the acceptance window (see the Operational Model below). Nor may its absence be read the other way: a plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor <span class="bcp14">MUST NOT</span> infer non-revocation from the lack of a 410.<a href="#section-9.5-3.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.5-3.4">
-            <p id="section-9.5-3.4.1"><strong>429 (Too Many Requests) or 503 (Service Unavailable):</strong> transient overload; the authenticating party retries according to the Retry-After header (<a href="#load-distribution" class="auto internal xref">Section 9.7</a>).<a href="#section-9.5-3.4.1" class="pilcrow">¶</a></p>
+            <p id="section-9.5-3.4.1"><strong>429 (Too Many Requests) or 503 (Service Unavailable):</strong> transient overload. The authenticating party retries according to the Retry-After header (<a href="#load-distribution" class="auto internal xref">Section 9.7</a>).<a href="#section-9.5-3.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-9.5-4">Any other status code carries its ordinary HTTP semantics (<span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>); an authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.<a href="#section-9.5-4" class="pilcrow">¶</a></p>
+<p id="section-9.5-4">Any other status code carries its ordinary HTTP semantics (<span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>).
+An authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.<a href="#section-9.5-4" class="pilcrow">¶</a></p>
 <p id="section-9.5-5">Requiring the period 0 tick to be served, rather than permitting it, would not make a 404 mean "revoked".
 Revocation is only one of several causes of a missing tick.
 An origin outage, a cache or edge miss, and a delegated distributor that has not yet received the current bundle (<a href="#delegated-distribution" class="auto internal xref">Section 9.9</a>) all yield the same status code, in every period.
@@ -2825,9 +2862,11 @@ Cache-Control: public, max-age=3600
 </li>
           <li id="section-9.6-2.2">
             <p id="section-9.6-2.2.1">Before installing a fetched tick, the authenticating party <span class="bcp14">MUST</span> verify it against the anchor committed in its own certificate: that hashing <code>tick.value</code> forward <code>tick.period</code> times yields the anchor (<a href="#verification" class="auto internal xref">Section 8</a>).
-A tick that fails this check <span class="bcp14">MUST NOT</span> be installed or presented; the authenticating party discards it and continues to serve its most recent still-valid tick, retrying as under <a href="#response-format" class="auto internal xref">Section 9.5</a>.
+A tick that fails this check <span class="bcp14">MUST NOT</span> be installed or presented.
+The authenticating party discards it and continues to serve its most recent still-valid tick, retrying as under <a href="#response-format" class="auto internal xref">Section 9.5</a>.
 This catches a corrupted, truncated, or misrouted (wrong-entry) response before it is ever presented in a handshake, where it would otherwise cause relying parties to reject the certificate.
-The authenticating party <span class="bcp14">SHOULD</span> additionally check that <code>tick.period</code> is the period it currently expects, so that an unexpectedly stale or future-dated response is also rejected; because a stale-but-genuine tick still hashes to the anchor, only this freshness check detects it.
+The authenticating party <span class="bcp14">SHOULD</span> additionally check that <code>tick.period</code> is the period it currently expects, so that an unexpectedly stale or future-dated response is also rejected.
+Because a stale-but-genuine tick still hashes to the anchor, only this freshness check detects it.
 This part is a <span class="bcp14">SHOULD</span> rather than a <span class="bcp14">MUST</span> because clock skew between the authenticating party and the CA can legitimately shift the served period by one (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>).
 A deployment <span class="bcp14">MAY</span> narrow it to strict equality where both clocks are trusted.<a href="#section-9.6-2.2.1" class="pilcrow">¶</a></p>
 </li>
@@ -2924,7 +2963,7 @@ This stays inexpensive.
 Each tick is a 36-byte value that is immutable within its period and cacheable (<a href="#response-format" class="auto internal xref">Section 9.5</a>), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
 An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor (<a href="#delegated-distribution" class="auto internal xref">Section 9.9</a>).
 The CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.<a href="#section-9.8-1" class="pilcrow">¶</a></p>
-<p id="section-9.8-2">A CA <span class="bcp14">MAY</span> additionally offer a batch endpoint keyed by a list of <code>tbs_cert_entry_hash</code> values (or tokens; <a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>).
+<p id="section-9.8-2">A CA <span class="bcp14">MAY</span> additionally offer a batch endpoint keyed by a list of <code>tbs_cert_entry_hash</code> values, or of tokens (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>).
 The trade-off is cacheability: a batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
 It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
 This document does not standardize a batch wire format.
@@ -2938,7 +2977,7 @@ It does not affect relying parties, who never fetch (<a href="#rp-no-fetch" clas
 <a href="#section-9.9" class="section-number selfRef">9.9. </a><a href="#name-delegated-tick-distribution" class="section-name selfRef">Delegated Tick Distribution</a>
         </h3>
 <p id="section-9.9-1">Because a tick is self-authenticating (<a href="#verification" class="auto internal xref">Section 8</a>), the party that serves ticks need not be trusted for integrity or authenticity.
-A distributor cannot forge a tick for a period the CA has not revealed (preimage resistance; <a href="#hash-function-requirements" class="auto internal xref">Section 11.1</a>), and cannot serve a tampered value that verifies.
+A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance (<a href="#hash-function-requirements" class="auto internal xref">Section 11.1</a>), and cannot serve a tampered value that verifies.
 Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.<a href="#section-9.9-1" class="pilcrow">¶</a></p>
 <p id="section-9.9-2">The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by <code>tbs_cert_entry_hash</code>, refreshing it as certificates advance through their own periods (<a href="#construction" class="auto internal xref">Section 4</a>).
 Each distributor serves those values through the HTTP interface of <a href="#distribution" class="auto internal xref">Section 9</a>.
@@ -2960,7 +2999,8 @@ A distributor can at most withhold or delay the values it was given (<a href="#d
 This is continuity (liveness) delegation, not delegation of revocation.
 Sharing future ticks lets the holder keep certificates alive.
 It correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
-The buffer length therefore caps how quickly those certificates can be revoked through the hash chain; during the window the only remaining lever is the base MTC revoked-ranges fallback (<a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>), which the CA controls independently.
+The buffer length therefore caps how quickly those certificates can be revoked through the hash chain.
+During the window the only remaining lever is the base MTC revoked-ranges fallback (<a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>), which the CA controls independently.
 Future values held by a distributor are as sensitive as the CA's own unrevealed hash chain values (<a href="#seed-confidentiality" class="auto internal xref">Section 11.3</a>): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
 A CA <span class="bcp14">SHOULD</span> therefore keep the buffer short, sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>).
 It <span class="bcp14">SHOULD</span> pre-provision only distributors trusted to stop serving on the CA's instruction.<a href="#section-9.9-6" class="pilcrow">¶</a></p>
@@ -2990,11 +3030,13 @@ This mechanism adds one network interaction, the authenticating party's periodic
 <p id="section-10-2">No relying-party activity is exposed.
 The current tick is embedded in the certificate presentation and verified offline against the committed anchor, and relying parties <span class="bcp14">MUST NOT</span> fetch ticks (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).
 Consequently the CA learns nothing about which certificates a relying party validates or which sites it visits.
-This is the central privacy difference from client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>, whose status fetches revealed relying-party browsing to the CA; that failure mode is avoided here by construction rather than by policy.<a href="#section-10-2" class="pilcrow">¶</a></p>
+This is the central privacy difference from client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>, whose status fetches revealed relying-party browsing to the CA.
+That failure mode is avoided here by construction rather than by policy.<a href="#section-10-2" class="pilcrow">¶</a></p>
 <p id="section-10-3">The authenticating party's tick fetch, by contrast, exposes request metadata.
 An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which <code>tbs_cert_entry_hash</code> is being requested, or with unguessable tick URLs which <code>tick_token</code> (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>).
 It can thereby learn which certificate the authenticating party holds.
-For a public-facing server this reveals little, since the certificate it serves is itself public; the request identifies the authenticating party's own certificate, not any relying party.
+For a public-facing server this reveals little, since the certificate it serves is itself public.
+The request identifies the authenticating party's own certificate, not any relying party.
 Two points nonetheless bear noting:<a href="#section-10-3" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-10-4.1">
@@ -3052,8 +3094,9 @@ Adopting hash-chain revocation is therefore aligned with a post-quantum transiti
 Compromise of these values would allow an attacker to produce future ticks, defeating revocation.<a href="#section-11.3-1" class="pilcrow">¶</a></p>
 <p id="section-11.3-2">A CA that derives per-certificate seeds from a single long-term secret (<a href="#derived-seeds" class="auto internal xref">Appendix F.6.2</a>) concentrates this requirement into that secret.
 It <span class="bcp14">MUST</span> then be protected at least as strongly as the issuance signing key, and per-log or per-epoch sub-seed derivation <span class="bcp14">SHOULD</span> be used to bound the impact of a compromise.
-Such derivation <span class="bcp14">MUST</span> use a keyed KDF or PRF (for example HKDF or HMAC); a raw <code>Hash(ca_seed || ...)</code> construction <span class="bcp14">MUST NOT</span> be used, as it invites length-extension and MAC-misuse and can make derived seeds distinguishable from independent random seeds (<a href="#derived-seeds" class="auto internal xref">Appendix F.6.2</a>).<a href="#section-11.3-2" class="pilcrow">¶</a></p>
-<p id="section-11.3-3">If the CA's seed storage is compromised, the CA <span class="bcp14">MUST</span> revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback; see <a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>.<a href="#section-11.3-3" class="pilcrow">¶</a></p>
+Such derivation <span class="bcp14">MUST</span> use a keyed KDF or PRF, for example HKDF or HMAC.
+A raw <code>Hash(ca_seed || ...)</code> construction <span class="bcp14">MUST NOT</span> be used, as it invites length-extension and MAC-misuse and can make derived seeds distinguishable from independent random seeds (<a href="#derived-seeds" class="auto internal xref">Appendix F.6.2</a>).<a href="#section-11.3-2" class="pilcrow">¶</a></p>
+<p id="section-11.3-3">If the CA's seed storage is compromised, the CA <span class="bcp14">MUST</span> revoke all affected certificates via the base MTC revocation mechanism (revoked ranges of serial numbers) as a fallback, as described in <a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>.<a href="#section-11.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="dos-withholding">
@@ -3064,7 +3107,7 @@ Such derivation <span class="bcp14">MUST</span> use a keyed KDF or PRF (for exam
 <p id="section-11.4-1">A compromised or malicious CA could withhold ticks from a legitimate authenticating party, either broadly or targeted at a specific subscriber.
 In the targeted case it revokes that certificate with no auditable signal.
 This is analogous to a CA refusing to issue OCSP responses, or refusing to issue or renew certificates at all.
-It is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behaviour today:<a href="#section-11.4-1" class="pilcrow">¶</a></p>
+It is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behavior today:<a href="#section-11.4-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-11.4-2.1">
             <p id="section-11.4-2.1.1"><strong>Detectability.</strong> The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.<a href="#section-11.4-2.1.1" class="pilcrow">¶</a></p>
@@ -3095,10 +3138,11 @@ What such flooding cannot do is defeat revocation: it neither forges a tick nor 
 A relying party therefore has no need to contact the CA, and <span class="bcp14">MUST NOT</span> fetch ticks or otherwise use the tick distribution endpoint as an online revocation responder.<a href="#section-11.5-1" class="pilcrow">¶</a></p>
 <p id="section-11.5-2">This is a privacy and availability protection, not a secrecy one.
 The tick distribution URL is not secret: the fetch path is <code>.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}</code> with {tbs_cert_entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA (<a href="#discovery" class="auto internal xref">Section 9.2</a>) is used, available to relying parties as well.
-By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching; it declines to standardize or advertise such a fetch as an affordance to relying parties.
+By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching.
+It declines to standardize or advertise such a fetch as an affordance to relying parties.
 A CA that wishes to remove this derivability entirely <span class="bcp14">MAY</span> use the optional per-certificate capability-token hardening in <a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick, since the authenticating party already presents the current value.
-It would meanwhile reintroduce the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behaviour that made client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span> problematic.<a href="#section-11.5-2" class="pilcrow">¶</a></p>
+It would meanwhile reintroduce the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behavior that made client-driven OCSP <span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span> problematic.<a href="#section-11.5-2" class="pilcrow">¶</a></p>
 <p id="section-11.5-3">The CA certificate SIA access method (<a href="#discovery" class="auto internal xref">Section 9.2</a>) exists to convey the base URL to authenticating-party tooling.
 Relying parties possess the CA certificate but <span class="bcp14">MUST NOT</span> use its tick base URL to fetch tick status.<a href="#section-11.5-3" class="pilcrow">¶</a></p>
 </section>
@@ -3140,7 +3184,7 @@ Whether to check the base MTC revoked ranges in addition to the hash chain is a 
 <p id="section-11.7-4">This composition is one-directional.
 Other revocation signals may only add grounds for revocation: the base MTC revoked ranges, or external systems such as CRLite <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> or CRLSets <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span>.
 A relying party <span class="bcp14">MAY</span> consult them and <span class="bcp14">MUST</span> reject if any reports the certificate revoked.
-A relying party <span class="bcp14">MUST NOT</span>, however, treat a "not revoked" result from any such mechanism as licence to accept a certificate whose tick is absent, stale, or fails verification.
+A relying party <span class="bcp14">MUST NOT</span>, however, treat a "not revoked" result from any such mechanism as license to accept a certificate whose tick is absent, stale, or fails verification.
 Doing so would reduce this mechanism's hard-fail to the strippable soft-fail it is designed to prevent (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>).
 A missing tick is thus a rejection in its own right.
 Consulting another mechanism can nonetheless serve two diagnostic purposes when a tick is absent.
@@ -3178,7 +3222,8 @@ A deployment that requires one uses an external system that provides it, either 
           <li class="normal" id="section-11.8-3.3">
             <p id="section-11.8-3.3.1"><strong>No revocation reason codes.</strong>
 A tick's absence carries no reason (keyCompromise, cessationOfOperation, and so on).
-Conveying a reason is out of scope here; a deployment that needs machine-readable reasons uses the base MTC revoked-ranges mechanism or an external revocation system that carries them.<a href="#section-11.8-3.3.1" class="pilcrow">¶</a></p>
+Conveying a reason is out of scope here.
+A deployment that needs machine-readable reasons uses the base MTC revoked-ranges mechanism or an external revocation system that carries them.<a href="#section-11.8-3.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-11.8-3.4">
             <p id="section-11.8-3.4.1"><strong>No status after expiry.</strong>
@@ -3201,12 +3246,14 @@ This document neither defines nor requires such a feed.<a href="#section-11.8-4"
         <h3 id="name-downgrade-to-a-non-mtcrs-ce">
 <a href="#section-11.9" class="section-number selfRef">11.9. </a><a href="#name-downgrade-to-a-non-mtcrs-ce" class="section-name selfRef">Downgrade to a Non-MTCRS Certificate</a>
         </h3>
-<p id="section-11.9-1">Hash chain revocation applies per certificate, not per key; more precisely, it applies per log entry carrying the id-pe-hashChainAnchor extension.
+<p id="section-11.9-1">Hash chain revocation applies per certificate, not per key.
+More precisely, it applies per log entry carrying the id-pe-hashChainAnchor extension.
 An attacker who holds a private key (the only party who can use any certificate for that key) could therefore present a different, still-valid certificate for the same key that does not carry the anchor extension, escaping tick enforcement.
 Such certificates are outside this mechanism's scope and are handled exactly as in base MTC: by the per-serial revoked-ranges mechanism, which is independent of hash chain revocation, and bounded by the short lifetimes and trusted-validity windows of the base model.
 A CA revoking a compromised key <span class="bcp14">MUST</span> therefore revoke all of that key's certificates, withholding ticks for those that use this mechanism (<a href="#revealing-values" class="auto internal xref">Section 4.4</a>) and revoking the serial ranges of the rest (<a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>).
 Withholding ticks alone would revoke only the certificates that carry an anchor.
-This is the general property that revocation targets certificates rather than keys; it is not specific to this mechanism.<a href="#section-11.9-1" class="pilcrow">¶</a></p>
+This is the general property that revocation targets certificates rather than keys.
+It is not specific to this mechanism.<a href="#section-11.9-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="clock-skew">
@@ -3219,7 +3266,7 @@ This tolerates a verifier clock that is behind or ahead of the authenticating pa
 It also tolerates an authenticating party that is still serving the previous period's tick for caching or staggered refresh (<a href="#load-distribution" class="auto internal xref">Section 9.7</a>).<a href="#section-11.10-1" class="pilcrow">¶</a></p>
 <p id="section-11.10-2">The two directions are not equivalent in cost.
 Accepting the immediately following period, which is what a verifier whose clock is behind will see, costs nothing in revocation terms.
-That tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged (preimage resistance; <a href="#hash-function-requirements" class="auto internal xref">Section 11.1</a>).
+That tick is a fresher non-revocation proof than the verifier expected, and a tick for a period the CA has not yet reached cannot be forged, by preimage resistance (<a href="#hash-function-requirements" class="auto internal xref">Section 11.1</a>).
 Accepting the immediately preceding period, which arises from a verifier clock that is ahead or from a deliberately stale tick, accepts a non-revocation proof up to one <code>tick_interval</code> old.
 That is the intended one-period grace.<a href="#section-11.10-2" class="pilcrow">¶</a></p>
 <p id="section-11.10-3">Deployments with known clock-skew or availability concerns <span class="bcp14">MAY</span> widen the window, as step 4 permits.
@@ -3227,7 +3274,8 @@ Accepting further preceding periods tolerates a tick-distribution outage (<a hre
 <p id="section-11.10-4">Widening the preceding side relaxes the revocation bound one-for-one.
 A relying party that accepts the k immediately preceding periods keeps a withheld certificate usable for up to k + 1 periods after the CA stops revealing values, in place of the two periods the default window gives (<a href="#revealing-values" class="auto internal xref">Section 4.4</a>).
 The worst-case revocation latency stated elsewhere in this document, at most two periods, therefore assumes the default window.
-How quickly revocation takes effect at a given relying party is a property of that relying party's policy, not of the hash chain; this is why widening is a deliberate, ecosystem-wide trade-off rather than a per-server option (<a href="#rp-policy" class="auto internal xref">Section 11.11</a>).<a href="#section-11.10-4" class="pilcrow">¶</a></p>
+How quickly revocation takes effect at a given relying party is a property of that relying party's policy, not of the hash chain.
+This is why widening is a deliberate, ecosystem-wide trade-off rather than a per-server option (<a href="#rp-policy" class="auto internal xref">Section 11.11</a>).<a href="#section-11.10-4" class="pilcrow">¶</a></p>
 <p id="section-11.10-5">The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on that clock's integrity.
 A clock running behind true time shifts the window toward the past, so a genuine but stale tick, one the CA revealed before it stopped revealing, can fall inside the window and be accepted.
 An attacker who moves a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded by the window width and ultimately by <code>notAfter</code>, checked against the same clock.
@@ -3247,8 +3295,9 @@ Both this and the window width are relying-party policy choices (<a href="#rp-po
         <h3 id="name-relying-party-policy-levers">
 <a href="#section-11.11" class="section-number selfRef">11.11. </a><a href="#name-relying-party-policy-levers" class="section-name selfRef">Relying-Party Policy Levers</a>
         </h3>
-<p id="section-11.11-1">Several behaviours of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
-This section collects them for convenience; each is specified in full in the section cited, and nothing here is a new requirement.<a href="#section-11.11-1" class="pilcrow">¶</a></p>
+<p id="section-11.11-1">Several behaviors of this mechanism are configurable by relying-party (client) policy, which a root program may also set.
+This section collects them for convenience.
+Each is specified in full in the section cited, and nothing here is a new requirement.<a href="#section-11.11-1" class="pilcrow">¶</a></p>
 <span class="break"></span><dl class="dlParallel" id="section-11.11-2">
           <dt id="section-11.11-2.1">Acceptance window:</dt>
           <dd style="margin-left: 1.5em" id="section-11.11-2.2">
@@ -3265,7 +3314,8 @@ A relying party that requires tight revocation <span class="bcp14">SHOULD</span>
           <dd class="break"></dd>
 <dt id="section-11.11-2.5">Cross-checking base MTC revocation:</dt>
           <dd style="margin-left: 1.5em" id="section-11.11-2.6">
-            <p id="section-11.11-2.6.1">A relying party that also supports the base MTC revoked-ranges mechanism <span class="bcp14">SHOULD</span> check both; a certificate is revoked if either indicates so (<a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>).<a href="#section-11.11-2.6.1" class="pilcrow">¶</a></p>
+            <p id="section-11.11-2.6.1">A relying party that also supports the base MTC revoked-ranges mechanism <span class="bcp14">SHOULD</span> check both.
+A certificate is revoked if either indicates so (<a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>).<a href="#section-11.11-2.6.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-11.11-2.7">Resumption and long-lived connections:</dt>
@@ -3276,12 +3326,14 @@ A relying party that wants revocation to take effect within about one <code>tick
           <dd class="break"></dd>
 <dt id="section-11.11-2.9">Enforcement and criticality:</dt>
           <dd style="margin-left: 1.5em" id="section-11.11-2.10">
-            <p id="section-11.11-2.10.1">A relying party that implements this mechanism <span class="bcp14">MUST</span> enforce hash chain verification whenever the id-pe-hashChainAnchor extension is present; an ecosystem <span class="bcp14">MAY</span> additionally mark the extension critical for hard enforcement (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>).<a href="#section-11.11-2.10.1" class="pilcrow">¶</a></p>
+            <p id="section-11.11-2.10.1">A relying party that implements this mechanism <span class="bcp14">MUST</span> enforce hash chain verification whenever the id-pe-hashChainAnchor extension is present.
+An ecosystem <span class="bcp14">MAY</span> additionally mark the extension critical for hard enforcement (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>).<a href="#section-11.11-2.10.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-11.11-2.11">Fixed, not a lever:</dt>
           <dd style="margin-left: 1.5em" id="section-11.11-2.12">
-            <p id="section-11.11-2.12.1">Relying parties <span class="bcp14">MUST NOT</span> fetch ticks or use the distribution endpoint as an online responder (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>); this is a constraint, not a configurable choice.<a href="#section-11.11-2.12.1" class="pilcrow">¶</a></p>
+            <p id="section-11.11-2.12.1">Relying parties <span class="bcp14">MUST NOT</span> fetch ticks or use the distribution endpoint as an online responder (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).
+This is a constraint, not a configurable choice.<a href="#section-11.11-2.12.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -3305,8 +3357,9 @@ A relying party that wants revocation to take effect within about one <code>tick
 <p id="section-12.1-1">Because an authenticating party must fetch a fresh tick at least once per <code>tick_interval</code> (<a href="#distribution" class="auto internal xref">Section 9</a>), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments <span class="bcp14">SHOULD</span> plan for it.
 It is intrinsic to enforceable revocation rather than a defect.
-A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behaviour this design rejects (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>).
-The goal is therefore to bound the dependency, not to eliminate it; several factors and mitigations limit its impact:<a href="#section-12.1-1" class="pilcrow">¶</a></p>
+A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>).
+The goal is therefore to bound the dependency, not to eliminate it.
+Several factors and mitigations limit its impact:<a href="#section-12.1-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-12.1-2.1">
             <p id="section-12.1-2.1.1"><strong>The tick interval is the outage-tolerance budget.</strong>
@@ -3335,7 +3388,8 @@ This is the preferred resilience mechanism, because unlike widening the acceptan
 Failover needs no new protocol.
 The tick is embedded in the MTCProof rather than negotiated as a separate stapled response.
 A server holding certificates from several CAs therefore simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-8" class="relref">Section 8</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
-This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange; its one precondition is that the relying party support the alternate CA's trust anchor.
+This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange.
+Its one precondition is that the relying party support the alternate CA's trust anchor.
 Because MTC certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.<a href="#section-12.1-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
@@ -3343,7 +3397,8 @@ Because MTC certificates are lightweight to obtain and maintain, the incremental
 A single successful fetch gives more than one period of runway.
 Because a relying party also accepts the immediately preceding period's tick (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>), a tick fetched for one period stays acceptable through the end of the next.
 A distribution outage therefore breaks a certificate only after it outlasts that runway of up to about two periods, not the instant it passes one.
-Short-lived certificates do not remove the dependency on CA availability; they relocate it.
+Short-lived certificates do not remove the dependency on CA availability.
+They relocate it.
 Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
 The difference is cadence and weight.
 MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly GET with no cryptography (<a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>).
@@ -3359,7 +3414,7 @@ A longer <code>tick_interval</code> trades the runway back toward a short-lived 
 <a href="#section-12.2" class="section-number selfRef">12.2. </a><a href="#name-client-side-enforcement-lat" class="section-name selfRef">Client-Side Enforcement Latency and Session Resumption</a>
         </h3>
 <p id="section-12.2-1">A relying party checks the non-revocation proof (<a href="#verification" class="auto internal xref">Section 8</a>) only when it validates the certificate, which happens during a full TLS handshake.
-Two common TLS behaviours mean this check does not recur for the life of a connection or a resumed session.
+Two common TLS behaviors mean this check does not recur for the life of a connection or a resumed session.
 The effective client-side revocation latency is therefore bounded not by <code>tick_interval</code> alone but by how long a client keeps or resumes a connection:<a href="#section-12.2-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-12.2-2.1">
@@ -3556,8 +3611,9 @@ id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
             </tr>
           </tbody>
         </table>
-<p id="section-14.5-3">Both fields are set by the server in the order object; neither is configurable by the client in a newOrder request.
-A CA uses <code>tickBaseURL</code> for the derivable tick URL scheme (<a href="#acme-integration" class="auto internal xref">Section 9.3</a>) and <code>tickURL</code> for the unguessable per-certificate URL scheme (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>); the two are mutually exclusive for a given order.<a href="#section-14.5-3" class="pilcrow">¶</a></p>
+<p id="section-14.5-3">Both fields are set by the server in the order object, and neither is configurable by the client in a newOrder request.
+A CA uses <code>tickBaseURL</code> for the derivable tick URL scheme (<a href="#acme-integration" class="auto internal xref">Section 9.3</a>) and <code>tickURL</code> for the unguessable per-certificate URL scheme (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>).
+The two are mutually exclusive for a given order.<a href="#section-14.5-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="mtcproof-extension-type">
@@ -3759,7 +3815,7 @@ All values are hexadecimal, and the hash function is SHA-256 (HASH_SIZE = 32).<a
 <p id="appendix-B-2">The example uses:<a href="#appendix-B-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="appendix-B-3.1">
-          <p id="appendix-B-3.1.1"><code>issuer_id</code>: TrustAnchorID 32473.1, whose binary representation is 81fd5901; as a <code>&lt;1..2^8-1&gt;</code> vector it encodes with its length prefix as 04 81fd5901.<a href="#appendix-B-3.1.1" class="pilcrow">¶</a></p>
+          <p id="appendix-B-3.1.1"><code>issuer_id</code>: TrustAnchorID 32473.1, whose binary representation is 81fd5901. As a <code>&lt;1..2^8-1&gt;</code> vector it encodes with its length prefix as 04 81fd5901.<a href="#appendix-B-3.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="appendix-B-3.2">
           <p id="appendix-B-3.2.1"><code>serial_number</code> = 281474976710698, which is <code>(log_number &lt;&lt; 48) | index</code> for log number 1 and entry index 42<a href="#appendix-B-3.2.1" class="pilcrow">¶</a></p>
@@ -3768,7 +3824,7 @@ All values are hexadecimal, and the hash function is SHA-256 (HASH_SIZE = 32).<a
           <p id="appendix-B-3.3.1"><code>hash_chain_length</code> = 5<a href="#appendix-B-3.3.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="appendix-B-3.4">
-          <p id="appendix-B-3.4.1">seed h[0] = the 32 bytes 00 01 ... 1f (a fixed value for this example; a real CA uses a cryptographically random, secret seed)<a href="#appendix-B-3.4.1" class="pilcrow">¶</a></p>
+          <p id="appendix-B-3.4.1">seed h[0] = the 32 bytes 00 01 ... 1f (a fixed value for this example, whereas a real CA uses a cryptographically random, secret seed)<a href="#appendix-B-3.4.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 <p id="appendix-B-4">The fixed fields of HashChainInput therefore encode as:<a href="#appendix-B-4" class="pilcrow">¶</a></p>
@@ -3800,7 +3856,7 @@ h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
 </div>
 <p id="appendix-B-10">The anchor committed in the certificate is h[<code>hash_chain_length</code>] = h[5].<a href="#appendix-B-10" class="pilcrow">¶</a></p>
 <p id="appendix-B-11">For period t = 2, the CA reveals h[<code>hash_chain_length</code> - t] = h[3].
-The HashChainTick is { period = 2, value = h[3] }, which serializes (a 4-byte big-endian period followed by the 32-byte value; <a href="#response-format" class="auto internal xref">Section 9.5</a>) as the following 36 bytes:<a href="#appendix-B-11" class="pilcrow">¶</a></p>
+The HashChainTick is { period = 2, value = h[3] }, which serializes as the following 36 bytes, a 4-byte big-endian period followed by the 32-byte value (<a href="#response-format" class="auto internal xref">Section 9.5</a>):<a href="#appendix-B-11" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="appendix-B-12">
 <pre>
 000000024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697
@@ -3841,15 +3897,17 @@ A relying party that finds <code>tickInterval</code> absent <span class="bcp14">
       <h2 id="name-amendments-requested-of-the">
 <a href="#appendix-C" class="section-number selfRef">Appendix C. </a><a href="#name-amendments-requested-of-the" class="section-name selfRef">Amendments Requested of the Base Specification</a>
       </h2>
-<p id="appendix-C-1">For convenience, this section collects the amendments this document asks of the base specification; each is specified in full in the section cited.<a href="#appendix-C-1" class="pilcrow">¶</a></p>
+<p id="appendix-C-1">For convenience, this section collects the amendments this document asks of the base specification.
+Each is specified in full in the section cited.<a href="#appendix-C-1" class="pilcrow">¶</a></p>
 <p id="appendix-C-2">Exactly one change to the base specification is required:<a href="#appendix-C-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="appendix-C-3.1">
           <p id="appendix-C-3.1.1"><strong>Amend the Section 7.2 "extra data" check</strong> so that, when a certificate carries the hash chain anchor, the MTCProof in its <code>signatureValue</code> may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
-The <span class="bcp14">RECOMMENDED</span> realization appends a trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>); a base specification that instead adopts the general <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) carries the tick as a proof extension (<a href="#tick-proof-extension" class="auto internal xref">Appendix G.6</a>) and amends Section 7.2 accordingly.<a href="#appendix-C-3.1.1" class="pilcrow">¶</a></p>
+The <span class="bcp14">RECOMMENDED</span> realization appends a trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>).
+A base specification that instead adopts the general <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) carries the tick as a proof extension (<a href="#tick-proof-extension" class="auto internal xref">Appendix G.6</a>) and amends Section 7.2 accordingly.<a href="#appendix-C-3.1.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
-<p id="appendix-C-4">The following item is optional; a base specification <span class="bcp14">MAY</span> adopt it but need not:<a href="#appendix-C-4" class="pilcrow">¶</a></p>
+<p id="appendix-C-4">The following item is optional, and a base specification <span class="bcp14">MAY</span> adopt it but need not:<a href="#appendix-C-4" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="appendix-C-5.1">
           <p id="appendix-C-5.1.1"><strong>Register a <code>hash_chain_anchor</code> entry-extension type</strong> in the MTCLogEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).<a href="#appendix-C-5.1.1" class="pilcrow">¶</a></p>
@@ -3860,7 +3918,7 @@ That covers the id-pe-hashChainAnchor X.509 extension (<a href="#iana-considerat
 <p id="appendix-C-7">The MTCProof changes themselves are edits to a structure that the base specification owns: the trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>) and, should the working group prefer the general mechanism, the <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>).
 This document specifies them in full so that the required change is concrete and reviewable.
 The intent, however, is to hand them to the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
-If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behaviour and can be reduced to a reference.<a href="#appendix-C-7" class="pilcrow">¶</a></p>
+If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behavior and can be reduced to a reference.<a href="#appendix-C-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="open-questions">
@@ -3870,12 +3928,14 @@ If the base specification adopts the change, the corresponding text in this docu
       </h2>
 <p id="appendix-D-1"><a href="#base-spec-amendments" class="auto internal xref">Appendix C</a> states what this document asks of the base specification as concrete proposals, so that they are reviewable.
 This section collects the choices behind those proposals that the author considers genuinely open, each with the alternatives, this document's current preference, and a pointer to the full analysis.
-A working group that adopts this document should expect to settle them; nothing in this section is itself a normative requirement.<a href="#appendix-D-1" class="pilcrow">¶</a></p>
+A working group that adopts this document should expect to settle them.
+Nothing in this section is itself a normative requirement.<a href="#appendix-D-1" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="appendix-D-2">
 <li id="appendix-D-2.1">
           <p id="appendix-D-2.1.1"><strong>Where does the anchor live?</strong>
 The anchor can be an X.509 extension of the TBSCertificateLogEntry (<a href="#assertion-integration" class="auto internal xref">Section 6</a>) or a committed entry extension (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).
-Both are committed to the Merkle Tree, so the verification procedure is identical either way; the trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+Both are committed to the Merkle Tree, so the verification procedure is identical either way.
+The trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
 The entry extension additionally forces a change to tick addressing, because the anchor then no longer separates entries that are otherwise identical (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).
 <em>Preference:</em> the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
 Whichever is chosen becomes the single anchor home for the ecosystem.<a href="#appendix-D-2.1.1" class="pilcrow">¶</a></p>
@@ -3888,7 +3948,8 @@ Either as a trailing <code>status_tick</code> field (<a href="#tick-trailing-fie
         <li id="appendix-D-2.3">
           <p id="appendix-D-2.3.1"><strong>Does the base specification want general proof-level extensibility at all?</strong>
 This is separable from question 2.
-The <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms; if it is adopted, the tick should use it rather than a bare trailing field.
+The <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms.
+If it is adopted, the tick should use it rather than a bare trailing field.
 <em>Preference:</em> not needed for hash chain revocation alone, and it carries the abuse surface discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>.<a href="#appendix-D-2.3.1" class="pilcrow">¶</a></p>
 </li>
         <li id="appendix-D-2.4">
@@ -3897,14 +3958,16 @@ The two jointly set revocation latency: a withheld tick stops verifying within (
 This document uses one hour (<a href="#why-one-hour" class="auto internal xref">Appendix F.4</a>) with k = 1, which is where the two-period bound quoted throughout comes from.
 They are worth settling separately because they have different owners.
 <code>tick_interval</code> is per-certificate and set by the CA, carried in the certificate for every verifier to read (<a href="#construction" class="auto internal xref">Section 4</a>), whereas the acceptance window is relying-party or root-program policy applying uniformly to every certificate that party validates (<a href="#rp-policy" class="auto internal xref">Section 11.11</a>).
-A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance (<a href="#availability-considerations" class="auto internal xref">Section 12.1</a>); widening k buys outage tolerance at a one-for-one cost in latency (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>).
+A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance (<a href="#availability-considerations" class="auto internal xref">Section 12.1</a>).
+Widening k buys outage tolerance at a one-for-one cost in latency (<a href="#clock-skew" class="auto internal xref">Section 11.10</a>).
 <em>Preference:</em> one hour with k = 1.
 Neither is a protocol question: both concern recommended defaults and what root programs should require.<a href="#appendix-D-2.4.1" class="pilcrow">¶</a></p>
 </li>
         <li id="appendix-D-2.5">
           <p id="appendix-D-2.5.1"><strong>Should period 0 enforce revocation?</strong>
 The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>).
-Computing the hash chain one element longer removes the grace and enforces from period 1; that construction is given in <a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>.
+Computing the hash chain one element longer removes the grace and enforces from period 1.
+That construction is given in <a href="#period-zero-rationale" class="auto internal xref">Appendix F.5</a>.
 <em>Preference:</em> keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.<a href="#appendix-D-2.5.1" class="pilcrow">¶</a></p>
 </li>
         <li id="appendix-D-2.6">
@@ -3915,8 +3978,9 @@ It is also unclaimed in TLS and PKI, unlike "token" (timestamp tokens, bearer to
 "Token" is doubly unavailable here.
 This document already uses it for the optional per-certificate capability that addresses a tick URL (<a href="#unguessable-urls" class="auto internal xref">Section 9.4</a>).
 Its bearer-credential connotation is also the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
-Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number; this document therefore always presents the tick as the pair <code>{period, value}</code>.
-<em>Preference:</em> keep "tick"; a descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.<a href="#appendix-D-2.6.1" class="pilcrow">¶</a></p>
+Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number.
+This document therefore always presents the tick as the pair <code>{period, value}</code>.
+<em>Preference:</em> keep "tick". A descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.<a href="#appendix-D-2.6.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 </section>
@@ -4023,7 +4087,8 @@ Implementations that predate the amendment will reject the certificate at the MT
 These properties are what let the tick be updated each period.
 As a general-purpose extension point, however, they also let an authenticating party, or any relaying intermediary, add, alter, or strip proof extensions undetectably and insert data that relying parties silently ignore ("stuffing").
 This does not affect hash chain revocation itself, because the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension, so stuffed or stripped data can neither forge nor suppress a tick.
-If the base MTC specification adopts <code>proof_extensions</code> as a general mechanism, three controls matter most; a relying party can enforce the first two without understanding any extension's contents:<a href="#appendix-E.5-1" class="pilcrow">¶</a></p>
+If the base MTC specification adopts <code>proof_extensions</code> as a general mechanism, three controls matter most.
+A relying party can enforce the first two without understanding any extension's contents:<a href="#appendix-E.5-1" class="pilcrow">¶</a></p>
 <span class="break"></span><dl class="dlParallel" id="appendix-E.5-2">
           <dt id="appendix-E.5-2.1">Bounded size and count:</dt>
           <dd style="margin-left: 1.5em" id="appendix-E.5-2.2">
@@ -4050,7 +4115,8 @@ Otherwise "ignore if unknown" becomes a strippable soft-fail (<a href="#ocsp-sta
 <p id="appendix-E.5-3">A base specification <span class="bcp14">SHOULD</span> also consider several further controls.
 One is a canonical encoding: ascending <code>extension_type</code>, no duplicate types, exact-length consumption.
 Another is an IANA registry for <code>MTCProofExtensionType</code> with a private-use range.
-A third is fail-closed rejection of unknown types, optionally softened by a per-extension criticality bit; this closes the ignore channel but trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>).
+A third is fail-closed rejection of unknown types, optionally softened by a per-extension criticality bit.
+This closes the ignore channel but trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>).
 A fourth is a deterministic fixed-length region, where each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
 Two properties are inherent and <span class="bcp14">MUST</span> be respected.
 Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents <span class="bcp14">MUST</span> use <code>entry_extensions</code> instead (<a href="#assertion-integration" class="auto internal xref">Section 6</a>).
@@ -4127,7 +4193,7 @@ The only recourse is to publish the revocation via an external mechanism (CRLite
 <p id="appendix-F.1.1-3">With hash chain revocation, frequent CA validation translates directly into security improvement.
 The CA can act on a detected problem at the very next period boundary, by withholding that certificate's tick, and the certificate stops verifying within at most two periods of the decision (<a href="#revealing-values" class="auto internal xref">Section 4.4</a>, <a href="#clock-skew" class="auto internal xref">Section 11.10</a>).
 This creates an incentive structure where CAs that validate more frequently provide measurably better security, an incentive that does not exist in a pure short-lived-certificate model without revocation.<a href="#appendix-F.1.1-3" class="pilcrow">¶</a></p>
-<p id="appendix-F.1.1-4">Root program policies can leverage this by requiring both short tick intervals and minimum re-validation frequencies, achieving a defence-in-depth posture that neither mechanism provides alone.<a href="#appendix-F.1.1-4" class="pilcrow">¶</a></p>
+<p id="appendix-F.1.1-4">Root program policies can leverage this by requiring both short tick intervals and minimum re-validation frequencies, achieving a defense-in-depth posture that neither mechanism provides alone.<a href="#appendix-F.1.1-4" class="pilcrow">¶</a></p>
 <p id="appendix-F.1.1-5">This reframes where certificate lifetime sits in the security argument.
 Much of the pressure to shorten certificate lifetimes is a substitute for revocation: with no reliable in-band revocation, expiry is the only enforceable bound on exposure after key compromise or misissuance.
 Fine-grained hash chain revocation supplies that bound directly, within about two periods rather than a lifetime.
@@ -4148,12 +4214,12 @@ A root program can then set each on its own merits, rather than using lifetime a
         <h3 id="name-why-hash-chains-micali-inst">
 <a href="#appendix-F.2" class="section-number selfRef">F.2. </a><a href="#name-why-hash-chains-micali-inst" class="section-name selfRef">Why Hash Chains (Micali) Instead of Other Revocation Mechanisms</a>
         </h3>
-<p id="appendix-F.2-1">Several alternative revocation mechanisms were considered and rejected; <a href="#alternatives" class="auto internal xref">Appendix G</a> analyses each.
+<p id="appendix-F.2-1">Several alternative revocation mechanisms were considered and rejected, and <a href="#alternatives" class="auto internal xref">Appendix G</a> analyzes each.
 Hash chains <span>[<a href="#MICALI" class="cite xref">MICALI</a>]</span> were selected because they are the only known mechanism that provides <em>all</em> of the properties listed in the Introduction at once.
 Those are timely revocation, zero per-period CA signing, self-authentication against the committed anchor, mandatory hard-fail enforcement, and a 36-byte per-handshake cost.
 They achieve this using nothing but a hash function and basic arithmetic, with no new cryptographic primitive.
 Each alternative in <a href="#alternatives" class="auto internal xref">Appendix G</a> secures some of these but sacrifices at least one.
-Signed per-certificate status reintroduces per-period signing (<a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>); a separate TLS or stapled channel reintroduces the strippable soft-fail (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>); and pushed external lists give up universal, CA-anchored enforcement (<a href="#browser-revocation-history" class="auto internal xref">Appendix F.9</a>).
+Signed per-certificate status reintroduces per-period signing (<a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>), a separate TLS or stapled channel reintroduces the strippable soft-fail (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>), and pushed external lists give up universal, CA-anchored enforcement (<a href="#browser-revocation-history" class="auto internal xref">Appendix F.9</a>).
 It is this simultaneity, not any single property, that distinguishes hash chains.<a href="#appendix-F.2-1" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -4182,7 +4248,8 @@ Classic CRS, by contrast, needed the CA to sign the hash chain's endpoint (its a
 </li>
           <li class="normal" id="appendix-F.3-3.3">
             <p id="appendix-F.3-3.3.1"><strong>Enforcement is hard-fail by construction.</strong>
-Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>); it cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.<a href="#appendix-F.3-3.3.1" class="pilcrow">¶</a></p>
+Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>).
+It cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.<a href="#appendix-F.3-3.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-F.3-3.4">
             <p id="appendix-F.3-3.4.1"><strong>The remaining costs are tractable at scale.</strong>
@@ -4214,14 +4281,14 @@ This is a trivial HTTP request for a small response.<a href="#appendix-F.4-2.2.1
 Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.<a href="#appendix-F.4-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-F.4-2.4">
-            <p id="appendix-F.4-2.4.1"><strong>CA storage:</strong> A CA <span class="bcp14">MAY</span> store one seed per active certificate (32 bytes each; 32 GB for 1 billion), but need not.
+            <p id="appendix-F.4-2.4.1"><strong>CA storage:</strong> A CA <span class="bcp14">MAY</span> store one seed per active certificate (32 bytes each, or 32 GB for 1 billion), but need not.
 Deriving seeds from a single long-term CA secret (<a href="#derived-seeds" class="auto internal xref">Appendix F.6.2</a>) reduces per-certificate secret storage to nothing, since any hash chain is recomputed on demand from that one secret and the public entry identity.
 Traversal or checkpoint schemes (<a href="#hash-chain-traversal" class="auto internal xref">Appendix F.6.1</a>) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.<a href="#appendix-F.4-2.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="appendix-F.4-3">A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
-At day-scale periods the hash chain is short enough that a CA can store each hash chain in full and skip the fractal traversal of <a href="#hash-chain-traversal" class="auto internal xref">Appendix F.6.1</a> entirely; <code>hash_chain_length</code> is then on the order of the lifetime in days, e.g. 47 for a 47-day certificate.
-The once-per-day fetch cadence also gives a far more forgiving outage-tolerance budget (<a href="#availability-considerations" class="auto internal xref">Section 12.1</a>); the price is coarser revocation.
+At day-scale periods the hash chain is short enough that a CA can store each hash chain in full and skip the fractal traversal of <a href="#hash-chain-traversal" class="auto internal xref">Appendix F.6.1</a> entirely, since <code>hash_chain_length</code> is then on the order of the lifetime in days, e.g. 47 for a 47-day certificate.
+The once-per-day fetch cadence also gives a far more forgiving outage-tolerance budget (<a href="#availability-considerations" class="auto internal xref">Section 12.1</a>), and the price is coarser revocation.
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation, whose worst-case exposure is the full remaining lifetime, rather than against a one-day short-lived certificate.
 Its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
 The fine-grained-revocation advantage over short lifetimes (<a href="#revocation-vs-expiry" class="auto internal xref">Appendix F.1</a>) is precisely what a short period buys, so deployments <span class="bcp14">SHOULD</span> choose the shortest period operationally feasible.<a href="#appendix-F.4-3" class="pilcrow">¶</a></p>
@@ -4269,7 +4336,7 @@ This document uses the shorter construction because the operational grace period
 <a href="#appendix-F.6" class="section-number selfRef">F.6. </a><a href="#name-ca-side-storage-and-computa" class="section-name selfRef">CA-Side Storage and Computation Trade-off</a>
         </h3>
 <p id="appendix-F.6-1">A CA has two largely independent implementation choices for each certificate's hash chain of length <code>hash_chain_length</code> (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
-Both are CA-side only; the on-the-wire tick and the relying party's verification procedure (<a href="#verification" class="auto internal xref">Section 8</a>) are unchanged.<a href="#appendix-F.6-1" class="pilcrow">¶</a></p>
+Both are CA-side only, and the on-the-wire tick and the relying party's verification procedure (<a href="#verification" class="auto internal xref">Section 8</a>) are unchanged.<a href="#appendix-F.6-1" class="pilcrow">¶</a></p>
 <div id="hash-chain-traversal">
 <section id="appendix-F.6.1">
           <h4 id="name-storing-versus-recomputing-">
@@ -4289,7 +4356,8 @@ Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.<a href="#appendi
 <p id="appendix-F.6.1-3">A CA <span class="bcp14">MAY</span> instead use <strong>fractal hash-chain traversal</strong> <span>[<a href="#FRACTAL" class="cite xref">FRACTAL</a>]</span> <span>[<a href="#ALMOST-OPTIMAL" class="cite xref">ALMOST-OPTIMAL</a>]</span> to obtain a logarithmic middle ground.
 The hash chain is revealed in reverse of the order in which it is computed (the CA computes <code>h[1..L]</code> forward from the secret seed <code>h[0]</code>, but reveals <code>h[L-1], h[L-2], ..., h[1]</code> over time), which is exactly the setting these algorithms address.
 Instead of the whole hash chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the hash chain.
-When the value for the current period is needed, a pebble is already there; between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
+When the value for the current period is needed, a pebble is already there.
+Between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
 The scheduling guarantees:<a href="#appendix-F.6.1-3" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="appendix-F.6.1-4">
 <pre>
@@ -4311,7 +4379,8 @@ This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB 
           </h4>
 <p id="appendix-F.6.2-1">The per-certificate seed itself can also be eliminated from storage.
 Instead of generating and storing an independent random seed per certificate, a CA <span class="bcp14">MAY</span> derive each seed from a single long-term CA secret with a keyed key-derivation function, for example <code>h[0] = HMAC-SHA256(ca_seed, label || issuer_id || serial_number)</code>, or the equivalent with HKDF.
-A raw <code>Hash(ca_seed || ...)</code> construction <span class="bcp14">MUST NOT</span> be used, as it invites length-extension and MAC-misuse; a proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of <a href="#construction" class="auto internal xref">Section 4</a>.
+A raw <code>Hash(ca_seed || ...)</code> construction <span class="bcp14">MUST NOT</span> be used, as it invites length-extension and MAC-misuse.
+A proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of <a href="#construction" class="auto internal xref">Section 4</a>.
 Any hash chain is then recomputable on demand from <code>ca_seed</code> and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
 The cost is concentration.
 Compromise of <code>ca_seed</code> exposes every certificate's hash chain, past, present, and future, so it <span class="bcp14">MUST</span> be protected at least as strongly as the CA's issuance signing key (<a href="#seed-confidentiality" class="auto internal xref">Section 11.3</a>).
@@ -4345,7 +4414,7 @@ Stripping the tick therefore forces a hard failure rather than the silent soft-f
 The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support.<a href="#appendix-F.7-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-F.7-2.3">
-            <p id="appendix-F.7-2.3.1"><strong>Safe to update dynamically:</strong> The MTCProof is not committed to the Merkle Tree; only the TBSCertificateLogEntry is.
+            <p id="appendix-F.7-2.3.1"><strong>Safe to update dynamically:</strong> The MTCProof is not committed to the Merkle Tree, and only the TBSCertificateLogEntry is.
 The authenticating party can freely replace the <code>signatureValue</code> each period without invalidating the inclusion proof or cosignatures.<a href="#appendix-F.7-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li id="appendix-F.7-2.4">
@@ -4375,7 +4444,7 @@ The major browsers' migration away from live OCSP and stapling toward pushed rev
 <p id="appendix-F.8.1-1">OCSP stapling (<span>[<a href="#RFC6960" class="cite xref">RFC6960</a>]</span>, carried via the TLS status_request extension) is optional and strippable: the client requests it, and the server, or a network attacker, can omit the stapled response with no signal that one was expected.
 A relying party therefore cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail (treat missing status as "not revoked") to avoid breaking legitimate connections.
 Soft-fail, in turn, provides almost no protection against an active attacker, who can simply suppress the response.
-This is a self-reinforcing loop: because enforcement is impossible, stapling yields little security benefit; because it yields little benefit, servers have weak incentive to deploy it; and because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.<a href="#appendix-F.8.1-1" class="pilcrow">¶</a></p>
+This is a self-reinforcing loop. Because enforcement is impossible, stapling yields little security benefit. Because it yields little benefit, servers have weak incentive to deploy it. And because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.<a href="#appendix-F.8.1-1" class="pilcrow">¶</a></p>
 <p id="appendix-F.8.1-2">OCSP Must-Staple (<span>[<a href="#RFC7633" class="cite xref">RFC7633</a>]</span>) was introduced to break this loop by letting a certificate commit to requiring a stapled response.
 It saw little adoption: enabling it risks self-inflicted outages if the responder or the server's stapling path fails, and the ecosystem never reached the coverage that would let relying parties depend on it.
 The stapled response remains a separate TLS signal with its own failure modes, layered on a CA-operated responder that must sign every response.<a href="#appendix-F.8.1-2" class="pilcrow">¶</a></p>
@@ -4387,7 +4456,8 @@ The stapled response remains a separate TLS signal with its own failure modes, l
 <a href="#appendix-F.8.2" class="section-number selfRef">F.8.2. </a><a href="#name-why-this-mechanism-is-enfor" class="section-name selfRef">Why This Mechanism Is Enforceable</a>
           </h4>
 <p id="appendix-F.8.2-1">The hash chain tick is not a separate, optional signal: it is carried inside the MTCProof, which is part of the certificate presentation itself (<a href="#cert-format" class="auto internal xref">Section 7</a>).
-A relying party that parses the certificate necessarily encounters the tick; there is no request step to omit, and nothing a middlebox or misconfigured server can strip while leaving a valid certificate.
+A relying party that parses the certificate necessarily encounters the tick.
+There is no request step to omit, and nothing a middlebox or misconfigured server can strip while leaving a valid certificate.
 A relying party can therefore hard-fail on a missing or invalid tick from the outset, precisely what stapling could never achieve.
 In effect this mechanism provides the property Must-Staple aimed at, a certificate that cannot be presented without current status, but makes it un-strippable by construction rather than by a policy flag.<a href="#appendix-F.8.2-1" class="pilcrow">¶</a></p>
 </section>
@@ -4401,7 +4471,7 @@ In effect this mechanism provides the property Must-Staple aimed at, a certifica
 <ul class="normal">
 <li class="normal" id="appendix-F.8.3-2.1">
               <p id="appendix-F.8.3-2.1.1"><strong>No responder infrastructure and no per-response signatures.</strong>
-The CA reveals a precomputed hash value per period; there is no OCSP responder fleet, responder certificate, or per-check signing operation.
+The CA reveals a precomputed hash value per period, so there is no OCSP responder fleet, responder certificate, or per-check signing operation.
 Ticks are static within a period, self-authenticating, and cacheable by any HTTP intermediary, so distribution is far more robust than a signing responder, the very fragility that made Must-Staple risky to enable.<a href="#appendix-F.8.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="appendix-F.8.3-2.2">
@@ -4416,7 +4486,7 @@ A server refreshes a small value once per period (<a href="#distribution" class=
             <li class="normal" id="appendix-F.8.3-2.4">
               <p id="appendix-F.8.3-2.4.1"><strong>Greenfield enforcement.</strong>
 MTC is new, so there is no legacy soft-fail install base to accommodate.
-Within an MTC ecosystem, enforcement can be mandatory from day one (or made so by marking the anchor extension critical; see <a href="#extension-criticality" class="auto internal xref">Section 6.2</a>), avoiding the transition that stapling never completed.<a href="#appendix-F.8.3-2.4.1" class="pilcrow">¶</a></p>
+Within an MTC ecosystem, enforcement can be mandatory from day one, or made so by marking the anchor extension critical (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>), avoiding the transition that stapling never completed.<a href="#appendix-F.8.3-2.4.1" class="pilcrow">¶</a></p>
 </li>
           </ul>
 <p id="appendix-F.8.3-3">The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency: a server that cannot refresh its tick within a period becomes unusable until it does.
@@ -4434,7 +4504,8 @@ And where Must-Staple binds one certificate to one responder with no fallback, a
 <p id="appendix-F.8.4-1">Beyond the deployment barrier, tick distribution is simpler to operate and more resilient than an OCSP responder.
 The serving path holds no online signing key and no responder certificate.
 It returns precomputed values that are immutable within a period, so it is a static, cacheable, CDN-offloadable, plain-HTTP key-value service (<a href="#distribution" class="auto internal xref">Section 9</a>) with no per-request cryptography and nothing security-critical in the request path.
-A compromised or overloaded tick service can only serve public precomputed values; it cannot mint a false non-revocation statement, unlike a responder whose signing key is a high-value online target.
+A compromised or overloaded tick service can only serve public precomputed values.
+It cannot mint a false non-revocation statement, unlike a responder whose signing key is a high-value online target.
 Relying parties impose no load at all, because they never fetch (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>).
 That removes the responder-in-the-hot-path that made online OCSP a latency, availability, and privacy problem.<a href="#appendix-F.8.4-1" class="pilcrow">¶</a></p>
 <p id="appendix-F.8.4-2">Two qualifications apply.
@@ -4450,7 +4521,8 @@ An OCSP responder outage fails open (relying parties soft-fail and proceed), whe
         <h3 id="name-relationship-to-the-browser">
 <a href="#appendix-F.9" class="section-number selfRef">F.9. </a><a href="#name-relationship-to-the-browser" class="section-name selfRef">Relationship to the Browser Move Away from Online Revocation</a>
         </h3>
-<p id="appendix-F.9-1">The major browsers disabled live OCSP checking and never pushed OCSP stapling to ubiquity; instead they moved to client-side pushed revocation (Chrome's CRLSets <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span>, Mozilla's OneCRL and CRLite <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span>, and Apple's on-device revocation data).
+<p id="appendix-F.9-1">The major browsers disabled live OCSP checking and never pushed OCSP stapling to ubiquity.
+Instead they moved to client-side pushed revocation (Chrome's CRLSets <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span>, Mozilla's OneCRL and CRLite <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span>, and Apple's on-device revocation data).
 A handshake-carried status mechanism might therefore look like a return to an approach the ecosystem already rejected.
 It is not: the reasons for that move are specific, and this mechanism is designed around each of them.<a href="#appendix-F.9-1" class="pilcrow">¶</a></p>
 <ul class="normal">
@@ -4462,7 +4534,7 @@ Here the proof is part of the certificate presentation and hard-fails by constru
           <li class="normal" id="appendix-F.9-2.2">
             <p id="appendix-F.9-2.2.1"><strong>Relying-party privacy.</strong>
 Client-driven OCSP leaked relying-party browsing to CAs.
-Relying parties here never contact the CA (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>); the only fetch is server-side.<a href="#appendix-F.9-2.2.1" class="pilcrow">¶</a></p>
+Relying parties here never contact the CA (<a href="#rp-no-fetch" class="auto internal xref">Section 11.5</a>), and the only fetch is server-side.<a href="#appendix-F.9-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-F.9-2.3">
             <p id="appendix-F.9-2.3.1"><strong>Operator and responder fragility.</strong>
@@ -4502,7 +4574,8 @@ Deploying the mechanism thus requires one of:<a href="#appendix-F.10-3" class="p
         </ol>
 <p id="appendix-F.10-5">The required amendment is narrow and backward-compatible.
 The trailing <code>status_tick</code> occupies zero bytes when the anchor extension is absent, so a certificate not using this mechanism is byte-identical to a base MTCProof, and base MTC verification, the tree, the cosigner, and the log are unchanged (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>, <a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).
-Folding it into the base specification now, while MTC is greenfield, avoids any lasting split between aware and unaware parsers; retrofitting it after wide deployment would be far harder.<a href="#appendix-F.10-5" class="pilcrow">¶</a></p>
+Folding it into the base specification now, while MTC is greenfield, avoids any lasting split between aware and unaware parsers.
+Retrofitting it after wide deployment would be far harder.<a href="#appendix-F.10-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="verification-cost">
@@ -4538,7 +4611,8 @@ The effects above apply equally, and a newly issued certificate is the cheapest 
 <a href="#appendix-G.1" class="section-number selfRef">G.1. </a><a href="#name-dns-based-tick-distribution" class="section-name selfRef">DNS-Based Tick Distribution</a>
         </h3>
 <p id="appendix-G.1-1">An alternative to the HTTP interface (<a href="#distribution" class="auto internal xref">Section 9</a>) is for the CA to publish current ticks via DNS, for example a TXT record at a name derived from <code>tbs_cert_entry_hash</code>, which the authenticating party fetches and embeds in the MTCProof.
-Because the tick is embedded regardless of transport, the relying party's verification is unchanged and the choice is purely between the CA and the authenticating party; it does not affect interoperability.
+Because the tick is embedded regardless of transport, the relying party's verification is unchanged and the choice is purely between the CA and the authenticating party.
+It does not affect interoperability.
 DNS's hierarchical caching suits small, frequently-updated values, letting recursive resolvers serve ticks without CA-operated CDN infrastructure.
 Its apparent costs are addressable: large zones with one record per certificate, and TTL-bounded propagation.
 A programmable authoritative server can synthesize the response for <code>{tbs_cert_entry_hash}._tick.&lt;zone&gt;</code> on demand from the same hash chain state (<a href="#distribution" class="auto internal xref">Section 9</a>), so no per-certificate records are stored.
@@ -4562,11 +4636,13 @@ The surface appeal is that CAs already operate OCSP infrastructure.<a href="#app
 <li class="normal" id="appendix-G.2-3.1">
             <p id="appendix-G.2-3.1.1"><strong>The tick is self-authenticating, so an OCSP signature is pointless or harmful.</strong>
 An OCSP response is a responder-signed status.
-Signing each tick reintroduces exactly the per-response signing load this mechanism is designed to avoid (the OCSP-like per-certificate signatures alternative below; <a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>); leaving it unsigned is not really an OCSP response.<a href="#appendix-G.2-3.1.1" class="pilcrow">¶</a></p>
+Signing each tick reintroduces exactly the per-response signing load this mechanism is designed to avoid, as with the OCSP-like per-certificate signatures alternative below (<a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>).
+Leaving it unsigned is not really an OCSP response.<a href="#appendix-G.2-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-G.2-3.2">
             <p id="appendix-G.2-3.2.1"><strong>It is heavier and less cacheable than a plain GET.</strong>
-The HTTP interface is a static, plain-HTTP, CDN-cacheable key-value fetch with no per-request cryptography; OCSP adds DER request construction, a responder, nonce handling, and signature validation, contradicting the operational-simplicity argument (<a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>).<a href="#appendix-G.2-3.2.1" class="pilcrow">¶</a></p>
+The HTTP interface is a static, plain-HTTP, CDN-cacheable key-value fetch with no per-request cryptography.
+OCSP adds DER request construction, a responder, nonce handling, and signature validation, contradicting the operational-simplicity argument (<a href="#operational-resilience" class="auto internal xref">Appendix F.8.4</a>).<a href="#appendix-G.2-3.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-G.2-3.3">
             <p id="appendix-G.2-3.3.1"><strong>Addressing and semantics do not fit.</strong>
@@ -4619,7 +4695,8 @@ CAs <span class="bcp14">MAY</span> additionally publish the base URL in the CA c
         </h3>
 <p id="appendix-G.4-1">This document carries the anchor in an X.509 certificate extension (id-pe-hashChainAnchor) placed in the extensions field of the TBSCertificateLogEntry, and thus also in the TBSCertificate.
 An alternative is to carry it as an MTCLogEntryExtension, the entry-level extension point defined in <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.2.1" class="relref">Section 5.2.1</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>, rather than as an X.509 extension.
-Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating; the choice is between two extension mechanisms, not between committed and uncommitted storage.<a href="#appendix-G.4-1" class="pilcrow">¶</a></p>
+Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating.
+The choice is between two extension mechanisms, not between committed and uncommitted storage.<a href="#appendix-G.4-1" class="pilcrow">¶</a></p>
 <p id="appendix-G.4-2">In this alternative, a new MTCLogEntryExtensionType (for example, <code>hash_chain_anchor</code>) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and <code>tick_interval</code> from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.2" class="relref">Section 7.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>), rather than from an X.509 extension.<a href="#appendix-G.4-2" class="pilcrow">¶</a></p>
 <p id="appendix-G.4-3">Obtaining the anchor costs neither party any meaningful extra work.
@@ -4638,7 +4715,8 @@ Either way <code>tbs_cert_entry_hash</code> remains well-defined and identical f
 <p id="appendix-G.4-5">Excluding the anchor does, however, remove the uniqueness the tick URL relies on.
 <code>serialNumber</code> is omitted from the TBSCertificateLogEntry, its value being authenticated instead by the inclusion proof index (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.6" class="relref">Section 12.6</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 <code>tbs_cert_entry_data</code> therefore carries nothing that distinguishes two entries certifying the same subject, public key, validity, and extensions, which a CA that rounds <code>notBefore</code> readily produces for a repeated issuance request.
-In the primary design the anchor separates such entries, each carrying an independent random value; in this alternative it does not.
+In the primary design the anchor separates such entries, each carrying an independent random value.
+In this alternative it does not.
 Both would then resolve to a single tick URL while holding different hash chains, and the authenticating party for whichever entry the CA does not serve there would reject every tick it fetched (<a href="#verification" class="auto internal xref">Section 8</a>).
 A base specification adopting the entry-extension encoding <span class="bcp14">MUST</span> therefore address ticks by a value that covers the anchor, in place of <code>tbs_cert_entry_hash</code>.
 One candidate is the base specification's own <code>entry_hash</code>, the Merkle leaf hash <code>MTH({entry})</code>, which is computed over the entry extensions as well as <code>tbs_cert_entry_data</code> (<a href="#distribution" class="auto internal xref">Section 9</a>).<a href="#appendix-G.4-5" class="pilcrow">¶</a></p>
@@ -4649,7 +4727,8 @@ It is also more compact, because an MTCLogEntryExtension uses a short TLS type-a
 <li class="normal" id="appendix-G.4-8.1">
             <p id="appendix-G.4-8.1.1"><strong>No criticality lever.</strong>
 Entry extensions have no critical marking, and relying parties ignore unrecognized ones (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.5" class="relref">Section 12.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
-The transition strategy of marking the X.509 extension critical to force unaware relying parties to hard-fail (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>) is therefore unavailable; enforcement rests entirely on relying parties that implement this mechanism.<a href="#appendix-G.4-8.1.1" class="pilcrow">¶</a></p>
+The transition strategy of marking the X.509 extension critical to force unaware relying parties to hard-fail (<a href="#extension-criticality" class="auto internal xref">Section 6.2</a>) is therefore unavailable.
+Enforcement rests entirely on relying parties that implement this mechanism.<a href="#appendix-G.4-8.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="appendix-G.4-8.2">
             <p id="appendix-G.4-8.2.1"><strong>Not visible to generic X.509 tooling.</strong>
@@ -4659,7 +4738,7 @@ The anchor no longer appears in the TBSCertificate, so only MTC-aware software c
             <p id="appendix-G.4-8.3.1"><strong>The log-signing infrastructure must be MTCRS-aware.</strong>
               <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.4" class="relref">Section 5.4</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> forbids a CA cosigner from signing a subtree containing an entry with an extension_type it does not recognize.
 A <code>hash_chain_anchor</code> entry extension therefore forces the CA's log and cosigner components to recognize it before they can sign any subtree containing an MTCRS certificate.
-With the X.509 extension, the anchor rides inside the entry's <code>tbs_cert_entry_data</code> as ordinary certificate bytes, so that recognition gate never fires; the gate concerns the entry type and extension_type, not X.509 extensions.
+With the X.509 extension, the anchor rides inside the entry's <code>tbs_cert_entry_data</code> as ordinary certificate bytes, so that recognition gate never fires, because the gate concerns the entry type and extension_type, not X.509 extensions.
 The generic log and cosigner infrastructure therefore remain MTCRS-agnostic, and only the issuance front-end and the tick distribution service (<a href="#distribution" class="auto internal xref">Section 9</a>) need be MTCRS-aware.<a href="#appendix-G.4-8.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
@@ -4673,14 +4752,15 @@ A base specification that is willing to make its entry-extension registry and co
 <a href="#appendix-G.5" class="section-number selfRef">G.5. </a><a href="#name-tls-extension-or-status_req" class="section-name selfRef">TLS Extension or status_request Reuse</a>
         </h3>
 <p id="appendix-G.5-1">Another option is to carry the tick in TLS rather than in the MTCProof.
-That means either a new TLS or CertificateEntry extension, or the existing <code>status_request</code> extension (defined for OCSP stapling), whose <code>CertificateStatusType</code> enum is extensible beyond OCSP; in TLS 1.3 it would ride in the <code>CertificateEntry</code> extensions.<a href="#appendix-G.5-1" class="pilcrow">¶</a></p>
+That means either a new TLS or CertificateEntry extension, or the existing <code>status_request</code> extension (defined for OCSP stapling), whose <code>CertificateStatusType</code> enum is extensible beyond OCSP.
+In TLS 1.3 it would ride in the <code>CertificateEntry</code> extensions.<a href="#appendix-G.5-1" class="pilcrow">¶</a></p>
 <p id="appendix-G.5-2">All such approaches share a disqualifying property: a TLS-carried status is opt-in and strippable.
 A separate extension can be omitted by a middlebox or misconfigured server, and <code>status_request</code> is requested by the client and may be omitted by the server.
-In either case there is no signal that one was expected, forcing relying parties to soft-fail, exactly the failure mode analysed in <a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>.
+In either case there is no signal that one was expected, forcing relying parties to soft-fail, exactly the failure mode analyzed in <a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.8</a>.
 Embedding the tick in the MTCProof instead makes it inseparable from the certificate's acceptance, so stripping forces a hard failure rather than a silent soft-fail (<a href="#why-embed" class="auto internal xref">Appendix F.7</a>).<a href="#appendix-G.5-2" class="pilcrow">¶</a></p>
 <p id="appendix-G.5-3">Two further points weigh against a TLS encoding.
 A new TLS extension type requires IANA registration and TLS-stack changes, whereas embedding in the MTCProof needs no TLS-layer change beyond MTC support itself.
-And <code>status_request</code> specifically carries <code>OCSPResponse</code> semantics (a signed responder assertion); repurposing it for a bare, self-authenticating hash value would be a poor semantic fit.<a href="#appendix-G.5-3" class="pilcrow">¶</a></p>
+And <code>status_request</code> specifically carries <code>OCSPResponse</code> semantics, a signed responder assertion, so repurposing it for a bare, self-authenticating hash value would be a poor semantic fit.<a href="#appendix-G.5-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="tick-proof-extension">
@@ -4690,7 +4770,8 @@ And <code>status_request</code> specifically carries <code>OCSPResponse</code> s
         </h3>
 <p id="appendix-G.6-1">This document carries the tick in the <span class="bcp14">RECOMMENDED</span> trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>).
 Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the <code>proof_extensions</code> structure and carry the HashChainTick as one of its entries.
-<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a> defines that field and the exact hash_chain_tick encoding; when the id-pe-hashChainAnchor extension is present, the MTCProof <span class="bcp14">MUST</span> contain exactly one hash_chain_tick proof extension.<a href="#appendix-G.6-1" class="pilcrow">¶</a></p>
+<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a> defines that field and the exact hash_chain_tick encoding.
+When the id-pe-hashChainAnchor extension is present, the MTCProof <span class="bcp14">MUST</span> contain exactly one hash_chain_tick proof extension.<a href="#appendix-G.6-1" class="pilcrow">¶</a></p>
 <p id="appendix-G.6-2">This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
 Those benefits come at a cost: as a general, unauthenticated, "ignore if unknown" channel it introduces the abuse surface discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.5</a>, namely bloat, covert channels, and a strippable soft-fail for any misuse.
 This document treats that surface as unjustified for a single tick, and therefore recommends the trailing field (<a href="#tick-trailing-field" class="auto internal xref">Section 7.1.1</a>) unless a concrete need for general extensibility exists.<a href="#appendix-G.6-2" class="pilcrow">¶</a></p>
@@ -4702,7 +4783,8 @@ This document treats that surface as unjustified for a single tick, and therefor
 <a href="#appendix-G.7" class="section-number selfRef">G.7. </a><a href="#name-shorter-certificate-lifetim" class="section-name selfRef">Shorter Certificate Lifetimes</a>
         </h3>
 <p id="appendix-G.7-1">The simplest revocation strategy is to make certificates short-lived enough that revocation is unnecessary.
-The general case for functional revocation over passive expiry is made once, in <a href="#revocation-vs-expiry" class="auto internal xref">Appendix F.1</a>; this section only catalogues the specific operational costs that nonetheless motivate longer lifetimes:<a href="#appendix-G.7-1" class="pilcrow">¶</a></p>
+The general case for functional revocation over passive expiry is made once, in <a href="#revocation-vs-expiry" class="auto internal xref">Appendix F.1</a>.
+This section only catalogs the specific operational costs that nonetheless motivate longer lifetimes:<a href="#appendix-G.7-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="appendix-G.7-2.1">
             <p id="appendix-G.7-2.1.1"><strong>Issuance infrastructure load:</strong> Shorter lifetimes require more frequent issuance.
@@ -4721,7 +4803,8 @@ Not all deployments can support arbitrarily short lifetimes.<a href="#appendix-G
 </li>
         </ul>
 <p id="appendix-G.7-3">Matching a one-hour period's revocation latency with lifetime alone would mean certificates expiring about every two hours.
-That attains comparable worst-case exposure but does not remove the cost; it moves it to the heavier places catalogued above.
+That attains comparable worst-case exposure but does not remove the cost.
+It moves it to the heavier places cataloged above.
 For the CA that means a roughly hundredfold increase in issuance, tree cosigning, and log growth, and for relying parties the same increase in trusted-subtree sync, discarding the batched compactness MTC exists to provide.
 It also imposes a stricter availability dependency, since re-issuance (key generation, CSR, challenge, log inclusion) is far heavier to keep continuously live than a lightweight tick fetch.
 Hash chain revocation buys the same fine-grained revocation for a few microseconds of hashing instead, which is why the microseconds are the cheap side of the trade, not over-engineering.<a href="#appendix-G.7-3" class="pilcrow">¶</a></p>
@@ -4750,7 +4833,7 @@ A mechanism that depends on the relying party having an up-to-date feed cannot p
 Hash chain revocation uses only the existing CA trust relationship.<a href="#appendix-G.8-3.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="appendix-G.8-4">These mechanisms remain valuable as defense-in-depth and as a fallback for the hash chain mechanism, as discussed in <a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>.<a href="#appendix-G.8-4" class="pilcrow">¶</a></p>
+<p id="appendix-G.8-4">These mechanisms remain valuable as defense in depth and as a fallback for the hash chain mechanism, as discussed in <a href="#interaction-with-base-mtc-revocation" class="auto internal xref">Section 11.7</a>.<a href="#appendix-G.8-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="per-cert-signatures">
@@ -4784,7 +4867,8 @@ Hash chains require only a hash function.<a href="#appendix-G.9-3.3.1" class="pi
 <a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
       </h2>
 <p id="appendix-H-1">The hash chain revocation concept is based on Silvio Micali's foundational work on efficient certificate revocation <span>[<a href="#MICALI" class="cite xref">MICALI</a>]</span>.
-The name "MTCRS" is a nod to Micali's Certificate Revocation System (CRS); and coincidentally, "RS" also happens to be the initials of the author of this document.<a href="#appendix-H-1" class="pilcrow">¶</a></p>
+The name "MTCRS" is a nod to Micali's Certificate Revocation System (CRS).
+Coincidentally, "RS" also happens to be the initials of the author of this document.<a href="#appendix-H-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="change-log">
