@@ -802,6 +802,7 @@ Using these inputs, the verifier performs the following steps:
    A relying party MAY additionally impose a local ceiling well below 65,535.
    It can compute the certificate's implied maximum period as `ceil((notAfter - notBefore) / tick_interval)` from the certificate alone, and reject with a bad_certificate error if that exceeds its configured limit.
    Implementations for which even the structural bound is too costly, such as constrained devices, SHOULD configure such a limit and SHOULD apply it before beginning the iteration, so that the check costs one division rather than the hashing it avoids ({{verification-cost}}).
+   The consequences of setting that limit are collected in {{rp-policy}}.
 
 6. Compare the result with anchor from the HashChainAnchorInfo.
    If they do not match, reject the certificate with a bad_certificate error.
@@ -1440,6 +1441,13 @@ Acceptance window:
 Trusted time:
 : The acceptance window is anchored to the relying party's clock, so revocation timeliness is bounded by clock integrity.
   A relying party that requires tight revocation SHOULD source time from a trusted, integrity-protected clock and keep its window narrow ({{clock-skew}}).
+
+Maximum verification cost:
+: Verification hashes forward up to `tick.period` times, which the 16-bit period field caps at 65,535 for any certificate from any CA ({{construction}}).
+  A relying party MAY set a lower local ceiling on a certificate's implied maximum period and reject anything above it before hashing, and a constrained implementation SHOULD do so (step 5 of {{verification}}, {{verification-cost}}).
+  This lever differs from the acceptance window in kind, not just in degree.
+  A window that is too narrow rejects a certificate until its next tick refresh, whereas a ceiling below what the deployment's CAs actually issue rejects those certificates for their whole lifetime.
+  It is therefore set against the `tick_interval` values a relying party expects to encounter, not against its own preferences alone.
 
 Cross-checking base MTC revocation:
 : A relying party that also supports the base MTC revoked-ranges mechanism SHOULD check both.
