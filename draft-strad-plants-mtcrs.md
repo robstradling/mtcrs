@@ -712,10 +712,18 @@ The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to 
 All of them are obtained from the certificate and the trust anchor being validated against.
 No data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
 
-- **`issuer_id`:** the TrustAnchorID of the trust anchor against which the certificate is being validated ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
-- **`serial_number`:** the certificate's serial number, read directly from the certificate ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
-- **`tick_interval` and anchor:** read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension. If `tickInterval` is absent, use its default of 3600 ({{assertion-integration}}).
-- **`not_before`:** the `notBefore` time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
+`issuer_id`:
+: The TrustAnchorID of the trust anchor against which the certificate is being validated ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+
+`serial_number`:
+: The certificate's serial number, read directly from the certificate ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
+
+`tick_interval` and anchor:
+: Read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension.
+  If `tickInterval` is absent, use its default of 3600 ({{assertion-integration}}).
+
+`not_before`:
+: The `notBefore` time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
 
 Using these inputs, the verifier performs the following steps:
 
@@ -840,16 +848,16 @@ That channel is therefore the natural carrier for the base URL, and no locator n
 
 A CA MUST make the tick base URL available through at least one of the following mechanisms, and an authenticating party MUST support at least the provisioning-channel mechanism appropriate to how it obtains certificates:
 
-- **Provisioning channel (primary).**
-  The base URL is delivered when the certificate is provisioned.
+Provisioning channel (primary):
+: The base URL is delivered when the certificate is provisioned.
   {{acme-integration}} defines this binding for ACME.
   Each other issuance protocol needs an analogous binding, which this document does not define.
   A CA issuing over such a protocol MUST either specify one (for example, in a short companion document registering the equivalent of the ACME order field of {{acme-integration}}) or publish the base URL through the CA certificate SIA below.
   A provisioning binding is moreover required for unguessable tick URLs ({{unguessable-urls}}), which the SIA cannot carry.
   A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.
 
-- **CA certificate SIA (optional).**
-  The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
+CA certificate SIA (optional):
+: The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
   Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}).
   Its value is therefore as a published fallback and tooling record.
@@ -939,10 +947,31 @@ The response Content-Type MUST be `application/octet-stream`.
 
 The CA uses HTTP status codes ({{!RFC9110}}) as follows:
 
-- **200 (OK):** the response body is the current HashChainTick for the entry. During period 0 the current tick is the public anchor paired with period 0 ({{revealing-values}}), so a CA whose distribution service is already provisioned for the entry MAY serve it. This is permitted but not required. The period 0 grace exists precisely so that provisioning need not be complete at the instant of issuance ({{period-zero-rationale}}), and an authenticating party can construct that tick from the anchor committed in its own certificate in any case.
-- **404 (Not Found):** the CA is not serving a current tick for this entry. This covers both a revoked certificate, for which the CA has stopped revealing values ({{revoking}}), and a tick that is merely not yet available, as during the period 0 grace ({{period-zero-rationale}}). The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation. It means only that no fresh tick was obtained on this attempt. The authenticating party continues to serve its most recent still-valid tick and MAY retry (see the Operational Model below).
-- **410 (Gone), optional:** the server knows that no further tick will ever be published for this entry, because the certificate has been revoked ({{revoking}}), or because it has expired and tick publication has stopped ({{revealing-values}}). A CA MAY return 410 in place of 404 where it holds that knowledge, but is never required to. A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given ({{delegated-distribution}}). A 410 is a diagnostic hint and nothing more. It is unsigned and MAY be carried over plain HTTP ({{distribution}}), so an on-path observer or a faulty distributor can forge one. An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window (see the Operational Model below). Nor may its absence be read the other way: a plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor MUST NOT infer non-revocation from the lack of a 410.
-- **429 (Too Many Requests) or 503 (Service Unavailable):** transient overload. The authenticating party retries according to the Retry-After header ({{load-distribution}}).
+200 (OK):
+: The response body is the current HashChainTick for the entry.
+  During period 0 the current tick is the public anchor paired with period 0 ({{revealing-values}}), so a CA whose distribution service is already provisioned for the entry MAY serve it.
+  This is permitted but not required.
+  The period 0 grace exists precisely so that provisioning need not be complete at the instant of issuance ({{period-zero-rationale}}), and an authenticating party can construct that tick from the anchor committed in its own certificate in any case.
+
+404 (Not Found):
+: The CA is not serving a current tick for this entry.
+  This covers both a revoked certificate, for which the CA has stopped revealing values ({{revoking}}), and a tick that is merely not yet available, as during the period 0 grace ({{period-zero-rationale}}).
+  The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation.
+  It means only that no fresh tick was obtained on this attempt.
+  The authenticating party continues to serve its most recent still-valid tick and MAY retry (see the Operational Model below).
+
+410 (Gone), optional:
+: The server knows that no further tick will ever be published for this entry, because the certificate has been revoked ({{revoking}}), or because it has expired and tick publication has stopped ({{revealing-values}}).
+  A CA MAY return 410 in place of 404 where it holds that knowledge, but is never required to.
+  A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given ({{delegated-distribution}}).
+  A 410 is a diagnostic hint and nothing more.
+  It is unsigned and MAY be carried over plain HTTP ({{distribution}}), so an on-path observer or a faulty distributor can forge one.
+  An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window (see the Operational Model below).
+  Nor may its absence be read the other way: a plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor MUST NOT infer non-revocation from the lack of a 410.
+
+429 (Too Many Requests) or 503 (Service Unavailable):
+: Transient overload.
+  The authenticating party retries according to the Retry-After header ({{load-distribution}}).
 
 Any other status code carries its ordinary HTTP semantics ({{!RFC9110}}).
 An authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.
@@ -1423,14 +1452,21 @@ The alternative, no in-band revocation at all, instead makes the ecosystem depen
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
 A relying party checks the non-revocation proof ({{verification}}) only when it validates the certificate, which happens during a full TLS handshake.
-Two common TLS behaviors mean this check does not recur for the life of a connection or a resumed session.
+The following TLS behaviors mean this check does not recur for the life of a connection or a resumed session.
 The effective client-side revocation latency is therefore bounded not by `tick_interval` alone but by how long a client keeps or resumes a connection:
 
-- **Established connections.** Once a full handshake completes, the certificate, and hence the tick, is not re-evaluated for the lifetime of that connection. A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
+Established connections:
+: Once a full handshake completes, the certificate, and hence the tick, is not re-evaluated for the lifetime of that connection.
+  A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
 
-- **Session resumption.** A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked. A client may therefore resume without re-checking revocation for as long as its session tickets remain usable. TLS 1.3 caps a ticket's lifetime at seven days ({{Section 4.7.1 of !RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
+Session resumption:
+: A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked.
+  A client may therefore resume without re-checking revocation for as long as its session tickets remain usable.
+  TLS 1.3 caps a ticket's lifetime at seven days ({{Section 4.7.1 of !RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
 
-- **Renegotiation.** TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick. There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
+Renegotiation:
+: TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick.
+  There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
 
 The effective latency before a revocation takes effect at a given client is therefore approximately the maximum of `tick_interval`, the remaining lifetime of any established connection, and the client's session-resumption window.
 A deployment that wants revocation to take effect within about one `tick_interval` SHOULD bound the session-ticket lifetime, and where practical the lifetime of long-lived connections, to a value near `tick_interval`.
