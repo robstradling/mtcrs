@@ -676,35 +676,41 @@ The field is not a bare optional field, since the base MTCProof has no discrimin
 It is instead a variant selected by whether the entry carries a hash chain anchor ({{assertion-integration}}), occupying zero bytes when it does not:
 
 ~~~tls-presentation
+enum { absent(0), present(1) } AnchorPresence;
+
 struct {
     MTCLogEntryExtension extensions<0..2^16-1>;
     uint48 start;
     uint48 end;
     HashValue inclusion_proof<0..2^16-1>;
     SubtreeSignature signatures<0..2^16-1>;
-    select (certificate_has_anchor) {
-        case false: Empty;
-        case true:  HashChainTick;
+    select (anchor_presence) {
+        case absent:  Empty;
+        case present: HashChainTick;
     } status_tick;
 } MTCProof;
 ~~~
 
-certificate_has_anchor is the contextual boolean "the entry carries a hash chain anchor", read from whichever home the deployment uses: the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}).
+anchor_presence is an AnchorPresence value meaning "the entry carries a hash chain anchor", determined from whichever home the deployment uses: the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}).
+It is not itself encoded anywhere in the MTCProof.
+No byte of the structure carries it, so the present case adds exactly the HashChainTick and nothing else.
+
 This discriminant is not a field of the MTCProof, unlike the base specification's in-structure selects (for example the `select (type)` in {{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}, whose discriminant is a preceding field of the same structure).
 It is instead a property of the enclosing certificate, and it is well-defined for the same reason the base verifier can already read it.
 An MTCProof is never decoded standalone.
 It is only ever parsed as the `signatureValue` of a specific certificate, and {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} already parses it strictly in that certificate context, reconstructing the entry and its extensions from the certificate to check the inclusion proof.
 Whether the anchor is present is therefore known before `status_tick` is read, from exactly the data the base procedure already has in hand.
 
-No new parsing capability is introduced.
-This is the same context-dependent decoding TLS itself relies on, where a structure's contents depend on the context in which it appears ({{!RFC9846}}).
-The false case reuses the base specification's own Empty type ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which it defines for the same purpose in the MTCLogEntry select, so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
+No new parsing capability is introduced, and the construction is within the presentation language as specified.
+{{Section 3.8 of !RFC9846}} requires only that the selector be an enumerated type, which AnchorPresence is, and states that the mechanism by which the variant is selected at runtime is not prescribed.
+An externally determined selector is moreover what TLS itself does in the structure that carries this very MTCProof: the CertificateEntry of {{Section 4.5.1 of !RFC9846}} selects on `certificate_type`, which is negotiated by extension rather than encoded in the structure.
+The absent case reuses the base specification's own Empty type ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which it defines for the same purpose in the MTCLogEntry select, so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
 
 This resolves precisely the "extra data after the MTCProof" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
-- If the entry carries a hash chain anchor (the true case), exactly one HashChainTick (2 + HASH_SIZE bytes, or 34 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there.
+- If the entry carries a hash chain anchor (the present case), exactly one HashChainTick (2 + HASH_SIZE bytes, or 34 bytes for SHA-256) MUST immediately follow the signatures vector, and the `signatureValue` MUST end there.
   A relying party MUST reject the certificate if any bytes remain after this HashChainTick, or if the `signatureValue` ends before a complete HashChainTick has been read.
-- If the entry does not carry a hash chain anchor (the false case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
+- If the entry does not carry a hash chain anchor (the absent case), `status_tick` is Empty and the original rule is unchanged: the `signatureValue` MUST end immediately after the signatures vector, with no trailing bytes.
 
 A relying party predating the amendment would reject the certificate at the MTCProof parsing stage.
 Such a relying party could not verify hash chain revocation in any case.
@@ -2461,7 +2467,7 @@ Each is a lookup in a list the party decodes regardless.
 An authenticating party likewise reads it from the certificate it already holds, and preserves the entry extensions verbatim when it rewrites the `signatureValue` to install a fresh tick ({{distribution}}).
 Disturbing them would break the inclusion proof, so the error is self-detecting.
 
-One detail is in fact simpler: `certificate_has_anchor`, the discriminant of the trailing `status_tick` field ({{tick-trailing-field}}), becomes a preceding field of the same structure rather than a property of the enclosing certificate, matching the base specification's own in-structure selects.
+One detail is in fact simpler: `anchor_presence`, the discriminant of the trailing `status_tick` field ({{tick-trailing-field}}), can be derived from a preceding field of the same structure rather than from the enclosing certificate, matching the base specification's own in-structure selects.
 The costs of this alternative lie elsewhere, as below.
 
 This changes what `tbs_cert_entry_hash` ({{distribution}}) covers, though not its role.
