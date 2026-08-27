@@ -118,6 +118,7 @@ Without revocation, exposure to key compromise or certificate misissuance is bou
 Relying parties that have them may fall back to out-of-band systems such as {{CRLite}} or {{CRLSets}}, but these are vendor-controlled and not universal, and no in-band mechanism exists.
 
 This document defines such a mechanism based on hash chains {{MICALI}}.
+That primitive is thirty years old and never took hold in the Web PKI, for reasons of delivery rather than cryptography that Merkle Tree Certificates remove ({{why-crs-succeeds}}).
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
 For each non-revoked certificate, once per tick interval (e.g., every hour), the CA reveals the previous hash chain value, walking the committed hash chain backward.
 To revoke a certificate, the CA simply stops revealing values ({{ca-operation}}).
@@ -151,6 +152,7 @@ Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and 
 This mechanism is designed to layer onto the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} with a single required change.
 {{base-spec-amendments}} collects what this document asks of the base specification, and {{open-questions}} the design choices it leaves open for the working group to settle.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
+A reader wanting the shape of the mechanism before its details will find a non-normative walk-through of one certificate's lifecycle in {{overview}}.
 
 This document is published as Experimental to gather implementation and deployment experience with hash chain revocation for Merkle Tree Certificates.
 The author's intent is that it advance to the Standards Track if the PLANTS working group is willing to adopt it, ideally with the single base-specification change it requests ({{base-spec-amendments}}) folded into the base MTC specification itself.
@@ -567,7 +569,7 @@ id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
     security(5) mechanisms(5) pkix(7) pe(1) TBD }
 ~~~
 
-The extension value contains the DER encoding of the following ASN.1 structure:
+The extension value contains the DER encoding of the following ASN.1 structure, for which {{asn1-module}} gives the complete module:
 
 ~~~asn.1
 HashChainAnchorInfo ::= SEQUENCE {
@@ -629,6 +631,8 @@ An MTC ecosystem in which all relying parties are expected to support hash chain
 Marking the extension critical is the transition lever that forces relying parties unaware of this mechanism to hard-fail rather than silently ignore it.
 The entry-extension encoding ({{anchor-entry-extension}}) lacks this lever.
 During a transition in which not all relying parties yet implement this mechanism, the base MTC revoked-ranges mechanism and external revocation systems continue to provide coverage, and a root program MAY mandate critical marking once adoption is deemed sufficient.
+Criticality is one of two levers governing how this mechanism enters an ecosystem that does not yet implement it everywhere.
+{{deployment-transition}} treats it alongside the other, which is the MTCProof amendment itself.
 
 # Certificate Presentation {#cert-format}
 
@@ -2318,7 +2322,7 @@ It is embedded directly in the MTCProof (the certificate's `signatureValue`) rat
    Stripping the tick therefore forces a hard failure rather than the silent soft-fail that let a stripped OCSP staple pass ({{ocsp-stapling-comparison}}): the guarantee is that revocation status cannot be dropped undetectably, not that the bytes are physically immovable.
 
 2. **No new protocol machinery:** No TLS CertificateEntry extension or other signaling mechanism is needed.
-   The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support.
+   The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support ({{tls-use}}).
 
 3. **Safe to update dynamically:** The MTCProof is not committed to the Merkle Tree, and only the TBSCertificateLogEntry is.
    The authenticating party can freely replace the `signatureValue` each period without invalidating the inclusion proof or cosignatures.
