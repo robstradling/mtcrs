@@ -957,7 +957,7 @@ Provisioning channel (primary):
 : The base URL is delivered when the certificate is provisioned.
   {{acme-integration}} defines this binding for ACME.
   Each other issuance protocol needs an analogous binding, which this document does not define.
-  A CA issuing over such a protocol MUST either specify one (for example, in a short companion document registering the equivalent of the ACME order field of {{acme-integration}}) or publish the base URL through the CA certificate SIA below.
+  A CA issuing over such a protocol MUST either specify one (for example, in a short companion document registering the equivalent of the ACME fields of {{acme-integration}}) or publish the base URL through the CA certificate SIA below.
   A provisioning binding is moreover required for unguessable tick URLs ({{unguessable-urls}}), which the SIA cannot carry.
   A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.
 
@@ -986,22 +986,32 @@ A CA that migrates its tick infrastructure can therefore update the base URL it 
 
 ## ACME Integration {#acme-integration}
 
-When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the ACME order object as a new field:
+When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the `meta` object of its ACME directory ({{Section 7.1.1 of !RFC8555}}) as a new field:
 
 ~~~json
 "tickBaseURL": "https://mtcrs.cdn.ca.example"
 ~~~
 
 The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}).
-A single value covers all of the CA's certificates and lets the CA direct authenticating parties to a CDN, regional mirror, or any origin, without adding bytes to the certificate or log entry.
 
-If the `tickBaseURL` field is absent from the ACME order, the authenticating party obtains the base URL through another mechanism in {{discovery}} (for example, the CA certificate SIA).
+The directory is the right home for it because the value is per-CA, not per-certificate: a single base URL covers every certificate that CA issues ({{discovery}}).
+Carrying it there means an ACME client fetches it once, from an object it already retrieves and can cache, rather than receiving the same constant on every order.
+It also lets the CA direct authenticating parties to a CDN, regional mirror, or any other origin, without adding bytes to the certificate or the log entry.
 
-A CA using the unguessable-URL scheme ({{unguessable-urls}}) instead carries the complete per-certificate URL in a `tickURL` field in place of `tickBaseURL`.
-The two fields are mutually exclusive for a given order.
-An order carries `tickBaseURL` (derivable scheme) or `tickURL` (unguessable scheme), never both.
+If the `tickBaseURL` field is absent from the directory metadata, the authenticating party obtains the base URL through another mechanism in {{discovery}}, that is, the CA certificate SIA.
 
-CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL during certificate provisioning.
+A CA using the unguessable-URL scheme ({{unguessable-urls}}) does not publish `tickBaseURL`, because no single per-CA value can address a token-bearing URL.
+It instead returns the complete per-certificate URL in a `tickURL` field of the ACME order object:
+
+~~~json
+"tickURL":
+  "https://mtcrs.cdn.ca.example/.well-known/mtcrs/v1/tick/9f86d0..."
+~~~
+
+The two fields therefore live in different objects and cannot collide: `tickBaseURL` is a property of the CA and `tickURL` a property of one issuance.
+A CA MUST NOT publish `tickBaseURL` while issuing token-addressed ticks, since an authenticating party that used it would derive an address the CA does not serve.
+
+CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL, or the complete per-certificate URL, during certificate provisioning.
 
 ## Unguessable Tick URLs {#unguessable-urls}
 
@@ -1034,7 +1044,7 @@ The CA MAY generate the token by either of the following methods:
   The CA retains superseded keys for decryption during an overlap window, and because Merkle Tree Certificates are renewed frequently, rotated tokens propagate through renewal, as for base-URL migration ({{discovery}}).
 
 When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
-For ACME, the order object carries the full URL in a `tickURL` field in place of `tickBaseURL` ({{acme-integration}}).
+For ACME, the order object carries the full URL in a `tickURL` field, and the CA does not publish a `tickBaseURL` in its directory metadata ({{acme-integration}}).
 The CA-certificate SIA ({{discovery}}) conveys only the per-CA base URL, which cannot locate a token-addressed tick, and only the provisioning channel carries the token.
 The SIA therefore provides no operational value when unguessable tick URLs are used, and a CA that uses them SHOULD NOT publish the id-ad-mtcrsTicks access method.
 
@@ -1690,18 +1700,28 @@ IANA is requested to register the following entry in the "Well-Known URIs" regis
 | Status | permanent |
 | Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}) |
 
+## ACME Directory Metadata Fields
+
+IANA is requested to register the following entry in the "ACME Directory Metadata Fields" registry ({{Section 9.7.6 of !RFC8555}}):
+
+| Field Name    | Field Type | Reference     |
+|---------------|------------|---------------|
+| `tickBaseURL` | string     | This document |
+
+This field appears in the `meta` object of an ACME directory and carries the CA's tick base URL ({{acme-integration}}).
+It is registered here rather than as an order object field because its value is a property of the CA rather than of any one issuance.
+
 ## ACME Order Object Fields
 
-IANA is requested to register the following entries in the "ACME Order Object Fields" registry ({{!RFC8555}}):
+IANA is requested to register the following entry in the "ACME Order Object Fields" registry ({{Section 9.7.2 of !RFC8555}}):
 
-| Field Name  | Field Type | Configurable | Reference     |
-|-------------|------------|--------------|---------------|
-| `tickBaseURL` | string     | false        | This document |
-| `tickURL`     | string     | false        | This document |
+| Field Name | Field Type | Configurable | Reference     |
+|------------|------------|--------------|---------------|
+| `tickURL`  | string     | false        | This document |
 
-Both fields are set by the server in the order object, and neither is configurable by the client in a newOrder request.
-A CA uses `tickBaseURL` for the derivable tick URL scheme ({{acme-integration}}) and `tickURL` for the unguessable per-certificate URL scheme ({{unguessable-urls}}).
-The two are mutually exclusive for a given order.
+This field is set by the server in the order object and is not configurable by the client in a newOrder request.
+A CA uses it for the unguessable per-certificate URL scheme ({{unguessable-urls}}), in which the tick URL cannot be derived from a per-CA base URL.
+A CA that publishes `tickURL` does not publish `tickBaseURL` ({{acme-integration}}).
 
 ## MTCProof Extension Type
 
