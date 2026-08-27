@@ -141,7 +141,7 @@ This approach achieves the following properties:
   No new trust relationships or authenticated channels are needed.
 
 - **Minimal overhead:** A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
-  The committed anchor adds about 50 bytes to each log entry ({{assertion-integration}}).
+  The committed anchor adds about 50 bytes to each log entry ({{anchor-extension}}).
 
 These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
 First, enforcement introduces an availability dependency: because an authenticating party must refresh its tick each period, a tick-distribution outage that outlasts the certificate's buffer renders it unusable ({{availability-considerations}}).
@@ -161,7 +161,7 @@ The author's intent is that it advance to the Standards Track if the PLANTS work
 
 {::boilerplate bcp14-tagged}
 
-This document uses the TLS presentation language defined in {{Section 3 of !RFC9846}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{assertion-integration}}).
+This document uses the TLS presentation language defined in {{Section 3 of !RFC9846}} for the HashChainInput ({{encoding}}), HashChainTick ({{cert-format}}), and amended MTCProof ({{tick-trailing-field}}) structures, and ASN.1 {{X.690}} for the certificate extension it defines ({{anchor-extension}}).
 The HashValue and TrustAnchorID types are those of {{!I-D.ietf-plants-merkle-tree-certs}}.
 
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -191,7 +191,7 @@ Seed:
 
 Anchor:
 : The last value of a hash chain, `h[hash_chain_length]`.
-  It is public, is committed to the Merkle Tree as part of the certificate, and is the value against which every tick is verified ({{assertion-integration}}).
+  It is public, is committed to the Merkle Tree as part of the certificate, and is the value against which every tick is verified ({{anchor-extension}}).
 
 Period:
 : One interval of `tick_interval` seconds.
@@ -285,7 +285,7 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
 1. **Issuance.**
    For each log entry, the CA generates a secret random seed `h[0]` and hashes it forward `hash_chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
    The final value `h[5]` is the *anchor*.
-   The CA commits it into the certificate as the id-pe-hashChainAnchor extension ({{assertion-integration}}).
+   The CA commits it into the certificate as the id-pe-hashChainAnchor extension ({{anchor-extension}}).
    Because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.
 
 2. **Per-period reveal.**
@@ -324,7 +324,7 @@ The hash chain mechanism introduces the following additional parameter:
   It sets the granularity of revocation but not the latency, which is about two intervals under the default acceptance window ({{clock-skew}}).
   This MUST be greater than zero.
   The RECOMMENDED and default value is 3600 (one hour).
-  {{assertion-integration}} specifies how this default is encoded so that a certificate using it carries no `tick_interval` bytes.
+  {{anchor-extension}} specifies how this default is encoded so that a certificate using it carries no `tick_interval` bytes.
   The number of periods in a certificate's lifetime is `hash_chain_length = ceil(lifetime / tick_interval)`.
 
 Because a tick carries its period in a 16-bit field ({{cert-format}}), `hash_chain_length` MUST NOT exceed 65,535, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
@@ -351,7 +351,7 @@ A CA MUST NOT include the id-pe-hashChainAnchor extension, and MUST NOT use this
 Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}), deployments SHOULD choose a validity period substantially longer than twice `tick_interval` so that revocation is effective for most of the certificate's life.
 
 `tick_interval` is a per-certificate value.
-It is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree ({{assertion-integration}}), rather than being a CA-wide configuration constant.
+It is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree ({{anchor-extension}}), rather than being a CA-wide configuration constant.
 This is deliberate.
 Because a relying party verifies offline and has no provisioning relationship with the CA, the only way it can obtain `tick_interval` without a new authenticated distribution channel is to read it from the certificate.
 Carrying it in the tree-committed extension makes it both discoverable by the relying party and self-authenticating.
@@ -376,7 +376,7 @@ At certificate issuance time, for each log entry, the CA generates a hash chain 
 
 3. The anchor is `h[hash_chain_length]`, the final value in the hash chain.
 
-The anchor is included in the certificate as an X.509 extension (see {{assertion-integration}}).
+The anchor is included in the certificate as an X.509 extension (see {{anchor-extension}}).
 
 ## Period Numbering
 
@@ -438,7 +438,7 @@ The CA MUST NOT reveal a value for any period at or beyond `hash_chain_length`, 
 A CA that derives the period to serve from a clock MUST therefore bound that period at `hash_chain_length` - 1 rather than evaluating `h[hash_chain_length - t]` for an arbitrary t.
 Tick publication for a certificate stops when the certificate expires.
 
-For period 0, `hash_chain_length - t` equals `hash_chain_length`, so the value revealed is the anchor `h[hash_chain_length]` itself, which is already public, being committed in the certificate ({{assertion-integration}}).
+For period 0, `hash_chain_length - t` equals `hash_chain_length`, so the value revealed is the anchor `h[hash_chain_length]` itself, which is already public, being committed in the certificate ({{anchor-extension}}).
 The period 0 tick therefore provides no cryptographic assurance of non-revocation.
 Any party holding the certificate can construct it by pairing that anchor with period 0, which takes no hashing at all, and a verifier hashes forward zero times and compares the anchor with itself.
 This is an intentional design choice.
@@ -541,13 +541,13 @@ An authenticating party therefore needs its certificate to compute HashChainInpu
 
 The `issuer_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
 This salting is not load-bearing for the core guarantee.
-Each hash chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{assertion-integration}}) binds each revealed value to that specific hash chain.
+Each hash chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{anchor-extension}}) binds each revealed value to that specific hash chain.
 Its contribution is defense in depth.
 It keeps hash chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of hash chains at once (the same rationale as salting).
 
 Two constraints rule out deriving the salt from the certificate or the log entry instead, as a hash of the TBSCertificate or of `tbs_cert_entry_data` would.
 The first is circularity.
-The anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{assertion-integration}}), whereas the salt must be fixed before the hash chain that produces that anchor can be computed.
+The anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{anchor-extension}}), whereas the salt must be fixed before the hash chain that produces that anchor can be computed.
 A hash of either structure is therefore unavailable when the hash chain is generated.
 The second is cost.
 HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}).
@@ -556,7 +556,7 @@ The serial number avoids both, and its uniqueness across a CA's entries follows 
 
 The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
 
-# Integration with MTC Log Entries {#assertion-integration}
+# Integration with MTC Log Entries {#anchor-extension}
 
 ## Hash Chain Anchor Extension
 
@@ -689,7 +689,7 @@ The other is discarded.
 
 In the RECOMMENDED encoding, the base MTC specification is amended to append the HashChainTick to the MTCProof as a trailing `status_tick` field.
 The field is not a bare optional field, since the base MTCProof has no discriminant for one.
-It is instead a variant selected by whether the entry carries a hash chain anchor ({{assertion-integration}}), occupying zero bytes when it does not:
+It is instead a variant selected by whether the entry carries a hash chain anchor ({{anchor-extension}}), occupying zero bytes when it does not:
 
 ~~~tls-presentation
 enum { absent(0), present(1) } AnchorPresence;
@@ -707,7 +707,7 @@ struct {
 } MTCProof;
 ~~~
 
-anchor_presence is an AnchorPresence value meaning "the entry carries a hash chain anchor", determined from whichever home the deployment uses: the id-pe-hashChainAnchor X.509 extension of the primary design ({{assertion-integration}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}).
+anchor_presence is an AnchorPresence value meaning "the entry carries a hash chain anchor", determined from whichever home the deployment uses: the id-pe-hashChainAnchor X.509 extension of the primary design ({{anchor-extension}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}).
 It is not itself encoded anywhere in the MTCProof.
 No byte of the structure carries it, so the present case adds exactly the HashChainTick and nothing else.
 
@@ -802,7 +802,7 @@ No data from the CA's tick distribution service ({{distribution}}) is needed, an
 
 `tick_interval` and anchor:
 : Read from the HashChainAnchorInfo carried in the id-pe-hashChainAnchor extension.
-  If `tickInterval` is absent, use its default of 3600 ({{assertion-integration}}).
+  If `tickInterval` is absent, use its default of 3600 ({{anchor-extension}}).
 
 `not_before`:
 : The `notBefore` time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
@@ -838,7 +838,7 @@ Using these inputs, the verifier performs the following steps:
    Claiming revocation would assert something the relying party cannot know and would misdirect diagnosis of what is usually an availability fault.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
    The upper neighbor needs no such treatment.
-   A relying party does not know `hash_chain_length` ({{assertion-integration}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not: no tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
+   A relying party does not know `hash_chain_length` ({{anchor-extension}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not: no tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
    It MUST likewise compute the window in arithmetic wider than the 16-bit period field, since `expected_period` + 1 can reach 65,536 in a certificate's final period and would wrap to 0 in 16 bits, admitting a period-0 tick.
 
@@ -849,7 +849,7 @@ Using these inputs, the verifier performs the following steps:
            v = Hash(HashChainInput(v))
 
    The count is `tick.period`, not `hash_chain_length` - `tick.period`: the subtraction is applied when the CA chooses which value to reveal, since period t reveals `h[hash_chain_length - t]`, which lies exactly t hashes below the anchor ({{revealing-values}}).
-   A relying party therefore never needs `hash_chain_length`, which is not carried in the certificate ({{assertion-integration}}).
+   A relying party therefore never needs `hash_chain_length`, which is not carried in the certificate ({{anchor-extension}}).
    As the period counts up, the hash chain index counts down, and the number of forward hashes to the anchor is the period itself.
 
    Two independent bounds confine this iteration, so a forged or oversized tick cannot inflate it into a denial-of-service vector.
@@ -922,7 +922,7 @@ Keying on `tbs_cert_entry_hash` therefore aligns with the design's preference th
 
 Its one cost is a reliance on the addressing hash's collision resistance to keep entries' URLs distinct, which is amply met and non-load-bearing (the Note above).
 Distinct URLs also require the hashed data itself to differ between entries, which `serialNumber` cannot supply, being omitted from the TBSCertificateLogEntry ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}).
-In this design the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{assertion-integration}}).
+In this design the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{anchor-extension}}).
 An encoding that moves the anchor out of `tbs_cert_entry_data` must therefore key ticks on something else ({{anchor-entry-extension}}).
 Where positive, monitorable revocation transparency is wanted, it is provided deliberately and separately ({{revocation-transparency}}), not as a side effect of an enumerable endpoint.
 
@@ -1334,7 +1334,7 @@ This is a genuine difference from CRLs and OCSP, whose signed responses are such
 The base MTC revoked-ranges mechanism does not supply one either.
 It is relying-party configuration distributed out of band, not anything committed to the log ({{interaction-with-base-mtc-revocation}}).
 The transparency here is asymmetric.
-Opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{assertion-integration}}).
+Opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{anchor-extension}}).
 The per-period revocation *state*, by contrast, is neither signed nor committed, so a monitor cannot observe it in the log.
 
 Four consequences follow, each bounded:
@@ -1927,7 +1927,7 @@ v2 = SHA-256(HashChainInput(v1)) = f855b713...5bdeb234  (= h[5])
 
 v2 equals the anchor h\[5\], so verification succeeds.
 
-The certificate's id-pe-hashChainAnchor extension carries the DER encoding of a HashChainAnchorInfo ({{assertion-integration}}) whose anchor is h\[5\].
+The certificate's id-pe-hashChainAnchor extension carries the DER encoding of a HashChainAnchorInfo ({{anchor-extension}}) whose anchor is h\[5\].
 The two encodings below pin the DEFAULT handling of `tickInterval`.
 
 With the default `tick_interval` of 3600, DER omits the field (Section 11.5 of {{X.690}}), so the HashChainAnchorInfo is a SEQUENCE carrying only the anchor OCTET STRING (36 bytes):
@@ -1945,7 +1945,7 @@ f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
 ~~~
 
 Here `30` is SEQUENCE, `04 20` the 32-byte anchor OCTET STRING, and `02 03 015180` the INTEGER 86400.
-A relying party that finds `tickInterval` absent MUST use the default of 3600 ({{assertion-integration}}).
+A relying party that finds `tickInterval` absent MUST use the default of 3600 ({{anchor-extension}}).
 
 # Amendments Requested of the Base Specification {#base-spec-amendments}
 
@@ -1978,7 +1978,7 @@ A working group that adopts this document should expect to settle them.
 Nothing in this section is itself a normative requirement.
 
 1. **Where does the anchor live?**
-   The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{assertion-integration}}) or a committed entry extension ({{anchor-entry-extension}}).
+   The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{anchor-extension}}) or a committed entry extension ({{anchor-entry-extension}}).
    Both are committed to the Merkle Tree, so the verification procedure is identical either way.
    The trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
    The entry extension additionally forces a change to tick addressing, because the anchor then no longer separates entries that are otherwise identical ({{anchor-entry-extension}}).
@@ -2119,13 +2119,13 @@ Bounded size and count:
 
 Committed admissibility:
 : The strongest control on stuffing is to make the permissible extensions a function of committed data.
-  The base specification SHOULD commit, per entry, an allow-list of permitted (extension_type, length) pairs in the tree-committed entry data ({{assertion-integration}}).
+  The base specification SHOULD commit, per entry, an allow-list of permitted (extension_type, length) pairs in the tree-committed entry data ({{anchor-extension}}).
   Relying parties should then be required to reject any proof extension absent from that list or disagreeing with it on length.
   This is enforceable by a relying party that does not implement the specific mechanism, and, being committed and therefore logged, it also makes the presence of each proof-level mechanism transparent to monitors (though not its per-period value).
 
 Security-relevant extensions must be anchored:
 : Unrecognized or absent proof extensions are ignored.
-  Any future proof extension carrying security-relevant data MUST therefore make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{assertion-integration}}).
+  Any future proof extension carrying security-relevant data MUST therefore make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{anchor-extension}}).
   Otherwise "ignore if unknown" becomes a strippable soft-fail ({{ocsp-stapling-comparison}}).
 
 A base specification SHOULD also consider several further controls.
@@ -2135,7 +2135,7 @@ A third is fail-closed rejection of unknown types, optionally softened by a per-
 This closes the ignore channel but trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical ({{extension-criticality}}).
 A fourth is a deterministic fixed-length region, where each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
 Two properties are inherent and MUST be respected.
-Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{assertion-integration}}).
+Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{anchor-extension}}).
 And because `proof_extensions` widen `signatureValue` malleability ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}) beyond the single fixed-size tick, they broaden the identifier-stability requirement of {{cert-identity}}, which applies whichever encoding is chosen.
 
 Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots.
@@ -2242,7 +2242,7 @@ Merkle Tree Certificates remove that barrier, which is what lets the same primit
   The only fetch is the server's own once-per-period refresh, a static cacheable GET that can be delegated to CDNs and mirrors ({{delegated-distribution}}).
 
 - **The commitment is free.**
-  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{assertion-integration}}), so the tick is self-authenticating with no new signature, responder, or trust relationship.
+  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{anchor-extension}}), so the tick is self-authenticating with no new signature, responder, or trust relationship.
   Classic CRS, by contrast, needed the CA to sign the hash chain's endpoint (its anchor) into each certificate.
 
 - **Enforcement is hard-fail by construction.**
@@ -2583,7 +2583,7 @@ A base specification that is willing to make its entry-extension registry and co
 
 ## Truncating the Anchor and Tick {#truncated-anchor}
 
-The anchor is HASH_SIZE bytes ({{assertion-integration}}) and the tick carries a value of the same size ({{cert-format}}).
+The anchor is HASH_SIZE bytes ({{anchor-extension}}) and the tick carries a value of the same size ({{cert-format}}).
 Truncating both to 16 bytes would save 16 bytes in every log entry, cutting the committed overhead from about 50 bytes to about 34, and 16 bytes in every handshake, cutting the tick from 34 bytes to 18.
 It would also halve the CA's traversal state ({{hash-chain-traversal}}).
 Given how much of MTC's design is spent on compactness, this looks attractive.
@@ -2596,7 +2596,7 @@ Truncated to 128 bits it leaves about 2<sup>64</sup>, which is not a margin at a
 Multi-target attacks make it worse rather than better, since a CA publishes on the order of 10<sup>9</sup> anchors and an attacker needs only one forgery to keep one revoked certificate alive.
 
 The economics are also poor even setting security aside.
-The 16 bytes come off a TBSCertificateLogEntry of a few hundred bytes, so the entry shrinks by a few percent, and off a handshake already carrying an inclusion proof and cosignatures, where the tick is not the dominant term ({{assertion-integration}}).
+The 16 bytes come off a TBSCertificateLogEntry of a few hundred bytes, so the entry shrinks by a few percent, and off a handshake already carrying an inclusion proof and cosignatures, where the tick is not the dominant term ({{anchor-extension}}).
 A truncation length would additionally have to be either fixed, creating a second notion of hash size alongside the CA's HASH, or carried per certificate as a further parameter, adding a knob and a negotiation surface to a structure whose simplicity is the point ({{construction}}).
 
 A deployment that wants smaller anchors should reduce them by choosing a CA whose tree hash is smaller, since this mechanism inherits HASH from the issuing CA ({{post-quantum}}), rather than by truncating a stronger hash beneath the security level the rest of the ecosystem assumes.
