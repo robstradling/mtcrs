@@ -120,7 +120,7 @@ Relying parties that have them may fall back to out-of-band systems such as {{CR
 This document defines such a mechanism based on hash chains {{MICALI}}.
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
 For each non-revoked certificate, once per tick interval (e.g., every hour), the CA reveals the previous hash chain value, walking the committed hash chain backward.
-To revoke a certificate, the CA simply stops revealing values.
+To revoke a certificate, the CA simply stops revealing values ({{ca-operation}}).
 The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the `signatureValue`), and the relying party (client) verifies it against the anchor committed in the log entry.
 
 The MTCProof already carries a proof of inclusion: the evidence that a certificate is authentic, because its entry sits in a cosigned Merkle Tree.
@@ -407,6 +407,24 @@ Setting `notBefore` later than issuance (forward-dating) is different: there is 
 Such a certificate is simply not yet valid.
 A verifier MUST reject it through the base MTC validity check before computing any period, and MUST NOT evaluate the period expression with unsigned arithmetic, which would underflow for such times and could yield a spuriously large period.
 
+## Security of the Hash Chain
+
+The non-revocation proof relies only on the preimage resistance of the hash function, not on collision resistance.
+Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would be needed to forge a future validity proof).
+The hash chain is revealed in reverse order precisely for this reason ({{revealing-values}}).
+Knowledge of the current value does not help compute future values.
+
+The label in HashChainInput ({{encoding}}) domain-separates hash chain values from other uses of the hash function in MTC, and the per-entry `issuer_id` and `serial_number` salt each certificate's hash chain into its own hash domain ({{encoding}}).
+
+The one hash whose distinctness matters for a different reason is `tbs_cert_entry_hash`, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
+A collision there would merely cause two entries to share a URL and misroute a fetch.
+The authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
+
+# Revealing Values and Revoking Certificates {#ca-operation}
+
+This section defines what a CA does with a hash chain once the certificate carrying its anchor has been issued: reveal one value per period for as long as the certificate is to remain usable, and stop revealing in order to revoke it.
+Revocation is the absence of a reveal, so the two are one mechanism seen from opposite sides, and they are specified together here.
+
 ## Revealing Values {#revealing-values}
 
 For each non-revoked certificate, at the start of period t, the CA reveals the hash chain value `h[hash_chain_length - t]`.
@@ -476,19 +494,6 @@ On deciding to revoke an entry, a CA:
 No cache purge is required or useful.
 A tick cached at an HTTP intermediary is bounded by the same acceptance window as a freshly fetched one ({{clock-skew}}), so the certificate becomes unusable on the same schedule either way.
 A deployment that needs the revocation to be publicly auditable must record it through a mechanism that produces such an artifact, since neither withholding a tick nor the base revoked ranges does ({{revocation-transparency}}).
-
-## Security of the Hash Chain
-
-The non-revocation proof relies only on the preimage resistance of the hash function, not on collision resistance.
-Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would be needed to forge a future validity proof).
-The hash chain is revealed in reverse order precisely for this reason.
-Knowledge of the current value does not help compute future values.
-
-The label in HashChainInput ({{encoding}}) domain-separates hash chain values from other uses of the hash function in MTC, and the per-entry `issuer_id` and `serial_number` salt each certificate's hash chain into its own hash domain ({{encoding}}).
-
-The one hash whose distinctness matters for a different reason is `tbs_cert_entry_hash`, which addresses the tick URL rather than forming part of the proof ({{distribution}}).
-A collision there would merely cause two entries to share a URL and misroute a fetch.
-The authenticating party's pre-installation check catches such a misrouted or unexpected tick before it is presented ({{distribution}}), so it does not affect the non-revocation guarantee.
 
 # Hash Chain Input Encoding {#encoding}
 
