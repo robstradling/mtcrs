@@ -581,6 +581,7 @@ HashChainAnchorInfo ::= SEQUENCE {
 anchor:
 : The hash chain anchor value `h[hash_chain_length]`.
   This OCTET STRING MUST be exactly HASH_SIZE bytes long.
+  Truncating it, to save bytes in the log entry and the handshake, is considered and rejected in {{truncated-anchor}}.
   A relying party MUST reject the certificate if it is not ({{verification}}).
 
 The extension MUST appear at most once in a certificate.
@@ -644,11 +645,17 @@ period:
   It tells the relying party two things.
   The first is the freshness the tick asserts: that the certificate was not revoked as of this period, checked against the relying party's clock ({{verification}}).
   The second is how many times to hash value forward to reach the committed anchor.
-  That count cannot be taken from the relying party's own expected period, because clock skew and caching allow the presented tick to be for an adjacent period.
   The field is 16 bits, which caps both the period number and the relying party's forward-hash count at 65,535 for every certificate, whatever `tick_interval` its issuer chose ({{construction}}).
 
 value:
 : The hash chain value `h[hash_chain_length - period]`.
+
+Carrying the period costs two bytes per handshake that could in principle be recovered.
+A relying party could omit it and instead try each period its acceptance window admits, accepting the tick if any of them reaches the anchor, since the default window admits only three.
+This document carries the period explicitly for three reasons.
+The first is cost: trial verification multiplies the forward hashing, which {{construction}} shows is the axis that needs bounding rather than relaxing, and it does so in the worst case at exactly the moment the count is already largest.
+The second is that it degrades as the window widens, since a relying party accepting k preceding periods would need k + 2 trials ({{clock-skew}}).
+The third is diagnosis: an explicit period distinguishes a stale tick from a forged or misrouted one, both for the relying party's error reporting and for the authenticating party's pre-installation freshness check ({{distribution}}), which has no acceptance window to search and no way to detect staleness without it.
 
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
@@ -814,6 +821,10 @@ Using these inputs, the verifier performs the following steps:
    A relying party MUST reject a certificate whose `tick.period` falls outside the acceptance window it applies, with a certificate_expired error.
    That alert covers both directions, because {{!RFC9846}} defines it as "a certificate has expired or is not currently valid".
    A tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
+   The alert is deliberately not certificate_revoked, which {{!RFC9846}} defines as "a certificate was revoked by its signer".
+   An out-of-window tick does not establish that.
+   It means only that non-revocation is unproven as of now, which a distribution outage ({{availability-considerations}}), an authenticating party that failed to refresh, or a skewed clock ({{clock-skew}}) all produce just as a genuine revocation does.
+   Claiming revocation would assert something the relying party cannot know and would misdirect diagnosis of what is usually an availability fault.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
    It MUST likewise compute the window in arithmetic wider than the 16-bit period field, since `expected_period` + 1 can reach 65,536 in a certificate's final period and would wrap to 0 in 16 bits, admitting a period-0 tick.
@@ -2517,6 +2528,26 @@ It has three costs, however:
 Because of the last point in particular, this document uses the X.509 extension as the primary design.
 It lets this mechanism be layered onto an otherwise unmodified MTC log and cosigner deployment.
 A base specification that is willing to make its entry-extension registry and cosigner software aware of hash chain revocation MAY instead adopt the entry-extension encoding, gaining the compactness and the committed/uncommitted symmetry described above.
+
+## Truncating the Anchor and Tick {#truncated-anchor}
+
+The anchor is HASH_SIZE bytes ({{assertion-integration}}) and the tick carries a value of the same size ({{cert-format}}).
+Truncating both to 16 bytes would save 16 bytes in every log entry, cutting the committed overhead from about 50 bytes to about 34, and 16 bytes in every handshake, cutting the tick from 34 bytes to 18.
+It would also halve the CA's traversal state ({{hash-chain-traversal}}).
+Given how much of MTC's design is spent on compactness, this looks attractive.
+
+It is nonetheless rejected, because the saving comes directly out of the security margin this mechanism depends on, and out of the one property MTC exists to provide.
+The non-revocation guarantee rests on preimage resistance ({{hash-function-requirements}}): forging a tick for a period the CA has not revealed means inverting one hash step.
+An n-bit hash offers 2<sup>n</sup> preimage resistance classically but only about 2<sup>n/2</sup> against Grover's algorithm ({{post-quantum}}).
+At the full 256 bits that leaves about 2<sup>128</sup>, an ample quantum margin.
+Truncated to 128 bits it leaves about 2<sup>64</sup>, which is not a margin at all for a mechanism whose entire premise is post-quantum readiness.
+Multi-target attacks make it worse rather than better, since a CA publishes on the order of 10<sup>9</sup> anchors and an attacker needs only one forgery to keep one revoked certificate alive.
+
+The economics are also poor even setting security aside.
+The 16 bytes come off a TBSCertificateLogEntry of a few hundred bytes, so the entry shrinks by a few percent, and off a handshake already carrying an inclusion proof and cosignatures, where the tick is not the dominant term ({{assertion-integration}}).
+A truncation length would additionally have to be either fixed, creating a second notion of hash size alongside the CA's HASH, or carried per certificate as a further parameter, adding a knob and a negotiation surface to a structure whose simplicity is the point ({{construction}}).
+
+A deployment that wants smaller anchors should reduce them by choosing a CA whose tree hash is smaller, since this mechanism inherits HASH from the issuing CA ({{post-quantum}}), rather than by truncating a stronger hash beneath the security level the rest of the ecosystem assumes.
 
 ## TLS Extension or status_request Reuse
 
