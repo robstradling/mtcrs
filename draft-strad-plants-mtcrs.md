@@ -1449,8 +1449,9 @@ The resilience levers that involve holding certificates from multiple CAs, opera
 
 # Operational and Availability Considerations {#operational-considerations}
 
-This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, how tick distribution is scaled and delegated, and the client-side latency of handshake-time revocation checks.
+This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, what running it costs a CA, how tick distribution is scaled and delegated, and what it costs a relying party to verify.
 None of it changes the wire protocol, which {{distribution}} defines in full, and none of it is visible to relying parties, which never fetch ({{rp-no-fetch}}).
+The subsections run in the order the work does, from the CA that generates hash chains, through the interface that distributes them, to the relying party that verifies a tick in a handshake.
 
 ## Availability Considerations {#availability-considerations}
 
@@ -1503,6 +1504,56 @@ Multi-CA operation removes even that as a single point of failure, so a single C
 A longer `tick_interval` trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
 
 The alternative, no in-band revocation at all, instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
+
+## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
+
+A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
+Both are CA-side only, and the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
+
+### Storing Versus Recomputing Hash Chain Values {#hash-chain-traversal}
+
+Within a single hash chain, a CA does not have to choose between the two naive extremes:
+
+- **Store the entire hash chain:** O(L) storage per certificate, but each revealed value is a free lookup.
+  For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
+
+- **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
+  Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.
+
+A CA MAY instead use **fractal hash-chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
+The hash chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
+Instead of the whole hash chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the hash chain.
+When the value for the current period is needed, a pebble is already there.
+Between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
+The scheduling guarantees:
+
+~~~
+storage  ~ log2(L)      hash values per certificate
+work     ~ (1/2) log2(L) hash evaluations per revealed value
+~~~
+
+For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
+Across 1 billion certificates that is roughly 340 GB of state.
+If the traversal is advanced once per period and the resulting value served to all requests in that period, the aggregate is on the order of 10<sup>6</sup> hash evaluations per second.
+This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
+
+The pebbles are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
+
+### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
+
+The per-certificate seed itself can also be eliminated from storage.
+Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || serial_number)`, or the equivalent with HKDF.
+A raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse.
+A proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of {{construction}}.
+Any hash chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
+
+The cost is concentration.
+Compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}).
+Being a single small key, it is nonetheless better suited to HSM custody than a bulk per-certificate seed store.
+
+To bound the blast radius, a CA SHOULD derive per-log or per-epoch sub-seeds (`log_seed = KDF(ca_seed, log_number)`, then `h[0] = KDF(log_seed, label || index)`), which can be retired as their logs expire.
+As with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
+Rotation is by issuance epoch, not by tick period: a certificate's entire hash chain derives from the seed fixed at issuance, so per-log or per-epoch sub-seeds are the finest granularity at which a compromise can be bounded.
 
 ## Distributing Tick Requests {#load-distribution}
 
@@ -1615,6 +1666,30 @@ If the disaster is itself a seed or key compromise, the response is the revoked-
 
 The feed from CA to distributor SHOULD be authenticated and integrity-protected.
 This is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
+
+## Verification Cost {#verification-cost}
+
+A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
+This linear cost is small in every setting that has been raised as a concern.
+
+On modern hardware, 1,127 SHA-256 operations take roughly 10 to 20 microseconds.
+That is negligible beside the handshake's asymmetric cryptography (one signature verification is worth hundreds of SHA-256 operations), which is itself dwarfed by the network round-trip.
+On constrained IoT devices SHA-256 is usually hardware-accelerated and the computation finishes in under a millisecond.
+A shorter certificate lifetime or a longer `tick_interval` both reduce `hash_chain_length` and so bound the cost directly.
+
+Those figures are for the RECOMMENDED one-hour period.
+The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}), which is a few milliseconds on general-purpose hardware but is a poor fit for a constrained verifier.
+A relying party that cannot afford it rejects such a certificate outright, having computed its implied maximum period from the certificate before hashing anything (step 5 of {{verification}}).
+
+Across the many connections a page load opens, three effects keep the total small.
+The hashing is a small fraction of what each full handshake already spends on asymmetric cryptography, so summing it across several origins remains a small fraction of that cryptography summed across the same handshakes.
+Most connections pay nothing.
+A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
+And a relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
+
+The same reasoning covers energy on a battery-powered sensor or wearable.
+One verification costs a fraction of a millijoule in software and is near-free with a hardware SHA engine, so it is dominated by the asymmetric key exchange and signature verification the same handshake performs.
+The effects above apply equally, and a newly issued certificate is the cheapest of all to verify, since the forward-hash count equals the current period and so is near zero just after issuance.
 
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
@@ -2224,56 +2299,6 @@ It computes the hash chain one element longer, uses `h[hash_chain_length + 1]` a
 The period 0 tick is then the secret value `h[hash_chain_length]`, which the CA can withhold.
 This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.
 
-## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
-
-A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted L below): how to produce each period's revealed value, and where the per-certificate seed comes from.
-Both are CA-side only, and the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
-
-### Storing Versus Recomputing Hash Chain Values {#hash-chain-traversal}
-
-Within a single hash chain, a CA does not have to choose between the two naive extremes:
-
-- **Store the entire hash chain:** O(L) storage per certificate, but each revealed value is a free lookup.
-  For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
-
-- **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
-  Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.
-
-A CA MAY instead use **fractal hash-chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
-The hash chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
-Instead of the whole hash chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the hash chain.
-When the value for the current period is needed, a pebble is already there.
-Between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
-The scheduling guarantees:
-
-~~~
-storage  ~ log2(L)      hash values per certificate
-work     ~ (1/2) log2(L) hash evaluations per revealed value
-~~~
-
-For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
-Across 1 billion certificates that is roughly 340 GB of state.
-If the traversal is advanced once per period and the resulting value served to all requests in that period, the aggregate is on the order of 10<sup>6</sup> hash evaluations per second.
-This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
-
-The pebbles are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
-
-### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
-
-The per-certificate seed itself can also be eliminated from storage.
-Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_id || serial_number)`, or the equivalent with HKDF.
-A raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse.
-A proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of {{construction}}.
-Any hash chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
-
-The cost is concentration.
-Compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}).
-Being a single small key, it is nonetheless better suited to HSM custody than a bulk per-certificate seed store.
-
-To bound the blast radius, a CA SHOULD derive per-log or per-epoch sub-seeds (`log_seed = KDF(ca_seed, log_number)`, then `h[0] = KDF(log_seed, label || index)`), which can be retired as their logs expire.
-As with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
-Rotation is by issuance epoch, not by tick period: a certificate's entire hash chain derives from the seed fixed at issuance, so per-log or per-epoch sub-seeds are the finest granularity at which a compromise can be bounded.
-
 ## Why Embed the Tick in the MTCProof {#why-embed}
 
 The MTCProof is the bundle of evidence a relying party checks to accept a certificate.
@@ -2419,30 +2444,6 @@ The required amendment is narrow and backward-compatible.
 The trailing `status_tick` occupies zero bytes when the anchor extension is absent, so a certificate not using this mechanism is byte-identical to a base MTCProof, and base MTC verification, the tree, the cosigner, and the log are unchanged ({{tick-trailing-field}}, {{anchor-entry-extension}}).
 Folding it into the base specification now, while MTC is greenfield, avoids any lasting split between aware and unaware parsers.
 Retrofitting it after wide deployment would be far harder.
-
-## Verification Cost {#verification-cost}
-
-A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
-This linear cost is small in every setting that has been raised as a concern.
-
-On modern hardware, 1,127 SHA-256 operations take roughly 10 to 20 microseconds.
-That is negligible beside the handshake's asymmetric cryptography (one signature verification is worth hundreds of SHA-256 operations), which is itself dwarfed by the network round-trip.
-On constrained IoT devices SHA-256 is usually hardware-accelerated and the computation finishes in under a millisecond.
-A shorter certificate lifetime or a longer `tick_interval` both reduce `hash_chain_length` and so bound the cost directly.
-
-Those figures are for the RECOMMENDED one-hour period.
-The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}), which is a few milliseconds on general-purpose hardware but is a poor fit for a constrained verifier.
-A relying party that cannot afford it rejects such a certificate outright, having computed its implied maximum period from the certificate before hashing anything (step 5 of {{verification}}).
-
-Across the many connections a page load opens, three effects keep the total small.
-The hashing is a small fraction of what each full handshake already spends on asymmetric cryptography, so summing it across several origins remains a small fraction of that cryptography summed across the same handshakes.
-Most connections pay nothing.
-A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
-And a relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
-
-The same reasoning covers energy on a battery-powered sensor or wearable.
-One verification costs a fraction of a millijoule in software and is near-free with a hardware SHA engine, so it is dominated by the asymmetric key exchange and signature verification the same handshake performs.
-The effects above apply equally, and a newly issued certificate is the cheapest of all to verify, since the forward-hash count equals the current period and so is near zero just after issuance.
 
 # Alternatives Considered {#alternatives}
 
