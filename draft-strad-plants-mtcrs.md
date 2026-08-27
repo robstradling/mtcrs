@@ -807,6 +807,8 @@ Using these inputs, the verifier performs the following steps:
    A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it MUST be checked explicitly.
    The anchor extension is committed to the Merkle Tree, so a non-canonical encoding of it would be a distinct entry certifying the same thing.
    If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
+   Finally, reject the certificate with a bad_certificate error if its validity period is not longer than `tick_interval`, which a CA is forbidden to issue ({{construction}}) and which the relying party can detect from `notBefore`, `notAfter` and `tick_interval` alone.
+   Such a certificate never leaves period 0, so its only tick is the public anchor and the mechanism would enforce nothing while appearing to.
 
 2. Extract the HashChainTick from the MTCProof (in the certificate's `signatureValue`), according to the encoding fixed by the base MTC specification: the trailing `status_tick` field ({{tick-trailing-field}}) or, if the general `proof_extensions` amendment was adopted instead, the `hash_chain_tick` proof extension ({{tick-proof-extension}}).
    If the id-pe-hashChainAnchor extension is present but the MTCProof does not carry a HashChainTick, reject the certificate with a bad_certificate error.
@@ -826,6 +828,8 @@ Using these inputs, the verifier performs the following steps:
    It means only that non-revocation is unproven as of now, which a distribution outage ({{availability-considerations}}), an authenticating party that failed to refresh, or a skewed clock ({{clock-skew}}) all produce just as a genuine revocation does.
    Claiming revocation would assert something the relying party cannot know and would misdirect diagnosis of what is usually an availability fault.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
+   The upper neighbor needs no such treatment.
+   A relying party does not know `hash_chain_length` ({{assertion-integration}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not: no tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
    It MUST likewise compute the window in arithmetic wider than the 16-bit period field, since `expected_period` + 1 can reach 65,536 in a certificate's final period and would wrap to 0 in 16 bits, admitting a period-0 tick.
 
@@ -945,7 +949,9 @@ This is not a gap.
 The authenticating party already obtains its certificate through a provisioning channel that involves a real CA endpoint, for example an ACME directory.
 That channel is therefore the natural carrier for the base URL, and no locator need be derived from the certificate.
 
-A CA MUST make the tick base URL available through at least one of the following mechanisms, and an authenticating party MUST support at least the provisioning-channel mechanism appropriate to how it obtains certificates:
+A CA MUST make the tick base URL available through at least one of the following mechanisms.
+An authenticating party MUST support the provisioning-channel mechanism appropriate to how it obtains certificates, and MUST also support the CA certificate SIA.
+Supporting only the former would leave it unable to obtain the base URL from a CA that publishes only the latter, which is the CA's sole option for an issuance protocol with no provisioning binding, so a CA and an authenticating party could each conform and still fail to interoperate.
 
 Provisioning channel (primary):
 : The base URL is delivered when the certificate is provisioned.
@@ -955,8 +961,9 @@ Provisioning channel (primary):
   A provisioning binding is moreover required for unguessable tick URLs ({{unguessable-urls}}), which the SIA cannot carry.
   A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.
 
-CA certificate SIA (optional):
+CA certificate SIA (fallback):
 : The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
+  Publishing it is the CA's choice; understanding it is not the authenticating party's, since this is the only carrier available to a CA whose issuance protocol has no provisioning binding.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
   Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}).
   Its value is therefore as a published fallback and tooling record.
@@ -1046,6 +1053,8 @@ Its benefit is that a relying party, or a third party holding a captured certifi
 
 The response body is the serialized HashChainTick structure: a 2-byte big-endian period followed by HASH_SIZE bytes of value (34 bytes total for SHA-256).
 The response Content-Type MUST be `application/octet-stream`.
+An authenticating party MUST reject a response body that is not exactly 2 + HASH_SIZE bytes.
+It SHOULD NOT reject a response on the basis of its Content-Type, since it verifies the body against the anchor committed in its own certificate before installing it ({{distribution}}) and that check is what establishes the response is the tick it asked for.
 
 The CA uses HTTP status codes ({{!RFC9110}}) as follows:
 
@@ -1112,6 +1121,11 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
+An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the acceptance window ({{cert-format}}).
+Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
+Where it holds a certificate from another CA it fails over instead (see below), and otherwise it is better to present nothing than a certificate that cannot verify.
+The one case in which it holds a usable tick without having fetched anything is period 0, where it can construct the tick from the anchor committed in its own certificate.
+
 During period 0 the authenticating party need not fetch at all.
 The period 0 tick is the public anchor committed in its own certificate ({{revealing-values}}), which it can construct and present directly.
 A 404 during period 0 is therefore expected and harmless, because the CA has until the start of period 1 to begin serving the entry's ticks ({{period-zero-rationale}}).
@@ -1131,6 +1145,13 @@ Treating a forged 410 as grounds to withdraw a healthy certificate would hand an
 
 An authenticating party that holds a certificate from another CA SHOULD fail over to it before its newest tick leaves the acceptance window ({{availability-considerations}}), which restores service whichever of the two causes applies.
 Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification}}).
+
+A deployment that terminates TLS on many nodes must get each fresh tick to every node that presents the certificate.
+This document does not prescribe how.
+Either arrangement works: every node MAY fetch independently, since the per-entry offset already spreads their requests and a cache or CDN collapses them ({{load-distribution}}), or one node MAY fetch and push the result to the rest.
+The tick is a public, immutable, 34-byte value with no validity window of its own, no signature to check and no per-node state, so nothing is lost by fetching it more than once, and a node still holding the preceding period's tick keeps serving correctly while it catches up.
+This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale ({{ocsp-stapling-comparison}}).
+A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
 
 The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
 It then continues to serve the most recent tick it holds for as long as that tick remains within the acceptance window (step 4 of {{verification}}).
