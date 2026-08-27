@@ -852,8 +852,17 @@ The only tick an attacker can present that still verifies is a genuine, already-
 
 # Tick Distribution {#distribution}
 
-The CA MUST provide a mechanism for authenticating parties to obtain current hash chain ticks.
-This document defines an HTTP interface for this purpose.
+Authenticating parties obtain current hash chain ticks over the HTTP interface defined in this section.
+It is the interoperable baseline for this mechanism, and support for it is mandatory at both ends.
+
+A CA MUST ensure that ticks are served over this interface, at the tick base URL it publishes ({{discovery}}), for every period in which it reveals a value ({{revealing-values}}).
+It need not serve them from its own infrastructure.
+It MAY delegate that to mirrors, content delivery networks, or other distributors, which changes who answers the request but not the interface or the URL that addresses it ({{delegated-distribution}}).
+An authenticating party MUST support this interface.
+
+A CA and its authenticating parties MAY additionally agree on any other channel, such as a batch endpoint ({{bulk-retrieval}}) or an entirely different transport ({{alternatives}}).
+Any such agreement is bilateral, and supplements the baseline rather than replacing it, so an authenticating party that implements only this interface can always obtain its ticks from any conforming CA.
+Nothing in this section concerns relying parties, which verify the embedded tick offline and MUST NOT fetch ticks ({{rp-no-fetch}}).
 
 ## HTTP Interface
 
@@ -1179,7 +1188,7 @@ The trade-off is cacheability.
 A batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
 It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
 This document does not standardize a batch wire format.
-Like the choice of distribution channel generally ({{distribution}}), any such mechanism is an agreement between a CA and its authenticating parties layered on the single-tick interface, which remains the interoperable baseline.
+Any such mechanism is a bilateral agreement between a CA and its authenticating parties, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends ({{distribution}}).
 It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
 
 ## Delegated Tick Distribution {#delegated-distribution}
@@ -2386,7 +2395,7 @@ The effects above apply equally, and a newly issued certificate is the cheapest 
 
 ## DNS-Based Tick Distribution
 
-An alternative to the HTTP interface ({{distribution}}) is for the CA to publish current ticks via DNS, for example a TXT record at a name derived from `tbs_cert_entry_hash`, which the authenticating party fetches and embeds in the MTCProof.
+A CA could publish current ticks via DNS in addition to the mandatory HTTP interface ({{distribution}}), for example a TXT record at a name derived from `tbs_cert_entry_hash`, which the authenticating party fetches and embeds in the MTCProof.
 Because the tick is embedded regardless of transport, the relying party's verification is unchanged and the choice is purely between the CA and the authenticating party.
 It does not affect interoperability.
 DNS's hierarchical caching suits small, frequently-updated values, letting recursive resolvers serve ticks without CA-operated CDN infrastructure.
@@ -2426,8 +2435,8 @@ This approach was rejected because:
 - **It invites relying-party fetching.**
   OCSP is strongly associated with client-side status checking, so an OCSP-shaped interface risks reintroducing the CA-visible relying-party fetch, latency, and soft-fail that {{rp-no-fetch}} forbids and this design avoids.
 
-Because the relying party only ever sees the embedded tick, the CA-to-authenticating-party transport is a bilateral choice.
-A CA MAY tunnel ticks over any transport it and its authenticating parties support, including OCSP, but this document neither standardizes nor recommends an OCSP encoding for it.
+Because the relying party only ever sees the embedded tick, an additional CA-to-authenticating-party transport is a bilateral choice that does not affect interoperability.
+A CA MAY tunnel ticks over any transport it and its authenticating parties support, including OCSP, alongside the mandatory HTTP interface ({{distribution}}), but this document neither standardizes nor recommends an OCSP encoding for it.
 
 ## AIA-Based Tick URL Discovery {#aia-discovery}
 
