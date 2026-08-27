@@ -1142,119 +1142,7 @@ Once that runway is exhausted, the certificate becomes unusable until a fresh ti
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
 At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
-{{load-distribution}} describes recommended techniques.
-
-## Distributing Tick Requests {#load-distribution}
-
-Because a relying party also accepts a tick for the immediately preceding period ({{verification}}), an authenticating party has up to one full `tick_interval` of slack in which to fetch each new tick and need not fetch at the period boundary.
-Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.
-
-### Client-Side: Deterministic Per-Entry Offset
-
-Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own `tbs_cert_entry_hash`:
-
-~~~pseudocode
-offset = UINT32(tbs_cert_entry_hash[0..3])
-         mod max(1, tick_interval / 2)
-~~~
-
-where `tbs_cert_entry_hash` is the binary hash defined in {{distribution}}, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
-The authenticating party computes this from its own entry, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by `tbs_cert_entry_hash`.
-The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
-During the first offset seconds of the period it continues to serve the preceding period's tick.
-
-The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}).
-A verifier whose clock is ahead by more than (`tick_interval` - offset) already expects the following period and rejects a tick two periods behind its expectation.
-Bounding the offset to half of `tick_interval` leaves at least half a period of that grace available to absorb verifier clock skew, while still spreading fetches across a wide window.
-
-Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
-This is preferable to independent random jitter, which can still cluster and which varies each period.
-
-### Server-Side: Cache Freshness and Retry-After
-
-The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than `tick_interval` seconds ({{response-format}}), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
-A CA MAY additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.
-
-Under transient overload, the CA or edge MAY respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
-To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
-Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
-
-The deterministic per-entry offset above and edge caching together flatten period-boundary load.
-The offset spreads fetches uniformly across the period, and caching collapses the fetches for each entry into a single origin request per period regardless of client timing.
-At large scale these are required rather than merely recommended, as the Operational Model ({{distribution}}) notes.
-This document nonetheless specifies them as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
-A specific load-shaping or availability target is left to root-program or CA operational policy.
-
-## Bulk Retrieval for Large Deployments {#bulk-retrieval}
-
-The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates, such as a large hosting provider or CDN, issues on the order of N fetches per period for N certificates.
-The per-entry offset ({{load-distribution}}) spreads them across the period but does not reduce their number.
-This stays inexpensive.
-Each tick is a 34-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
-An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}).
-The CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.
-
-A CA MAY additionally offer a batch endpoint keyed by a list of `tbs_cert_entry_hash` values, or of tokens ({{unguessable-urls}}).
-The trade-off is cacheability.
-A batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
-It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
-This document does not standardize a batch wire format.
-Any such mechanism is a bilateral agreement between a CA and its authenticating parties, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends ({{distribution}}).
-It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
-
-## Delegated Tick Distribution {#delegated-distribution}
-
-Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity or authenticity.
-A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance ({{hash-function-requirements}}), and cannot serve a tampered value that verifies.
-Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
-
-The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `tbs_cert_entry_hash`, refreshing it as certificates advance through their own periods ({{construction}}).
-Each distributor serves those values through the HTTP interface of {{distribution}}.
-To revoke a certificate, the CA drops its entry from subsequent refreshes: absence is revocation, so no revocation list is exchanged.
-Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.
-
-MTC mirrors are a natural home for this role.
-They already replicate and serve MTC log data at high availability, and extending a mirror to also serve the currently-revealed ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
-Content delivery networks and relying-party-side operators can serve as distributors on the same terms, including browser providers, which already run large-scale revocation-distribution infrastructure.
-Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several delegated distributors concurrently with no added trust, removing the CA origin as a single point of failure.
-The level of redundancy a CA must provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
-
-Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation.
-It does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
-The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{availability-considerations}}.
-
-What is delegated is distribution, not revocation authority.
-The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal each period.
-A distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
-
-A CA MAY publish only values that are already revealed, in which case each distributor depends on the CA for every refresh and the CA retains tight, sole control of revocation.
-
-Alternatively, as part of disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values, so that the distributor can keep certificates usable through a CA-side outage.
-This is continuity (liveness) delegation, not delegation of revocation.
-Sharing future ticks lets the holder keep certificates alive.
-It correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
-The buffer length therefore caps how quickly those certificates can be revoked through the hash chain.
-During the window the only remaining lever is the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which the CA controls independently.
-
-Future values held by a distributor are as sensitive as the CA's own unrevealed hash chain values ({{seed-confidentiality}}): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
-A CA SHOULD therefore keep the buffer short, sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace ({{period-zero-rationale}}).
-It SHOULD pre-provision only distributors trusted to stop serving on the CA's instruction.
-
-Such a buffer is compact and inherently bounded.
-For a buffer of N periods the CA need send each distributor only a single value per certificate: the value that will be revealed N periods ahead.
-From that the distributor derives every intervening period's value by hashing forward ({{revealing-values}}).
-One value per certificate thus covers the whole buffer, and it confers no power beyond period t+N, since serving any later period would require inverting the hash.
-A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}) with a distributor: unlike a bounded buffer of already-revealed values, that secret would grant the unbounded ability to forge non-revocation for the entire certificate population.
-
-This prohibition holds even in disaster recovery.
-A CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret or per-certificate seeds to a successor operator as a continuity measure.
-That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event that destroys forward security and hands over unbounded forging power.
-It is also unnecessary.
-The bounded buffer above keeps already-issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
-If the disaster is itself a seed or key compromise, the response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), not wider custody of a possibly-tainted secret.
-
-The feed from CA to distributor SHOULD be authenticated and integrity-protected.
-This is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
+Those techniques, along with bulk retrieval and delegation of the serving path, are operational rather than protocol matters and are described in {{operational-considerations}}.
 
 # Privacy Considerations
 
@@ -1530,7 +1418,8 @@ The resilience levers that involve holding certificates from multiple CAs, opera
 
 # Operational and Availability Considerations {#operational-considerations}
 
-This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, and the client-side latency of handshake-time revocation checks.
+This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, how tick distribution is scaled and delegated, and the client-side latency of handshake-time revocation checks.
+None of it changes the wire protocol, which {{distribution}} defines in full, and none of it is visible to relying parties, which never fetch ({{rp-no-fetch}}).
 
 ## Availability Considerations {#availability-considerations}
 
@@ -1583,6 +1472,118 @@ Multi-CA operation removes even that as a single point of failure, so a single C
 A longer `tick_interval` trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
 
 The alternative, no in-band revocation at all, instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
+
+## Distributing Tick Requests {#load-distribution}
+
+Because a relying party also accepts a tick for the immediately preceding period ({{verification}}), an authenticating party has up to one full `tick_interval` of slack in which to fetch each new tick and need not fetch at the period boundary.
+Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.
+
+### Client-Side: Deterministic Per-Entry Offset
+
+Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own `tbs_cert_entry_hash`:
+
+~~~pseudocode
+offset = UINT32(tbs_cert_entry_hash[0..3])
+         mod max(1, tick_interval / 2)
+~~~
+
+where `tbs_cert_entry_hash` is the binary hash defined in {{distribution}}, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
+The authenticating party computes this from its own entry, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by `tbs_cert_entry_hash`.
+The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
+During the first offset seconds of the period it continues to serve the preceding period's tick.
+
+The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}).
+A verifier whose clock is ahead by more than (`tick_interval` - offset) already expects the following period and rejects a tick two periods behind its expectation.
+Bounding the offset to half of `tick_interval` leaves at least half a period of that grace available to absorb verifier clock skew, while still spreading fetches across a wide window.
+
+Because entry hashes are uniformly distributed, deriving the offset this way spreads fetches uniformly across the period with no coordination, shared state, or central scheduler, and the offset is stable from period to period, which aids caching and diagnosis.
+This is preferable to independent random jitter, which can still cluster and which varies each period.
+
+### Server-Side: Cache Freshness and Retry-After
+
+The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than `tick_interval` seconds ({{response-format}}), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
+A CA MAY additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.
+
+Under transient overload, the CA or edge MAY respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
+To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
+Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
+
+The deterministic per-entry offset above and edge caching together flatten period-boundary load.
+The offset spreads fetches uniformly across the period, and caching collapses the fetches for each entry into a single origin request per period regardless of client timing.
+At large scale these are required rather than merely recommended, as the Operational Model ({{distribution}}) notes.
+This document nonetheless specifies them as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
+A specific load-shaping or availability target is left to root-program or CA operational policy.
+
+## Bulk Retrieval for Large Deployments {#bulk-retrieval}
+
+The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates, such as a large hosting provider or CDN, issues on the order of N fetches per period for N certificates.
+The per-entry offset ({{load-distribution}}) spreads them across the period but does not reduce their number.
+This stays inexpensive.
+Each tick is a 34-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
+An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}).
+The CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.
+
+A CA MAY additionally offer a batch endpoint keyed by a list of `tbs_cert_entry_hash` values, or of tokens ({{unguessable-urls}}).
+The trade-off is cacheability.
+A batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
+It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
+This document does not standardize a batch wire format.
+Any such mechanism is a bilateral agreement between a CA and its authenticating parties, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends ({{distribution}}).
+It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
+
+## Delegated Tick Distribution {#delegated-distribution}
+
+Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity or authenticity.
+A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance ({{hash-function-requirements}}), and cannot serve a tampered value that verifies.
+Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
+
+The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `tbs_cert_entry_hash`, refreshing it as certificates advance through their own periods ({{construction}}).
+Each distributor serves those values through the HTTP interface of {{distribution}}.
+To revoke a certificate, the CA drops its entry from subsequent refreshes: absence is revocation, so no revocation list is exchanged.
+Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.
+
+MTC mirrors are a natural home for this role.
+They already replicate and serve MTC log data at high availability, and extending a mirror to also serve the currently-revealed ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
+Content delivery networks and relying-party-side operators can serve as distributors on the same terms, including browser providers, which already run large-scale revocation-distribution infrastructure.
+Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several delegated distributors concurrently with no added trust, removing the CA origin as a single point of failure.
+The level of redundancy a CA must provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
+
+Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation.
+It does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
+The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{availability-considerations}}.
+
+What is delegated is distribution, not revocation authority.
+The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal each period.
+A distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
+
+A CA MAY publish only values that are already revealed, in which case each distributor depends on the CA for every refresh and the CA retains tight, sole control of revocation.
+
+Alternatively, as part of disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values, so that the distributor can keep certificates usable through a CA-side outage.
+This is continuity (liveness) delegation, not delegation of revocation.
+Sharing future ticks lets the holder keep certificates alive.
+It correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
+The buffer length therefore caps how quickly those certificates can be revoked through the hash chain.
+During the window the only remaining lever is the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which the CA controls independently.
+
+Future values held by a distributor are as sensitive as the CA's own unrevealed hash chain values ({{seed-confidentiality}}): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
+A CA SHOULD therefore keep the buffer short, sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace ({{period-zero-rationale}}).
+It SHOULD pre-provision only distributors trusted to stop serving on the CA's instruction.
+
+Such a buffer is compact and inherently bounded.
+For a buffer of N periods the CA need send each distributor only a single value per certificate: the value that will be revealed N periods ahead.
+From that the distributor derives every intervening period's value by hashing forward ({{revealing-values}}).
+One value per certificate thus covers the whole buffer, and it confers no power beyond period t+N, since serving any later period would require inverting the hash.
+A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}) with a distributor: unlike a bounded buffer of already-revealed values, that secret would grant the unbounded ability to forge non-revocation for the entire certificate population.
+
+This prohibition holds even in disaster recovery.
+A CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret or per-certificate seeds to a successor operator as a continuity measure.
+That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event that destroys forward security and hands over unbounded forging power.
+It is also unnecessary.
+The bounded buffer above keeps already-issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
+If the disaster is itself a seed or key compromise, the response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), not wider custody of a possibly-tainted secret.
+
+The feed from CA to distributor SHOULD be authenticated and integrity-protected.
+This is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
 
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
