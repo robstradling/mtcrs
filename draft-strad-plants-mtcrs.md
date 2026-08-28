@@ -2225,37 +2225,7 @@ They achieve this using nothing but a hash function and basic arithmetic, with n
 Each alternative in {{alternatives}} secures some of these but sacrifices at least one.
 Signed per-certificate status reintroduces per-period signing ({{operational-resilience}}), a separate TLS or stapled channel reintroduces the strippable soft-fail ({{ocsp-stapling-comparison}}), and pushed external lists give up universal, CA-anchored enforcement ({{browser-revocation-history}}).
 It is this simultaneity, not any single property, that distinguishes hash chains.
-
-## Why This Succeeds Where Micali's CRS Did Not {#why-crs-succeeds}
-
-Micali's certificate revocation system {{MICALI}} introduced the hash chain primitive this document builds on, yet it never saw wide deployment in the Web PKI.
-The reason was not the cryptography, which is sound, but delivery.
-The scheme made proving non-revocation cheap to *verify*, but it did not change how the per-period token *reached* the relying party.
-A verifier still had to obtain a fresh per-certificate value each period, and classic X.509 offered no low-cost, enforceable place to carry it.
-A relying party therefore had to fetch it, which reintroduced the distribution, latency, privacy, and soft-fail problems of OCSP {{?RFC6960}}.
-Cheap verification did not translate into cheap, enforceable delivery, so the ecosystem standardized on OCSP and CRLs and later moved to pushed revocation lists ({{browser-revocation-history}}).
-
-Merkle Tree Certificates remove that barrier, which is what lets the same primitive become deployable here:
-
-- **Delivery is free.**
-  The tick rides inside the MTCProof the authenticating party already presents in the handshake ({{cert-format}}), so the relying party receives it with the certificate and fetches nothing ({{rp-no-fetch}}).
-  The only fetch is the server's own once-per-period refresh, a static cacheable GET that can be delegated to CDNs and mirrors ({{delegated-distribution}}).
-
-- **The commitment is free.**
-  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{anchor-extension}}), so the tick is self-authenticating with no new signature, responder, or trust relationship.
-  Classic CRS, by contrast, needed the CA to sign the hash chain's endpoint (its anchor) into each certificate.
-
-- **Enforcement is hard-fail by construction.**
-  Because the committed anchor mandates the tick's presence, a relying party rejects a certificate whose tick is missing or stale ({{ocsp-stapling-comparison}}).
-  It cannot silently soft-fail, which is what undermined both online OCSP and a client-fetched CRS token.
-
-- **The remaining costs are tractable at scale.**
-  Zero per-period signing keeps post-quantum signatures off the revocation path ({{post-quantum}}), precomputation is bounded by fractal traversal ({{hash-chain-traversal}}), and distribution is delegable ({{delegated-distribution}}), addressing the generation-and-distribution load that also burdened CRS.
-  MTC is moreover greenfield, so enforcement can be mandatory from the outset rather than accommodating a soft-fail install base.
-
-In short, CRS's limitation was delivery and enforcement, not the hash chain.
-MTC supplies the missing delivery channel, the certificate presentation itself, committed in a Merkle Tree.
-That turns the same primitive into a fetch-free, hard-fail mechanism.
+{{prior-mechanisms}} examines the three prior approaches this one is most often compared with.
 
 ## Why One Hour (or One Day) Periods {#why-one-hour}
 
@@ -2334,101 +2304,92 @@ It is embedded directly in the MTCProof (the certificate's `signatureValue`) rat
 5. **Server must participate:** The authenticating party is already responsible for maintaining its Merkle Tree Certificate and refreshing it before expiry.
    Adding a lightweight hourly tick refresh is an incremental burden, not a new class of operational requirement.
 
-## Comparison with OCSP Stapling {#ocsp-stapling-comparison}
+## Relationship to Prior Revocation Mechanisms {#prior-mechanisms}
 
-OCSP stapling delivers a CA-signed status response inside the TLS handshake, and is the closest existing analogue to this mechanism.
-It has nonetheless failed to become an enforceable revocation channel, for reasons this mechanism is specifically designed to avoid.
-The major browsers' migration away from live OCSP and stapling toward pushed revocation lists was itself a verdict on soft-fail.
+Three earlier approaches bear directly on this design.
+Micali's own certificate revocation system introduced the primitive, OCSP stapling is the closest existing analogue, and the browsers' migration to pushed revocation lists is the ecosystem's most recent verdict on the alternatives.
+Each fell short for reasons with a common root: status could not be delivered to the relying party both cheaply and enforceably.
+They are treated together here because the answer in each case is the same property of Merkle Tree Certificates, that the certificate presentation is itself the delivery channel.
 
-### Why OCSP Stapling Is Not Enforceable
+### Why Micali's CRS Did Not Deploy {#why-crs-succeeds}
 
-OCSP stapling ({{?RFC6960}}, carried via the TLS status_request extension) is optional and strippable.
+Micali's certificate revocation system {{MICALI}} introduced the hash chain primitive this document builds on, yet it never saw wide deployment in the Web PKI.
+The reason was not the cryptography, which is sound, but delivery.
+The scheme made proving non-revocation cheap to *verify*, but it did not change how the per-period value *reached* the relying party.
+A verifier still had to obtain a fresh per-certificate value each period, and classic X.509 offered no low-cost, enforceable place to carry it, so the relying party had to fetch it.
+That reintroduced the distribution, latency, privacy, and soft-fail problems of OCSP {{?RFC6960}}, and the ecosystem settled on OCSP and CRLs instead.
+
+Merkle Tree Certificates remove that barrier, which is what makes the same primitive deployable now:
+
+- **Delivery is free.**
+  The tick rides inside the MTCProof the authenticating party already presents in the handshake ({{cert-format}}), so the relying party receives it with the certificate and fetches nothing ({{rp-no-fetch}}).
+  The only fetch is the server's own once-per-period refresh, a static cacheable GET that can be delegated ({{delegated-distribution}}).
+
+- **The commitment is free.**
+  MTC already commits the anchor in the Merkle Tree and covers it with cosignatures ({{anchor-extension}}), so the tick is self-authenticating with no new signature, responder, or trust relationship.
+  Classic CRS, by contrast, needed the CA to sign each hash chain's anchor into the certificate itself.
+
+- **The remaining costs are tractable at scale.**
+  Zero per-period signing keeps post-quantum signatures off the revocation path ({{post-quantum}}), precomputation is bounded by fractal traversal ({{hash-chain-traversal}}), and distribution is delegable, which addresses the generation and distribution load that also burdened CRS.
+
+CRS's limitation was therefore delivery and enforcement, not the hash chain.
+MTC supplies the missing channel, and the enforcement that follows from it is the subject of the next subsection.
+
+### Why OCSP Stapling Is Not Enforceable, and This Is {#ocsp-stapling-comparison}
+
+OCSP stapling delivers a CA-signed status response inside the TLS handshake, which makes it the closest existing analogue to this mechanism.
+It has nonetheless failed to become an enforceable revocation channel.
+
+Stapling ({{?RFC6960}}, carried via the TLS status_request extension) is optional and strippable.
 The client requests it, and the server, or a network attacker, can omit the stapled response with no signal that one was expected.
-A relying party therefore cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail (treat missing status as "not revoked") to avoid breaking legitimate connections.
-Soft-fail, in turn, provides almost no protection against an active attacker, who can simply suppress the response.
-This is a self-reinforcing loop.
-Because enforcement is impossible, stapling yields little security benefit.
-Because it yields little benefit, servers have weak incentive to deploy it.
-And because deployment is incomplete, relying parties can never move from soft-fail to hard-fail.
-
-OCSP Must-Staple ({{?RFC7633}}) was introduced to break this loop by letting a certificate commit to requiring a stapled response.
-It saw little adoption: enabling it risks self-inflicted outages if the responder or the server's stapling path fails, and the ecosystem never reached the coverage that would let relying parties depend on it.
-The stapled response remains a separate TLS signal with its own failure modes, layered on a CA-operated responder that must sign every response.
-
-### Why This Mechanism Is Enforceable
+A relying party cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail, treating missing status as "not revoked", to avoid breaking legitimate connections.
+Soft-fail in turn provides almost no protection against an active attacker, who simply suppresses the response.
+The result is a self-reinforcing loop.
+Enforcement is impossible, so the security benefit is small; the benefit is small, so servers have little incentive to deploy; deployment stays incomplete, so relying parties can never move to hard-fail.
+OCSP Must-Staple ({{?RFC7633}}) was introduced to break that loop by letting a certificate commit to requiring a stapled response, and saw little adoption, because enabling it risks self-inflicted outages if the responder or the stapling path fails, and the ecosystem never reached the coverage that would let relying parties depend on it.
 
 The hash chain tick is not a separate, optional signal.
 It is carried inside the MTCProof, which is part of the certificate presentation itself ({{cert-format}}).
 A relying party that parses the certificate necessarily encounters the tick.
 There is no request step to omit, and nothing a middlebox or misconfigured server can strip while leaving a valid certificate.
-A relying party can therefore hard-fail on a missing or invalid tick from the outset, precisely what stapling could never achieve.
-In effect this mechanism provides the property Must-Staple aimed at, a certificate that cannot be presented without current status, but makes it un-strippable by construction rather than by a policy flag.
+Relying parties can therefore hard-fail from the outset, which is the property Must-Staple aimed at, obtained by construction rather than by a policy flag.
 
-### Why It Is More Readily Deployable
-
-Several differences lower the deployment barrier relative to stapling:
-
-- **No responder infrastructure and no per-response signatures.**
-  The CA reveals a precomputed hash value per period, so there is no OCSP responder fleet, responder certificate, or per-check signing operation.
-  Ticks are static within a period, self-authenticating, and cacheable by any HTTP intermediary, so distribution is far more robust than a signing responder, the very fragility that made Must-Staple risky to enable.
-
-- **No TLS-stack changes.**
-  The tick travels inside the existing certificate structure, so no status_request negotiation or CertificateStatus handling is required in TLS implementations beyond MTC support itself.
-  Stapling requires status_request support on both ends.
-
-- **A small, cacheable refresh instead of stapling machinery.**
-  A server refreshes a small value once per period ({{distribution}}), with no cryptographic operations, rather than fetching, validating, and stapling CA-signed OCSP responses with their own validity windows.
-
-- **Greenfield enforcement.**
-  MTC is new, so there is no legacy soft-fail install base to accommodate.
-  Within an MTC ecosystem, enforcement can be mandatory from day one, or made so by marking the anchor extension critical ({{extension-criticality}}), avoiding the transition that stapling never completed.
+Several further differences lower the deployment barrier.
+There is no responder fleet, responder certificate, or per-check signing operation.
+No status_request negotiation or CertificateStatus handling is needed in TLS implementations beyond MTC support itself ({{tls-use}}).
+The server refreshes a small value once per period with no cryptographic operations, rather than fetching, validating and stapling signed responses that carry their own validity windows.
+And MTC is greenfield, so there is no legacy soft-fail install base: enforcement can be mandatory from day one, or made so by marking the anchor extension critical ({{extension-criticality}}).
 
 The counterweight is that a tick, unlike a soft-failed OCSP response, is a hard dependency.
-A server that cannot refresh its tick within a period becomes unusable until it does.
-This is the failure mode OCSP Must-Staple has, but MTCRS carries a smaller version of it and, unlike Must-Staple, an escape from it.
-The refresh is a static unsigned fetch rather than a time-bounded signed response with a responder certificate and validity window.
-And where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current ({{availability-considerations}}).
-{{availability-considerations}} discusses this availability dependency and its mitigations.
+A server that cannot refresh within a period becomes unusable until it does.
+This is Must-Staple's failure mode, but a smaller version of it with an escape.
+The refresh is a static unsigned fetch rather than a time-bounded signed response with a responder certificate, and where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current ({{availability-considerations}}).
 
 ### Operational Simplicity and Resilience {#operational-resilience}
 
-Beyond the deployment barrier, tick distribution is simpler to operate and more resilient than an OCSP responder.
+Tick distribution is also simpler to operate than an OCSP responder.
 The serving path holds no online signing key and no responder certificate.
 It returns precomputed values that are immutable within a period, so it is a static, cacheable, CDN-offloadable, plain-HTTP key-value service ({{distribution}}) with no per-request cryptography and nothing security-critical in the request path.
 A compromised or overloaded tick service can only serve public precomputed values.
 It cannot mint a false non-revocation statement, unlike a responder whose signing key is a high-value online target.
-Relying parties impose no load at all, because they never fetch ({{rp-no-fetch}}).
-That removes the responder-in-the-hot-path that made online OCSP a latency, availability, and privacy problem.
+Relying parties impose no load at all, because they never fetch ({{rp-no-fetch}}), which removes the responder-in-the-hot-path that made online OCSP a latency, availability, and privacy problem.
 
 Two qualifications apply.
-First, the new cost is on the generation side.
-The CA must produce the current tick for every non-revoked certificate each period, a precompute workload ({{storage-tradeoff}}) rather than OCSP's sign-on-demand.
-Second, the failure mode differs by design.
-An OCSP responder outage fails open (relying parties soft-fail and proceed), whereas a tick-distribution outage lasting longer than one period fails closed for the affected certificate, bounded by the one-period buffer and mitigated by caching, multi-CA operation, and window-widening ({{availability-considerations}}).
+The new cost is on the generation side, since the CA must produce the current tick for every non-revoked certificate each period, a precompute workload ({{storage-tradeoff}}) rather than OCSP's sign-on-demand.
+And the failure mode differs by design: an OCSP responder outage fails open, whereas a tick-distribution outage lasting longer than the buffer fails closed for the affected certificate ({{availability-considerations}}).
 
-## Relationship to the Browser Move Away from Online Revocation {#browser-revocation-history}
+### Why the Browser Move to Pushed Lists Is Not a Counter-Example {#browser-revocation-history}
 
-The major browsers disabled live OCSP checking and never pushed OCSP stapling to ubiquity.
-Instead they moved to client-side pushed revocation (Chrome's CRLSets {{CRLSets}}, Mozilla's OneCRL and CRLite {{CRLite}}, and Apple's on-device revocation data).
-A handshake-carried status mechanism might therefore look like a return to an approach the ecosystem already rejected.
-It is not.
-The reasons for that move are specific, and this mechanism is designed around each of them.
+The major browsers disabled live OCSP checking and never pushed stapling to ubiquity, moving instead to client-side pushed revocation: Chrome's CRLSets {{CRLSets}}, Mozilla's OneCRL and CRLite {{CRLite}}, and Apple's on-device revocation data.
+A handshake-carried status mechanism might therefore look like a return to an approach the ecosystem has already rejected.
+It is not, because the specific reasons for that move do not apply here.
+Online OCSP had to soft-fail, whereas this mechanism hard-fails by construction.
+Client-driven OCSP leaked relying-party browsing to CAs, whereas relying parties here never contact the CA at all ({{rp-no-fetch}}).
+Must-Staple's stapling pipeline was fragile, whereas the refresh here is a trivial cacheable GET with no signing, buffered for a period and backed by multi-CA fallback ({{dos-withholding}}).
 
-- **Soft-fail.**
-  Online OCSP had to treat an unreachable responder as "not revoked," so an active attacker could suppress the check.
-  Here the proof is part of the certificate presentation and hard-fails by construction ({{ocsp-stapling-comparison}}), which is what OCSP Must-Staple ({{?RFC7633}}) aimed at but never achieved at scale.
-
-- **Relying-party privacy.**
-  Client-driven OCSP leaked relying-party browsing to CAs.
-  Relying parties here never contact the CA ({{rp-no-fetch}}), and the only fetch is server-side.
-
-- **Operator and responder fragility.**
-  Must-Staple's stapling-pipeline failures caused self-inflicted outages, so clients could never move to hard-fail ({{ocsp-stapling-comparison}}).
-  Here the refresh is a trivial cacheable GET with no signing, buffered for a period and backed by multi-CA fallback ({{dos-withholding}}), and MTC is greenfield, so enforcement can be mandatory from the outset.
-
-The pushed-list systems remain valuable and complementary: comprehensive and fail-closed, but vendor-controlled and effective only for relying parties that ship the feed ({{external-revocation}}).
+The pushed-list systems remain valuable and complementary, being comprehensive and fail-closed, but they are vendor-controlled and effective only for relying parties that ship the feed ({{external-revocation}}).
 This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients and IoT devices with no external feed.
-The browser move in fact validates the design choices adopted here: fail-closed enforcement with no handshake-time relying-party network dependency.
+The browser move in fact validates the design adopted here, which is fail-closed enforcement with no handshake-time relying-party network dependency.
 
 ## Incremental Deployment and Transition {#deployment-transition}
 
