@@ -574,7 +574,7 @@ The extension value contains the DER encoding of the following ASN.1 structure, 
 
 ~~~asn.1
 HashChainAnchorInfo ::= SEQUENCE {
-    tickInterval      INTEGER (1..MAX) DEFAULT 3600,
+    tickInterval      INTEGER (1..4294967295) DEFAULT 3600,
     anchor            OCTET STRING
 }
 ~~~
@@ -583,6 +583,8 @@ HashChainAnchorInfo ::= SEQUENCE {
 : The tick interval in seconds for this certificate ({{construction}}), with a default of 3600 (one hour).
   Under DER, a certificate using the default value MUST omit this field (Section 11.5 of {{X.690}}), so the common one-hour case adds no per-entry bytes.
   A relying party that finds the field absent MUST use the default of 3600, and MUST reject a certificate that carries the field with the value 3600 ({{verification}}).
+  The upper bound of 4294967295 (2<sup>32</sup> - 1 seconds, about 136 years) is a parser bound rather than a policy one, in the same spirit as the 16-bit period field ({{construction}}): it keeps `tickInterval` a fixed-width integer, so a relying party never has to allocate or evaluate an arbitrarily large INTEGER before reaching the checks that would reject it.
+  It sits far above any certificate lifetime, and `tick_interval` must in any case be shorter than the certificate's validity period ({{construction}}), which is the constraint that actually binds.
   The relying party reads this value (or the default) from here.
   It is used to number periods and to compute the expected period during verification ({{verification}}).
 
@@ -808,7 +810,7 @@ Using these inputs, the verifier performs the following steps:
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
    If the extension value does not DER-decode as a well-formed HashChainAnchorInfo, reject the certificate with a bad_certificate error.
-   Examples are a malformed SEQUENCE, a `tickInterval` outside INTEGER (1..MAX), a `tickInterval` present carrying the DEFAULT value 3600, which DER requires to be omitted (Section 11.5 of {{X.690}}), or trailing data after the structure.
+   Examples are a malformed SEQUENCE, a `tickInterval` outside INTEGER (1..4294967295), a `tickInterval` present carrying the DEFAULT value 3600, which DER requires to be omitted (Section 11.5 of {{X.690}}), or trailing data after the structure.
    A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it MUST be checked explicitly.
    The anchor extension is committed to the Merkle Tree, so a non-canonical encoding of it would be a distinct entry certifying the same thing.
    If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
@@ -1844,7 +1846,7 @@ ext-hashChainAnchor EXTENSION ::= {
 id-pe-hashChainAnchor OBJECT IDENTIFIER ::= { id-pe TBD }
 
 HashChainAnchorInfo ::= SEQUENCE {
-  tickInterval      INTEGER (1..MAX) DEFAULT 3600,
+  tickInterval      INTEGER (1..4294967295) DEFAULT 3600,
   anchor            OCTET STRING }
 
 -- Tick distribution Subject Information Access method
