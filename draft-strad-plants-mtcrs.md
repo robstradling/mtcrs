@@ -599,7 +599,9 @@ Such a certificate cannot advance beyond period 0, so the mechanism would enforc
 Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
 With the default `tick_interval`, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing.
 That is about 50 bytes per entry for SHA-256, of which 36 are the HashChainAnchorInfo itself ({{test-vectors}}) and the rest the X.509 extension's OBJECT IDENTIFIER and wrapper.
-A TBSCertificateLogEntry is typically a few hundred bytes (a subject name, validity, a hashed SubjectPublicKeyInfo, and any other extensions), so this is a modest increase.
+This is not a negligible addition, and it is quantified plainly here because compactness is a principal goal of the base design.
+A domain-validated entry, whose subject is empty and whose public key appears only as a hash, runs to roughly 200 to 250 bytes, so the anchor enlarges it by something like a fifth to a quarter.
+Entries carrying a subject name or many subjectAltName values are larger, and the proportion correspondingly smaller.
 Being a fixed-size hash, it does not grow with post-quantum key or signature sizes, unlike much of what MTC was designed to keep out of the log.
 
 The cost lands in two bounded places.
@@ -609,6 +611,7 @@ It is incurred once per entry rather than per period, and is far below the per-c
 The second is the certificate presentation, where the same anchor bytes travel in each handshake as ordinary TBSCertificate content.
 The inclusion proof is unaffected.
 Its size depends on tree depth, not entry size, so the anchor adds no hashes to the proof path.
+That proof is also the right yardstick for the per-handshake cost, since the anchor and the tick travel beside it: the base specification estimates it at 384 bytes for a standalone certificate and 736 bytes for a landmark-relative one ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), against which the 34-byte tick ({{cert-format}}) is some 5 to 9 percent.
 
 This committed cost is the unavoidable price of self-authentication.
 Unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
