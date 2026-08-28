@@ -149,6 +149,12 @@ Second, revocation is enforceable but not transparent.
 Withholding a tick is not a signed, logged artifact, so monitors cannot observe revocation events in the Merkle Tree, and a deployment that needs an auditable revocation record obtains it from a mechanism outside MTC ({{revocation-transparency}}).
 Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
 
+A third point is better met directly than left to be inferred.
+This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial: a CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second ({{distribution}}).
+What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it ({{rp-no-fetch}}), so it lies outside the handshake path entirely; it holds no key and signs nothing; and every response is a public value that is immutable within its period.
+It is therefore a static, cacheable origin that a CA can delegate wholesale to parties trusted for availability alone ({{delegated-distribution}}, {{operational-resilience}}).
+The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
+
 This mechanism is designed to layer onto the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} with a single required change.
 {{base-spec-amendments}} collects what this document asks of the base specification, and {{open-questions}} the design choices it leaves open for the working group to settle.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
