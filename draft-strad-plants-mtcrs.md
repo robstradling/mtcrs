@@ -325,7 +325,7 @@ The hash chain mechanism introduces the following additional parameter:
   This MUST be greater than zero.
   The RECOMMENDED and default value is 3600 (one hour).
   {{anchor-extension}} specifies how this default is encoded so that a certificate using it carries no `tick_interval` bytes.
-  The number of periods in a certificate's lifetime is `hash_chain_length = ceil(lifetime / tick_interval)`.
+  The number of periods in a certificate's lifetime is `hash_chain_length = ceil(lifetime / tick_interval)`, where `lifetime` is the certificate's validity period in seconds, `notAfter` - `notBefore`.
 
 Because a tick carries its period in a 16-bit field ({{cert-format}}), `hash_chain_length` MUST NOT exceed 65,535, so that every period number (0 through `hash_chain_length` - 1) and the verifier's one-period acceptance allowance ({{verification}}) are representable.
 A CA MUST NOT issue a certificate with the id-pe-hashChainAnchor extension whose lifetime and `tick_interval` imply a longer hash chain.
@@ -827,7 +827,10 @@ Using these inputs, the verifier performs the following steps:
    The upper neighbor needs no such treatment.
    A relying party does not know `hash_chain_length` ({{anchor-extension}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not: no tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
-   It MUST likewise compute the window in arithmetic wider than the 16-bit period field, since `expected_period` + 1 can reach 65,536 in a certificate's final period and would wrap to 0 in 16 bits, admitting a period-0 tick.
+   It MUST likewise compute the window in arithmetic wider than the 16-bit period field.
+   Since `hash_chain_length` cannot exceed 65,535, the final period of a valid certificate is 65,534 and `expected_period` + 1 reaches at most 65,535, which fits, but exactly at the top of the range with no headroom.
+   A verifier computing in 16 bits would wrap to 0, and so admit a period-0 tick, as soon as `expected_period` exceeded that, which a certificate already past its `notAfter` produces.
+   That is why the base validity check MUST precede any period computation, as stated at the head of this section.
 
 5. Starting from `tick.value`, iteratively hash `tick.period` times:
 
@@ -847,7 +850,7 @@ Using these inputs, the verifier performs the following steps:
    A relying party that widens the window raises that bound correspondingly.
 
    A relying party MAY additionally impose a local ceiling well below 65,535.
-   It can compute the certificate's implied maximum period as `ceil((notAfter - notBefore) / tick_interval)` from the certificate alone, and reject with a bad_certificate error if that exceeds its configured limit.
+   It can compute that same bound as `hash_chain_length`, which is `ceil(lifetime / tick_interval)` ({{construction}}), from the certificate alone, and reject with a bad_certificate error if it exceeds its configured limit.
    Implementations for which even the structural bound is too costly, such as constrained devices, SHOULD configure such a limit and SHOULD apply it before beginning the iteration, so that the check costs one division rather than the hashing it avoids ({{verification-cost}}).
    The consequences of setting that limit are collected in {{rp-policy}}.
 
