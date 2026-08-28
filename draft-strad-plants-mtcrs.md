@@ -96,7 +96,7 @@ informative:
 
 This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC).
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
-Once per period, typically each hour, the CA reveals the next value working backwards along that chain, for each certificate it has not revoked.
+For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain.
 The authenticating party packages the current value with its period as a *tick* and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
 The relying party can then cryptographically verify that the certificate has not been revoked, without contacting anyone.
 
@@ -1157,7 +1157,8 @@ Once that runway is exhausted, the certificate becomes unusable until a fresh ti
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
-A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second, and this load tends to concentrate at period boundaries if authenticating parties refresh in lockstep.
+A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
+Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are, and concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
 At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
 Those techniques, along with bulk retrieval and delegation of the serving path, are operational rather than protocol matters and are described in {{operational-considerations}}.
 
@@ -1541,7 +1542,10 @@ Rotation is by issuance epoch, not by tick period: a certificate's entire hash c
 ## Distributing Tick Requests {#load-distribution}
 
 Because a relying party also accepts a tick for the immediately preceding period ({{verification}}), an authenticating party has up to one full `tick_interval` of slack in which to fetch each new tick and need not fetch at the period boundary.
-Two complementary mechanisms exploit this slack to prevent a period-boundary thundering herd.
+
+Period boundaries are each certificate's own, counted from its `notBefore` ({{construction}}), so they are staggered to whatever extent issuance times are.
+They coincide only where `notBefore` values coincide, which is common in practice: CAs frequently round `notBefore`, and automated renewal tends to arrive in waves.
+A thundering herd is therefore a consequence of clustered issuance rather than of the period schedule itself, and the two mechanisms below exploit the slack above to blunt it in either case.
 
 ### Client-Side: Deterministic Per-Entry Offset
 
