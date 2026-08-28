@@ -540,18 +540,14 @@ It cannot be taken from the TBSCertificateLogEntry, which omits `serialNumber` (
 An authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
 
 The `issuer_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
-This salting is not load-bearing for the core guarantee.
-Each hash chain already starts from an independent, cryptographically random seed, and the anchor committed in the certificate ({{anchor-extension}}) binds each revealed value to that specific hash chain.
-Its contribution is defense in depth.
-It keeps hash chains distinct even if a seed-generation fault were to repeat a seed across entries, and it frustrates any amortized precomputation that would otherwise target the whole population of hash chains at once (the same rationale as salting).
+This salting is defense in depth rather than load-bearing, since each hash chain already starts from an independent random seed and the committed anchor binds each revealed value to that specific chain ({{anchor-extension}}).
+It keeps hash chains distinct even if a seed-generation fault repeated a seed across entries, and it frustrates amortized precomputation against the whole population at once.
 
-Two constraints rule out deriving the salt from the certificate or the log entry instead, as a hash of the TBSCertificate or of `tbs_cert_entry_data` would.
+Deriving the salt from the certificate or the entry instead, as a hash of the TBSCertificate or of `tbs_cert_entry_data` would, is ruled out on two grounds.
 The first is circularity.
-The anchor is committed inside the TBSCertificateLogEntry, and so inside the TBSCertificate ({{anchor-extension}}), whereas the salt must be fixed before the hash chain that produces that anchor can be computed.
-A hash of either structure is therefore unavailable when the hash chain is generated.
+The anchor is committed inside those structures, whereas the salt must be fixed before the hash chain that produces the anchor can be computed, so a hash of either is unavailable when the chain is generated.
 The second is cost.
-HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}).
-Substituting a 32-byte hash for the 8-byte serial number would push a typical structure past the 55 bytes that SHA-256 accommodates in a single compression block, roughly doubling that work.
+HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}), and substituting a 32-byte hash for the 8-byte serial number would push a typical structure past the 55 bytes SHA-256 accommodates in a single compression block, roughly doubling that work.
 The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
 
 The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -904,27 +900,21 @@ Only the URL path segment carries it hex-encoded.
 The authenticating party computes it from the TBSCertificateLogEntry it already possesses.
 No additional per-request metadata from the CA is required.
 
-**Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value: the SHA-256 of the entry's `tbs_cert_entry_data`, fixed to SHA-256 independent of the CA's tree HASH.
+**Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value, not a proof.
 It is distinct from the base specification's own `entry_hash`, the Merkle leaf hash `MTH({entry})` used for inclusion proofs ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), which is computed with the tree HASH over the entire log entry.
-By contrast, `tbs_cert_entry_hash` hashes only `tbs_cert_entry_data` and is never verified as a proof.
-It carries no security weight.
-The sole property it needs is collision resistance so that two entries do not share a URL, and even that is non-load-bearing, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches ({{verification}}).
-Fixing it to SHA-256 keeps tick distribution and caching independent of the CA's tree hash.
-Algorithm agility lives where it matters, in the security-relevant hashing that follows the agile tree HASH ({{post-quantum}}), and the `v1` path segment is the migration lever should the addressing hash ever need to change.
+The sole property it needs is collision resistance, so that two entries do not share a URL, and even that is non-load-bearing, because a URL collision only misroutes a fetch that the authenticating party's pre-installation check catches ({{verification}}).
+It is fixed to SHA-256 rather than following the CA's tree HASH, which keeps distribution and caching independent of the tree hash and leaves algorithm agility where it matters, in the security-relevant hashing ({{post-quantum}}).
+The `v1` path segment is the migration lever should the addressing hash ever need to change.
 
-The tick URL is keyed by `tbs_cert_entry_hash` rather than by the certificate's serial number, even though the serial, `(log_number << 48) | index` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}), also uniquely identifies the entry, is shorter, and needs no hashing.
-The serial's index component is assigned sequentially, so a serial-keyed URL would let anyone enumerate a CA's whole certificate population and probe each certificate's revocation status simply by counting indices, with no certificate and no log data in hand.
-`tbs_cert_entry_hash` raises that bar, because computing it requires the entry's contents (from the certificate or the public log) rather than a running counter.
-
-Being a derived value that need not appear in the certificate, it can also be replaced by the unguessable per-certificate capability token of {{unguessable-urls}} when a CA wants to remove URL derivability entirely.
+The URL is keyed by this hash rather than by the certificate's serial number, which also identifies the entry, is shorter, and needs no hashing ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
+The serial's index component is assigned sequentially, so a serial-keyed URL would let anyone enumerate a CA's whole certificate population and probe each certificate's status by counting indices, holding neither a certificate nor any log data.
+Computing `tbs_cert_entry_hash` instead requires the entry's contents, and, being a derived value that need not appear in the certificate, it can be replaced entirely by the unguessable token of {{unguessable-urls}}.
 A serial carried in the certificate offers no such option.
-Keying on `tbs_cert_entry_hash` therefore aligns with the design's preference that the tick endpoint not be treated as an enumerable status oracle ({{rp-no-fetch}}).
+Both properties serve the design's preference that the endpoint not be an enumerable status oracle ({{rp-no-fetch}}), with monitorable revocation transparency provided deliberately and separately where it is wanted ({{revocation-transparency}}).
 
-Its one cost is a reliance on the addressing hash's collision resistance to keep entries' URLs distinct, which is amply met and non-load-bearing (the Note above).
-Distinct URLs also require the hashed data itself to differ between entries, which `serialNumber` cannot supply, being omitted from the TBSCertificateLogEntry ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}).
-In this design the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{anchor-extension}}).
+Distinct URLs require the hashed data to differ between entries, which `serialNumber` cannot supply, being omitted from the TBSCertificateLogEntry ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}).
+Here the anchor supplies it, since it is part of `tbs_cert_entry_data` and is an independent random value per entry ({{anchor-extension}}).
 An encoding that moves the anchor out of `tbs_cert_entry_data` must therefore key ticks on something else ({{anchor-entry-extension}}).
-Where positive, monitorable revocation transparency is wanted, it is provided deliberately and separately ({{revocation-transparency}}), not as a side effect of an enumerable endpoint.
 
 The tick base URL is not derived from the CA's identifier.
 A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
@@ -1624,57 +1614,46 @@ It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
 
 ## Delegated Tick Distribution {#delegated-distribution}
 
-Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity or authenticity.
-A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance ({{hash-function-requirements}}), and cannot serve a tampered value that verifies.
-Tick distribution is therefore safe to delegate to third parties, which serve only public, self-authenticating values and hold no seed and no signing key.
+Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity.
+A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance ({{hash-function-requirements}}), nor serve a tampered value that verifies.
+Distribution is therefore safe to delegate to third parties, which serve only public values and hold no seed and no signing key.
 
 The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `tbs_cert_entry_hash`, refreshing it as certificates advance through their own periods ({{construction}}).
 Each distributor serves those values through the HTTP interface of {{distribution}}.
-To revoke a certificate, the CA drops its entry from subsequent refreshes: absence is revocation, so no revocation list is exchanged.
-Because a distributor only ever receives already-revealed values, compromising it exposes nothing that is not already public and does not let it defeat revocation.
+To revoke a certificate the CA drops its entry from subsequent refreshes, so absence is revocation and no revocation list is exchanged.
+Compromising a distributor exposes nothing that is not already public.
 
-MTC mirrors are a natural home for this role.
-They already replicate and serve MTC log data at high availability, and extending a mirror to also serve the currently-revealed ticks reuses that infrastructure without adding any trust, since the ticks it serves are self-authenticating.
-Content delivery networks and relying-party-side operators can serve as distributors on the same terms, including browser providers, which already run large-scale revocation-distribution infrastructure.
-Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several delegated distributors concurrently with no added trust, removing the CA origin as a single point of failure.
-The level of redundancy a CA must provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
-
-Operating such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation.
-It does not prevent a relying-party-side organization from running a distribution service that authenticating parties fetch from.
-The only trust placed in any distributor is for availability, addressed by operating several and by the multi-CA strategy of {{availability-considerations}}.
+MTC mirrors are a natural home for this role, since they already replicate and serve MTC log data at high availability.
+Content delivery networks and relying-party-side operators can serve on the same terms, including browser providers, which already run large-scale revocation-distribution infrastructure.
+Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several distributors concurrently with no added trust, removing its own origin as a single point of failure.
+How much redundancy to provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
+Running such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation.
+A relying-party-side organization may perfectly well operate one that authenticating parties fetch from.
 
 What is delegated is distribution, not revocation authority.
-The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal each period.
+The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal.
 A distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
+The only trust placed in any distributor is for availability.
 
-A CA MAY publish only values that are already revealed, in which case each distributor depends on the CA for every refresh and the CA retains tight, sole control of revocation.
+A CA MAY publish only already-revealed values, in which case each distributor depends on it for every refresh and it retains sole, immediate control of revocation.
+Alternatively, as disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values so that certificates stay usable through a CA-side outage.
+That is a delegation of liveness, and it costs exactly what it buys.
+A certificate cannot be revoked through a distributor that already holds its future values, so the buffer length caps revocation latency through that channel, leaving only the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}) during the window.
+Buffered values are as sensitive as the CA's own unrevealed ones ({{seed-confidentiality}}), since compromising the distributor keeps a revoked certificate alive for the remainder of the buffer.
+A CA SHOULD therefore keep the buffer short, sized to its outage-tolerance against revocation-latency budget, and SHOULD pre-provision only distributors trusted to stop serving on instruction.
 
-Alternatively, as part of disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values, so that the distributor can keep certificates usable through a CA-side outage.
-This is continuity (liveness) delegation, not delegation of revocation.
-Sharing future ticks lets the holder keep certificates alive.
-It correspondingly removes the CA's ability to revoke them through that distributor for the buffered window, because a certificate cannot be revoked from a distributor that already holds its future values.
-The buffer length therefore caps how quickly those certificates can be revoked through the hash chain.
-During the window the only remaining lever is the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), which the CA controls independently.
+The buffer is compact and inherently bounded.
+For N periods the CA sends one value per certificate, the value that will be revealed N periods ahead, from which the distributor derives every intervening period by hashing forward ({{revealing-values}}).
+It confers no power beyond period t+N, since any later period would require inverting the hash.
 
-Future values held by a distributor are as sensitive as the CA's own unrevealed hash chain values ({{seed-confidentiality}}): compromising the distributor lets an attacker keep a revoked certificate alive for the remainder of the buffer.
-A CA SHOULD therefore keep the buffer short, sized to its outage-tolerance versus revocation-latency budget, the same trade-off as the period-0 grace ({{period-zero-rationale}}).
-It SHOULD pre-provision only distributors trusted to stop serving on the CA's instruction.
-
-Such a buffer is compact and inherently bounded.
-For a buffer of N periods the CA need send each distributor only a single value per certificate: the value that will be revealed N periods ahead.
-From that the distributor derives every intervening period's value by hashing forward ({{revealing-values}}).
-One value per certificate thus covers the whole buffer, and it confers no power beyond period t+N, since serving any later period would require inverting the hash.
-A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}) with a distributor: unlike a bounded buffer of already-revealed values, that secret would grant the unbounded ability to forge non-revocation for the entire certificate population.
-
-This prohibition holds even in disaster recovery.
-A CA facing an unrecoverable failure MUST NOT hand its seed-derivation secret or per-certificate seeds to a successor operator as a continuity measure.
-That secret is as sensitive as the issuance signing key ({{derived-seeds}}), so transferring it is a root-key-custody event that destroys forward security and hands over unbounded forging power.
+A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}), which would grant the unbounded ability to forge non-revocation for the entire certificate population, and MUST NOT hand that secret or per-certificate seeds to a successor operator even in disaster recovery.
+It is as sensitive as the issuance signing key, so transferring it is a root-key-custody event that destroys forward security.
 It is also unnecessary.
-The bounded buffer above keeps already-issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
-If the disaster is itself a seed or key compromise, the response is the revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}), not wider custody of a possibly-tainted secret.
+The bounded buffer keeps issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
+If the disaster is itself a seed compromise, the response is the revoked-ranges fallback, not wider custody of a tainted secret.
 
 The feed from CA to distributor SHOULD be authenticated and integrity-protected.
-This is not required for relying-party security, which rests on self-authentication and the authenticating party's own pre-installation check ({{verification}}), but it prevents a distributor from being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
+This is not required for relying-party security, which rests on self-authentication and the authenticating party's pre-installation check ({{verification}}), but it prevents a distributor being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
 
 ## Verification Cost {#verification-cost}
 
