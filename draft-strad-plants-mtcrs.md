@@ -895,6 +895,12 @@ A CA and its authenticating parties MAY additionally agree on any other channel,
 Any such agreement is bilateral, and supplements the baseline rather than replacing it, so an authenticating party that implements only this interface can always obtain its ticks from any conforming CA.
 Nothing in this section concerns relying parties, which verify the embedded tick offline and MUST NOT fetch ticks ({{rp-no-fetch}}).
 
+At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
+A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
+Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are, and concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
+At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
+Those techniques, along with bulk retrieval and delegation of the serving path, are operational rather than protocol matters and are described in {{operational-considerations}}.
+
 ## HTTP Interface
 
 The CA (or a mirror) serves ticks over HTTP.
@@ -1089,7 +1095,7 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   This covers both a revoked certificate, for which the CA has stopped revealing values ({{revoking}}), and a tick that is merely not yet available, as during the period 0 grace ({{period-zero-rationale}}).
   The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation.
   It means only that no fresh tick was obtained on this attempt.
-  The authenticating party continues to serve its most recent still-valid tick and MAY retry (see the Operational Model below).
+  The authenticating party continues to serve its most recent still-valid tick and MAY retry ({{ap-behaviour}}).
 
 410 (Gone), optional:
 : The server knows that no further tick will ever be published for this entry, because the certificate has been revoked ({{revoking}}), or because it has expired and tick publication has stopped ({{revealing-values}}).
@@ -1097,7 +1103,7 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given ({{delegated-distribution}}).
   A 410 is a diagnostic hint and nothing more.
   It is unsigned and MAY be carried over plain HTTP ({{distribution}}), so an on-path observer or a faulty distributor can forge one.
-  An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window (see the Operational Model below).
+  An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window ({{ap-behaviour}}).
   Nor may its absence be read the other way.
   A plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor MUST NOT infer non-revocation from the lack of a 410.
 
@@ -1119,7 +1125,10 @@ For example:
 Cache-Control: public, max-age=3600
 ~~~
 
-## Operational Model
+# Authenticating Party Behaviour {#ap-behaviour}
+
+This section defines what an authenticating party does with the interface of {{distribution}}: how it refreshes a tick, what it checks before installing one, and when it may and may not present the certificate.
+It is the counterpart to {{verification}}, which defines the relying party's procedure.
 
 For each certificate it serves, the authenticating party periodically fetches that certificate's current tick from the CA:
 
@@ -1181,12 +1190,6 @@ Because a relying party also accepts the immediately preceding period's tick, a 
 That is close to two periods of runway from a single successful fetch, not one ({{availability-considerations}}).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
-
-At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
-A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
-Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are, and concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
-At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
-Those techniques, along with bulk retrieval and delegation of the serving path, are operational rather than protocol matters and are described in {{operational-considerations}}.
 
 # Security Considerations
 
@@ -1605,7 +1608,7 @@ Because the authenticating party retains its previously fetched tick, which rema
 
 The deterministic per-entry offset above and edge caching together flatten period-boundary load.
 The offset spreads fetches uniformly across the period, and caching collapses the fetches for each entry into a single origin request per period regardless of client timing.
-At large scale these are required rather than merely recommended, as the Operational Model ({{distribution}}) notes.
+At large scale these are required rather than merely recommended, as {{distribution}} notes.
 This document nonetheless specifies them as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
 A specific load-shaping or availability target is left to root-program or CA operational policy.
 
