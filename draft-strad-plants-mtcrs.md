@@ -662,10 +662,10 @@ value:
 
 Carrying the period costs two bytes per handshake that could in principle be recovered.
 A relying party could omit it and instead try each period its acceptance window admits, accepting the tick if any of them reaches the anchor, since the default window admits only three.
-This document carries the period explicitly for three reasons.
+This document carries the period explicitly for two reasons.
 The first is cost: trial verification multiplies the forward hashing, which {{construction}} shows is the axis that needs bounding rather than relaxing, and it does so in the worst case at exactly the moment the count is already largest.
-The second is that it degrades as the window widens, since a relying party accepting k preceding periods would need k + 2 trials ({{clock-skew}}).
-The third is diagnosis: an explicit period distinguishes a stale tick from a forged or misrouted one, both for the relying party's error reporting and for the authenticating party's pre-installation freshness check ({{distribution}}), which has no acceptance window to search and no way to detect staleness without it.
+It also degrades as the window widens, since a relying party accepting k preceding periods would need k + 2 trials ({{clock-skew}}).
+The second is diagnosis: an explicit period distinguishes a stale tick from a forged or misrouted one, both for the relying party's error reporting and for the authenticating party's pre-installation freshness check ({{distribution}}), which has no acceptance window to search and no way to detect staleness without it.
 
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
@@ -836,9 +836,13 @@ Using these inputs, the verifier performs the following steps:
    An out-of-window tick does not establish that.
    It means only that non-revocation is unproven as of now, which a distribution outage ({{availability-considerations}}), an authenticating party that failed to refresh, or a skewed clock ({{clock-skew}}) all produce just as a genuine revocation does.
    Claiming revocation would assert something the relying party cannot know and would misdirect diagnosis of what is usually an availability fault.
+
+   Two edges of the window need separate treatment.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
    The upper neighbor needs no such treatment.
    A relying party does not know `hash_chain_length` ({{anchor-extension}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not: no tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
+
+   Two arithmetic hazards attend the comparison.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
    It MUST likewise compute the window in arithmetic wider than the 16-bit period field.
    Since `hash_chain_length` cannot exceed 65,535, the final period of a valid certificate is 65,534 and `expected_period` + 1 reaches at most 65,535, which fits, but exactly at the top of the range with no headroom.
