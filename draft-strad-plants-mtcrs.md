@@ -737,10 +737,12 @@ Its only cost is that carrying a second proof-level mechanism in future would re
 
 Because the authenticating party rewrites the tick once per period, the complete certificate it presents is not stable over the certificate's lifetime.
 The TBSCertificate is fixed at issuance and never changes, but the `signatureValue` that carries the MTCProof changes at least once per `tick_interval`, for every certificate that uses this mechanism.
-The base specification already treats the `signatureValue` as malleable ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}), so this introduces no new property.
-Rather, it makes an existing property routine rather than incidental, and at a predictable cadence.
+This introduces no new property.
+The base specification already treats the `signatureValue` as malleable, and already requires that applications deriving a unique identifier from the Certificate use the TBSCertificate, or some portion of it, instead ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}).
+What changes is the frequency: an allowance a deployment might otherwise never exercise becomes a rewrite at a predictable cadence, on every certificate that carries an anchor.
 
-Applications MUST therefore derive any stable certificate identifier from the TBSCertificate, never from the complete certificate and never from the MTCProof.
+The base requirement is restated here in the form this mechanism gives it.
+Applications MUST derive any stable certificate identifier from the TBSCertificate, never from the complete certificate and never from the MTCProof.
 This applies wherever a certificate is used as a cache key, compared for equality, or recorded for later comparison, including:
 
 - certificate pinning and fingerprint allow-lists;
