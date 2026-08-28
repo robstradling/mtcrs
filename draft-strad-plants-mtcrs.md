@@ -1180,7 +1180,7 @@ It also inherits whatever hash the CA's issuance log uses ({{construction}}), so
 
 Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
 A signed-status approach, using OCSP-like per-certificate signatures ({{per-cert-signatures}}), would require a post-quantum signature per certificate per period (for example an ML-DSA-65 signature of roughly 3,309 bytes), whereas a tick is 34 bytes of hash output and is never signed.
-Adopting hash-chain revocation is therefore aligned with a post-quantum transition rather than a distraction from it: it removes post-quantum signing from the revocation path instead of adding it.
+Adopting hash chain revocation is therefore aligned with a post-quantum transition rather than a distraction from it: it removes post-quantum signing from the revocation path instead of adding it.
 
 ## Seed Confidentiality {#seed-confidentiality}
 
@@ -1438,7 +1438,7 @@ The subsections run in the order the work does, from the CA that generates hash 
 
 ## Availability Considerations {#availability-considerations}
 
-Because an authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}), a tick-distribution outage lasting longer than one period renders the affected certificate unusable until a fresh tick is obtained.
+Because an authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}), a tick-distribution outage that outlasts the runway a single successful fetch provides, which is up to about two periods, renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
 It is intrinsic to enforceable revocation rather than a defect.
 A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects ({{ocsp-stapling-comparison}}).
@@ -1503,7 +1503,7 @@ Within a single hash chain, a CA does not have to choose between the two naive e
 - **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
   Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.
 
-A CA MAY instead use **fractal hash-chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
+A CA MAY instead use **fractal hash chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
 The hash chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
 Instead of the whole hash chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the hash chain.
 When the value for the current period is needed, a pebble is already there.
@@ -1744,8 +1744,12 @@ IANA is requested to register the following entry in the "Well-Known URIs" regis
 | URI Suffix | mtcrs |
 | Change Controller | IETF |
 | Reference | This document |
-| Status | permanent |
+| Status | provisional |
 | Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}) |
+
+The status is provisional because {{Section 3.1 of !RFC8615}} reserves permanent registration for values defined by Standards Track RFCs and other open standards, or for values the experts find to be in use.
+This document is Experimental and has no known implementations ({{implementation-status}}).
+If it advances to the Standards Track, or the mechanism comes into use, the registration can be made permanent by the process that section describes.
 
 ## ACME Directory Metadata Fields
 
@@ -1829,6 +1833,7 @@ END
 ~~~
 
 The id-mod-mtcrs-2026, id-pe-hashChainAnchor, and id-ad-mtcrsTicks arcs contain TBD values to be replaced with the OIDs assigned by IANA ({{iana-considerations}}).
+The year in the module name and in id-mod-mtcrs-2026 follows the convention of {{!RFC5912}} and is a placeholder for the year of publication, to be corrected if that differs.
 
 # Test Vectors {#test-vectors}
 
@@ -1917,9 +1922,9 @@ Each is specified in full in the section cited.
 
 Exactly one change to the base specification is required:
 
-- **Amend the Section 7.2 "extra data" check** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
+- **Amend the "extra data" check of {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
   The RECOMMENDED realization appends a trailing `status_tick` field ({{tick-trailing-field}}).
-  A base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends Section 7.2 accordingly.
+  A base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends that check accordingly.
 
 The following item is optional, and a base specification MAY adopt it but need not:
 
@@ -2241,7 +2246,7 @@ The inclusion proof and cosignatures establish authenticity, and the tick comple
 It is embedded directly in the MTCProof (the certificate's `signatureValue`) rather than delivered via a separate channel because:
 
 1. **Inseparable from acceptance:** The tick is part of the certificate presentation, not a separate signal.
-   When the committed id-pe-hashChainAnchor extension is present, the amended Section 7.2 parse ({{tick-trailing-field}}) requires the MTCProof to carry the tick, so a relying party that implements this mechanism rejects the certificate if the tick is absent.
+   When the committed id-pe-hashChainAnchor extension is present, the amended parse of {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} ({{tick-trailing-field}}) requires the MTCProof to carry the tick, so a relying party that implements this mechanism rejects the certificate if the tick is absent.
    The tick is not itself covered by a CA signature.
    Like the rest of the MTCProof it is mutable, which is precisely what lets it be refreshed each period, so an active attacker can remove the bytes.
    What it cannot do is remove them and leave a certificate that still verifies.
