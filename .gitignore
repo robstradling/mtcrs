@@ -17,6 +17,7 @@
 /node_modules/
 /versioned/
 Gemfile.lock
+__pycache__/
 archive.json
 draft-strad-plants-mtc-hash-chain-revocation.xml
 package-lock.json
