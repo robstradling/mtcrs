@@ -1121,7 +1121,11 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the acceptance window ({{cert-format}}).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
-Where it holds a certificate from another CA it fails over instead (see below), and otherwise it is better to present nothing than a certificate that cannot verify.
+Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does ({{Section 4.5.1.2 of !RFC9846}}, {{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and where the authenticating party holds a certificate from another CA it selects that one instead (see below).
+If no eligible certificate remains, it has none to present.
+A server's certificate_list MUST NOT be empty ({{Section 4.5.1 of !RFC9846}}), so it MUST abort the handshake with a fatal alert rather than complete one that cannot verify.
+The RECOMMENDED alert is handshake_failure, which {{!RFC9846}} defines as indicating that the sender was "unable to negotiate an acceptable set of security parameters given the options available".
+A certificate-related alert SHOULD NOT be used, because nothing is wrong with any certificate the relying party has sent or would receive: the condition is an availability fault on the authenticating party's side ({{availability-considerations}}).
 The one case in which it holds a usable tick without having fetched anything is period 0, where it can construct the tick from the anchor committed in its own certificate.
 
 During period 0 the authenticating party need not fetch at all.
