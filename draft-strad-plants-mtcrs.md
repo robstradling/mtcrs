@@ -96,9 +96,9 @@ informative:
 
 This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC).
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
-Periodically, the CA reveals the previous hash chain value for each non-revoked certificate.
+Once per period, typically each hour, the CA reveals the next value working backwards along that chain, for each certificate it has not revoked.
 The authenticating party packages the current value with its period as a *tick* and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
-The relying party can then cryptographically verify that the certificate has not been revoked, with granularity as fine as a fraction of a day.
+The relying party can then cryptographically verify that the certificate has not been revoked, without contacting anyone.
 
 This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA.
 
@@ -350,14 +350,11 @@ A certificate whose validity period is not longer than `tick_interval` would hav
 A CA MUST NOT include the id-pe-hashChainAnchor extension, and MUST NOT use this mechanism, for such a certificate.
 Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}), deployments SHOULD choose a validity period substantially longer than twice `tick_interval` so that revocation is effective for most of the certificate's life.
 
-`tick_interval` is a per-certificate value.
-It is carried in the certificate itself, in the HashChainAnchorInfo committed to the Merkle Tree ({{anchor-extension}}), rather than being a CA-wide configuration constant.
-This is deliberate.
-Because a relying party verifies offline and has no provisioning relationship with the CA, the only way it can obtain `tick_interval` without a new authenticated distribution channel is to read it from the certificate.
-Carrying it in the tree-committed extension makes it both discoverable by the relying party and self-authenticating.
-It also lets a CA change `tick_interval` for newly issued certificates without redistributing anything or invalidating existing certificates, each of which keeps the value it was issued with.
-A CA MAY of course use the same `tick_interval` for every certificate it issues.
-The point is only that the value each verifier uses comes from the certificate, not from CA-wide configuration that verifiers cannot see.
+`tick_interval` is carried per certificate, in the HashChainAnchorInfo committed to the Merkle Tree ({{anchor-extension}}), rather than being a CA-wide configuration constant.
+A relying party verifies offline and has no provisioning relationship with the CA, so reading the value from the certificate is the only way it can obtain it without a new authenticated distribution channel, and committing it to the tree makes it self-authenticating.
+It also lets a CA change the interval for newly issued certificates without redistributing anything, since each existing certificate keeps the value it was issued with.
+A CA MAY of course use the same interval throughout.
+The point is only that each verifier takes the value from the certificate, not from CA-wide configuration it cannot see.
 
 ## Chain Generation
 
@@ -398,11 +395,9 @@ It is independent of the MTCProof's `start` and `end` fields, which describe the
 The standalone and landmark-relative certificates for an entry can therefore carry different `start` and `end` yet number periods identically, because they share the same `notBefore` ({{cert-profiles}}).
 
 Backdating `notBefore`, as CAs commonly do to accommodate relying-party clock skew, shifts the certificate forward in its own schedule.
-Backdating by less than one `tick_interval` is harmless.
-It merely places the certificate a little way into period 0 when it is first presented.
-Backdating by one `tick_interval` or more places the certificate in period 1 or later at the moment of issuance, which forfeits the period 0 grace ({{period-zero-rationale}}) in both its parts.
-The CA no longer has until the start of period 1 before it must serve a secret tick, and the authenticating party can no longer present the committed anchor as a period 0 tick while it installs.
-A CA that backdates by one `tick_interval` or more MUST therefore be serving that entry's ticks from the moment it issues the certificate, since the authenticating party cannot present the certificate at all until it has fetched one.
+Backdating by less than one `tick_interval` is harmless, placing the certificate a little way into period 0 when it is first presented.
+Backdating by one `tick_interval` or more places it in period 1 or later at the moment of issuance, which forfeits the period 0 grace ({{period-zero-rationale}}) in both its parts: the CA no longer has until period 1 to serve the first secret tick, and the authenticating party can no longer present the committed anchor while it installs.
+A CA that backdates that far MUST therefore be serving the entry's ticks from the moment it issues the certificate, since the authenticating party cannot present it at all until it has fetched one.
 Deployments that want the grace preserved keep backdating below one `tick_interval`.
 
 Setting `notBefore` later than issuance (forward-dating) is different: there is no period earlier than 0, and for any time t earlier than `notBefore` the quantity (t - `not_before`) is negative.
@@ -671,15 +666,12 @@ It SHOULD present the current period's tick once it holds one, but is not requir
 The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
 The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification}}.
 
-This document describes two possible ways to carry the HashChainTick inside the MTCProof, but exactly one is used.
-The encoding is fixed by the base MTC specification, not chosen per deployment or per certificate.
+This document describes two possible ways to carry the HashChainTick inside the MTCProof, of which the base MTC specification fixes exactly one for the whole ecosystem.
 Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding ({{tick-trailing-field}}) is RECOMMENDED.
 It appends the fixed-size tick directly to the MTCProof, which is the minimal change and confines the added, unauthenticated bytes to exactly one value that a conforming relying party fully verifies.
 The proof-extension encoding ({{tick-proof-extension}}) is an alternative for a base specification that additionally wants a general, reusable proof-level extensibility point ({{mtcproof-extensibility}}).
 As a general "ignore if unknown" channel it carries the abuse surface discussed in {{proof-extensions-considerations}}, which for a single tick is not otherwise justified.
-Whichever encoding the base specification selects becomes the single encoding used throughout the ecosystem.
-The other is discarded.
 
 ### Preferred Encoding: Trailing status_tick Field {#tick-trailing-field}
 
@@ -1098,10 +1090,8 @@ Any other status code carries its ordinary HTTP semantics ({{!RFC9110}}).
 An authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.
 
 Requiring the period 0 tick to be served, rather than permitting it, would not make a 404 mean "revoked".
-Revocation is only one of several causes of a missing tick.
-An origin outage, a cache or edge miss, and a delegated distributor that has not yet received the current bundle ({{delegated-distribution}}) all yield the same status code, in every period.
-During period 0 a 404 cannot mean revoked at all, because the earliest period for which the CA can withhold a secret value is period 1 ({{revoking}}).
-The ambiguity is therefore neither introduced nor removed by the period 0 case, and enforcement rests throughout on the presence of a fresh tick rather than on the absence of one ({{revocation-transparency}}).
+Revocation is only one of several causes of a missing tick, alongside an origin outage, a cache miss, and a distributor that has not yet received the current bundle ({{delegated-distribution}}), and those arise in every period.
+The ambiguity is therefore neither introduced nor removed by the period 0 case, and enforcement rests throughout on the presence of a fresh tick rather than the absence of one ({{revocation-transparency}}).
 
 The CA SHOULD set HTTP cache headers with a max-age no longer than `tick_interval` seconds.
 For example:
@@ -1392,15 +1382,12 @@ This is why widening is a deliberate, ecosystem-wide trade-off rather than a per
 The acceptance window is anchored to the relying party's own clock, so revocation timeliness depends on that clock's integrity.
 A clock running behind true time shifts the window toward the past, so a genuine but stale tick, one the CA revealed before it stopped revealing, can fall inside the window and be accepted.
 An attacker who moves a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded by the window width and ultimately by `notAfter`, checked against the same clock.
-The forward direction adds no forgery avenue.
-A tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{hash-function-requirements}}), so the exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof.
-
-This is not something specific to this mechanism.
-It is the trusted-time dependency shared by every time-based validity and revocation check: `notAfter`, OCSP thisUpdate/nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself.
+The forward direction adds no forgery avenue, since a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{hash-function-requirements}}).
+The exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof, and it is the trusted-time dependency shared by every time-based check: `notAfter`, OCSP thisUpdate and nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself.
 
 Two consequences follow.
-First, the acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance enlarges this exposure.
-Second, a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short `tick_interval`, because the clock error, not the period, then bounds how long a revoked certificate remains acceptable.
+The acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance enlarges this exposure.
+And a deployment whose relying parties cannot trust their clocks gains little revocation timeliness from a short `tick_interval`, because the clock error rather than the period then bounds how long a revoked certificate remains acceptable.
 A relying party that requires tight revocation SHOULD therefore source time from a trusted, integrity-protected clock.
 Both this and the window width are relying-party policy choices ({{rp-policy}}).
 
@@ -1995,15 +1982,11 @@ Nothing in this section is itself a normative requirement.
 
 6. **Is "tick" the right name for the revealed value?**
    The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
-   "Tick" was chosen for its clock connotation: one per period, on a fixed cadence.
-   It is also unclaimed in TLS and PKI, unlike "token" (timestamp tokens, bearer tokens, Privacy Pass), "witness" and "checkpoint" (already used in transparency systems, and this document has cosigners), and "heartbeat" (a TLS extension).
-   "Token" is doubly unavailable here.
-   This document already uses it for the optional per-certificate capability that addresses a tick URL ({{unguessable-urls}}).
-   Its bearer-credential connotation is also the opposite of what a tick is, since a tick is public, unsigned, and useless to a party that does not also hold the certificate.
-   Its weakness is that "tick" ordinarily names a time event rather than a value, so a reader may expect it to be a period number.
-   This document therefore always presents the tick as the pair `{period, value}`.
+   It was chosen for its clock connotation, one per period on a fixed cadence, and because it is unclaimed in TLS and PKI, unlike "token", "witness", "checkpoint" and "heartbeat".
+   "Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL ({{unguessable-urls}}), and its bearer-credential connotation is the opposite of what a tick is: public, unsigned, and useless without the certificate.
+   The weakness of "tick" is that it ordinarily names a time event rather than a value, which is why this document always presents it as the pair `{period, value}`.
    *Preference:* keep "tick".
-   A descriptive alternative such as "non-revocation proof" is accurate but too long to carry as the primary name, and is used here as the gloss at first mention instead.
+   The accurate alternative, "non-revocation proof", is too long to carry as the primary name and is used as the gloss at first mention instead.
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
