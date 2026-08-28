@@ -498,7 +498,7 @@ The HashChainInput structure provides domain separation for hash chain computati
 
 ~~~tls-presentation
 struct {
-    uint8 label[7] = "MTCRS\n\0";
+    uint8 label[8] = "crs/v1\n\0";
     TrustAnchorID issuer_id<1..2^8-1>;
     uint64 serial_number;
     HashValue preimage;
@@ -507,9 +507,11 @@ struct {
 
 label:
 : A fixed ASCII string providing domain separation from other uses of the hash function in MTC, so that a hash chain value cannot be reinterpreted as, or collide with, another MTC hash computation (for example, a Merkle Tree leaf or node hash).
-  The trailing "\n\0" follows the convention of the base MTC specification's label (`"subtree/v1\n\0"`).
-  The NUL terminator keeps the MTC label space prefix-free, so no label can be a prefix of another.
-  The label's length is not otherwise security-relevant, and this short value keeps a typical HashChainInput within a single hash compression block.
+  Its value MUST be the string `crs/v1`, followed by a newline (U+000A), followed by a zero byte (U+0000).
+  The form follows the base MTC specification's own label, `"subtree/v1\n\0"` ({{Section 5.3.1 of !I-D.ietf-plants-merkle-tree-certs}}), which likewise names the construction and versions it without further prefix, the label space being MTC's already.
+  Versioning matters here because a future revision of HashChainInput would otherwise share a domain with this one.
+  The NUL terminator keeps the MTC label space prefix-free, so no label can be a prefix of another, and the leading `c` (0x63) is neither 0x30, the DER SEQUENCE tag, nor the start of any other MTC label.
+  At 8 bytes it also keeps a typical HashChainInput within a single hash compression block ({{test-vectors}}).
 
 `issuer_id`:
 : The issuing CA's ID, which is its trust anchor ID.
@@ -1844,28 +1846,28 @@ The example uses:
 The fixed fields of HashChainInput therefore encode as:
 
 ~~~
-label          4d544352530a00        ("MTCRS\n\0")
+label          6372732f76310a00      ("crs/v1\n\0")
 issuer_id      0481fd5901
 serial_number  000100000000002a
 ~~~
 
 Each step computes h\[i\] = SHA-256(HashChainInput(h\[i-1\])), where HashChainInput(preimage) is the concatenation label || `issuer_id` || `serial_number` || preimage.
-For example, HashChainInput(h\[0\]) is the following 52 bytes:
+For example, HashChainInput(h\[0\]) is the following 53 bytes, which with SHA-256's 9 bytes of padding occupies a single 64-byte compression block:
 
 ~~~
-4d544352530a000481fd5901000100000000002a000102030405060708090a0b
-0c0d0e0f101112131415161718191a1b1c1d1e1f
+6372732f76310a000481fd5901000100000000002a000102030405060708090a
+0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 ~~~
 
 The resulting hash chain is:
 
 ~~~
 h[0]  000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
-h[1]  a99c801b389eed84c31eb04c970d2fbe63608bbd8911d54e63eb7f18adcf286a
-h[2]  8721e95cbd26d1f2789c859d89858ca1c37193f0772aa171da6f02b71acb51cd
-h[3]  4dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697c9d21ec4
-h[4]  b8c0f6b6aac2f65177c9c2481e50b1070cfd31a348f27f94d5318ecfea385aca
-h[5]  f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+h[1]  de02519e5fc916846c938b4d33902023a0bd088613789bf4dd5da213c92170c4
+h[2]  bed85491fda49dc6a422bef66ee3d561a6ca1dc01f159f379612f8c438d22571
+h[3]  ab12c5da82d2acda7b5354a4389b879c587f0a4512e94b089df505f87c2e3963
+h[4]  4c4495479e52e9beb0155fc77f3ddd0ecb4a01951530bff667aba8e93a6c572a
+h[5]  d2d4405694d59df95ff48414712efbdf48fb46ec0f4c1df94ef049cf40b3e30c
 ~~~
 
 The anchor committed in the certificate is h\[`hash_chain_length`\] = h\[5\].
@@ -1874,16 +1876,16 @@ For period t = 2, the CA reveals h\[`hash_chain_length` - t\] = h\[3\].
 The HashChainTick is { period = 2, value = h\[3\] }, which serializes as the following 34 bytes, a 2-byte big-endian period followed by the 32-byte value ({{response-format}}):
 
 ~~~
-00024dab657fef30e247ed04565cbfc0ba1f7c977df06544563e9dc5a697c9d2
-1ec4
+0002ab12c5da82d2acda7b5354a4389b879c587f0a4512e94b089df505f87c2e
+3963
 ~~~
 
 To verify, a relying party hashes `tick.value` forward `tick.period` (2) times ({{verification}}):
 
 ~~~
-v0 = h[3] = 4dab657f...c9d21ec4
-v1 = SHA-256(HashChainInput(v0)) = b8c0f6b6...ea385aca  (= h[4])
-v2 = SHA-256(HashChainInput(v1)) = f855b713...5bdeb234  (= h[5])
+v0 = h[3] = ab12c5da...7c2e3963
+v1 = SHA-256(HashChainInput(v0)) = 4c449547...3a6c572a  (= h[4])
+v2 = SHA-256(HashChainInput(v1)) = d2d44056...40b3e30c  (= h[5])
 ~~~
 
 v2 equals the anchor h\[5\], so verification succeeds.
@@ -1895,14 +1897,14 @@ With the default `tick_interval` of 3600, DER omits the field (Section 11.5 of {
 
 ~~~
 30220420
-f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+d2d4405694d59df95ff48414712efbdf48fb46ec0f4c1df94ef049cf40b3e30c
 ~~~
 
 With a non-default `tick_interval`, for example 86400 (one day), the field is present as an INTEGER preceding the anchor (41 bytes):
 
 ~~~
 302702030151800420
-f855b7134602eee167305c1a0314ffbf435c8d1b2e49ee3e7b18cd445bdeb234
+d2d4405694d59df95ff48414712efbdf48fb46ec0f4c1df94ef049cf40b3e30c
 ~~~
 
 Here `30` is SEQUENCE, `04 20` the 32-byte anchor OCTET STRING, and `02 03 015180` the INTEGER 86400.
