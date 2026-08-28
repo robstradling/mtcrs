@@ -606,12 +606,7 @@ The DEFAULT encoding of `tickInterval` keeps that field off the wire whenever th
 The more compact entry-extension encoding ({{anchor-entry-extension}}) trims the framing further.
 
 This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MTCLogEntryExtension, so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
-The entry-extension alternative is described in {{anchor-entry-extension}}.
-It is more compact and symmetric with the tick's encoding, but requires MTCRS-aware cosigner software and lacks a criticality lever.
-The anchor's home is the one design choice this document explicitly refers to the working group.
-This document's preference is the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment ({{base-spec-amendments}}).
-A base specification willing to make its entry-extension registry and cosigners MTCRS-aware MAY instead adopt the entry-extension encoding, gaining the compactness and committed/uncommitted symmetry noted above.
-The two are mutually exclusive.
+The anchor's home is the one design choice this document explicitly refers to the working group, and {{anchor-entry-extension}} sets out the alternative and its trade-offs in full.
 Whichever the base specification selects becomes the single anchor home for the ecosystem, and the verification procedure ({{verification}}) is identical either way.
 
 ## Criticality and Incremental Deployment {#extension-criticality}
@@ -2090,12 +2085,9 @@ Security-relevant extensions must be anchored:
   Any future proof extension carrying security-relevant data MUST therefore make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{anchor-extension}}).
   Otherwise "ignore if unknown" becomes a strippable soft-fail ({{ocsp-stapling-comparison}}).
 
-A base specification SHOULD also consider several further controls.
-One is a canonical encoding: ascending `extension_type`, no duplicate types, exact-length consumption.
-Another is an IANA registry for `MTCProofExtensionType` with a private-use range.
-A third is fail-closed rejection of unknown types, optionally softened by a per-extension criticality bit.
-This closes the ignore channel but trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical ({{extension-criticality}}).
-A fourth is a deterministic fixed-length region, where each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
+A base specification SHOULD also consider a canonical encoding (ascending `extension_type`, no duplicate types, exact-length consumption), an IANA registry for `MTCProofExtensionType` with a private-use range, fail-closed rejection of unknown types, and a deterministic fixed-length region in which each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
+Fail-closed handling may be softened by a per-extension criticality bit, and trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical ({{extension-criticality}}).
+
 Two properties are inherent and MUST be respected.
 Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{anchor-extension}}).
 And because `proof_extensions` widen `signatureValue` malleability ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}) beyond the single fixed-size tick, they broaden the identifier-stability requirement of {{cert-identity}}, which applies whichever encoding is chosen.
