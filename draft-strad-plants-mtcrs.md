@@ -1002,35 +1002,6 @@ The authenticating party MUST retain it for as long as it presents the certifica
 Merkle Tree Certificates are renewed frequently ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}} recommends renewal at about 75% of lifetime).
 A CA that migrates its tick infrastructure can therefore update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.
 
-## ACME Integration {#acme-integration}
-
-When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the `meta` object of its ACME directory ({{Section 7.1.1 of !RFC8555}}) as a new field:
-
-~~~json
-"tickBaseURL": "https://mtcrs.cdn.ca.example"
-~~~
-
-The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}).
-
-The directory is the right home for it because the value is per-CA, not per-certificate: a single base URL covers every certificate that CA issues ({{discovery}}).
-Carrying it there means an ACME client fetches it once, from an object it already retrieves and can cache, rather than receiving the same constant on every order.
-It also lets the CA direct authenticating parties to a CDN, regional mirror, or any other origin, without adding bytes to the certificate or the log entry.
-
-If the `tickBaseURL` field is absent from the directory metadata, the authenticating party obtains the base URL through another mechanism in {{discovery}}, that is, the CA certificate SIA.
-
-A CA using the unguessable-URL scheme ({{unguessable-urls}}) does not publish `tickBaseURL`, because no single per-CA value can address a token-bearing URL.
-It instead returns the complete per-certificate URL in a `tickURL` field of the ACME order object:
-
-~~~json
-"tickURL":
-  "https://mtcrs.cdn.ca.example/.well-known/mtcrs/v1/tick/9f86d0..."
-~~~
-
-The two fields therefore live in different objects and cannot collide: `tickBaseURL` is a property of the CA and `tickURL` a property of one issuance.
-A CA MUST NOT publish `tickBaseURL` while issuing token-addressed ticks, since an authenticating party that used it would derive an address the CA does not serve.
-
-CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL, or the complete per-certificate URL, during certificate provisioning.
-
 ## Unguessable Tick URLs {#unguessable-urls}
 
 The tick fetch path described above is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}`, and {tbs_cert_entry_hash} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
@@ -1126,6 +1097,35 @@ For example:
 ~~~http-message
 Cache-Control: public, max-age=3600
 ~~~
+
+# ACME Integration {#acme-integration}
+
+When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the `meta` object of its ACME directory ({{Section 7.1.1 of !RFC8555}}) as a new field:
+
+~~~json
+"tickBaseURL": "https://mtcrs.cdn.ca.example"
+~~~
+
+The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` ({{distribution}}).
+
+The directory is the right home for it because the value is per-CA, not per-certificate: a single base URL covers every certificate that CA issues ({{discovery}}).
+Carrying it there means an ACME client fetches it once, from an object it already retrieves and can cache, rather than receiving the same constant on every order.
+It also lets the CA direct authenticating parties to a CDN, regional mirror, or any other origin, without adding bytes to the certificate or the log entry.
+
+If the `tickBaseURL` field is absent from the directory metadata, the authenticating party obtains the base URL through another mechanism in {{discovery}}, that is, the CA certificate SIA.
+
+A CA using the unguessable-URL scheme ({{unguessable-urls}}) does not publish `tickBaseURL`, because no single per-CA value can address a token-bearing URL.
+It instead returns the complete per-certificate URL in a `tickURL` field of the ACME order object:
+
+~~~json
+"tickURL":
+  "https://mtcrs.cdn.ca.example/.well-known/mtcrs/v1/tick/9f86d0..."
+~~~
+
+The two fields therefore live in different objects and cannot collide: `tickBaseURL` is a property of the CA and `tickURL` a property of one issuance.
+A CA MUST NOT publish `tickBaseURL` while issuing token-addressed ticks, since an authenticating party that used it would derive an address the CA does not serve.
+
+CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL, or the complete per-certificate URL, during certificate provisioning.
 
 # Authenticating Party Behavior {#ap-behavior}
 
