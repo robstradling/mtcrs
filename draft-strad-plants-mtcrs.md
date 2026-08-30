@@ -37,7 +37,7 @@ normative:
     author:
       org: ITU-T
     seriesinfo:
-      ISO/IEC 8825-1:2021
+      ISO/IEC: 8825-1:2021
     target: https://www.itu.int/rec/T-REC-X.690
 
 informative:
