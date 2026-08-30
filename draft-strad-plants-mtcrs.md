@@ -33,9 +33,11 @@ author:
 normative:
   X.690:
     title: "Information technology - ASN.1 encoding rules: Specification of Basic Encoding Rules (BER), Canonical Encoding Rules (CER) and Distinguished Encoding Rules (DER)"
+    date: February 2021
     author:
       org: ITU-T
-    date: 2021
+    seriesinfo:
+      ISO/IEC 8825-1:2021
     target: https://www.itu.int/rec/T-REC-X.690
 
 informative:
@@ -1095,7 +1097,7 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   This covers both a revoked certificate, for which the CA has stopped revealing values ({{revoking}}), and a tick that is merely not yet available, as during the period 0 grace ({{period-zero-rationale}}).
   The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation.
   It means only that no fresh tick was obtained on this attempt.
-  The authenticating party continues to serve its most recent still-valid tick and MAY retry ({{ap-behaviour}}).
+  The authenticating party continues to serve its most recent still-valid tick and MAY retry ({{ap-behavior}}).
 
 410 (Gone), optional:
 : The server knows that no further tick will ever be published for this entry, because the certificate has been revoked ({{revoking}}), or because it has expired and tick publication has stopped ({{revealing-values}}).
@@ -1103,7 +1105,7 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given ({{delegated-distribution}}).
   A 410 is a diagnostic hint and nothing more.
   It is unsigned and MAY be carried over plain HTTP ({{distribution}}), so an on-path observer or a faulty distributor can forge one.
-  An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window ({{ap-behaviour}}).
+  An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window ({{ap-behavior}}).
   Nor may its absence be read the other way.
   A plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor MUST NOT infer non-revocation from the lack of a 410.
 
@@ -1125,7 +1127,7 @@ For example:
 Cache-Control: public, max-age=3600
 ~~~
 
-# Authenticating Party Behaviour {#ap-behaviour}
+# Authenticating Party Behavior {#ap-behavior}
 
 This section defines what an authenticating party does with the interface of {{distribution}}: how it refreshes a tick, what it checks before installing one, and when it may and may not present the certificate.
 It is the counterpart to {{verification}}, which defines the relying party's procedure.
@@ -1190,6 +1192,37 @@ Because a relying party also accepts the immediately preceding period's tick, a 
 That is close to two periods of runway from a single successful fetch, not one ({{availability-considerations}}).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
+
+# Privacy Considerations
+
+The Privacy Considerations of the base MTC specification ({{Section 11 of !I-D.ietf-plants-merkle-tree-certs}}) apply to Merkle Tree Certificates that use this mechanism.
+This mechanism adds one network interaction, the authenticating party's periodic tick fetch ({{distribution}}), and deliberately adds none on the relying-party side.
+
+No relying-party activity is exposed.
+The current tick is embedded in the certificate presentation and verified offline against the committed anchor, and relying parties MUST NOT fetch ticks ({{rp-no-fetch}}).
+Consequently the CA learns nothing about which certificates a relying party validates or which sites it visits.
+This is the central privacy difference from client-driven OCSP {{?RFC6960}}, whose status fetches revealed relying-party browsing to the CA.
+That failure mode is avoided here by construction rather than by policy.
+
+The authenticating party's tick fetch, by contrast, exposes request metadata.
+An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which `tbs_cert_entry_hash` is being requested, or with unguessable tick URLs which `tick_token` ({{unguessable-urls}}).
+It can thereby learn which certificate the authenticating party holds.
+For a public-facing server this reveals little, since the certificate it serves is itself public.
+The request identifies the authenticating party's own certificate, not any relying party.
+Two points nonetheless bear noting:
+
+- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}).
+  Plain HTTP leaves the requested `tbs_cert_entry_hash` or `tick_token` visible to on-path observers.
+  A deployment that considers this metadata sensitive, for example one serving certificates that are not otherwise publicly enumerable, SHOULD publish an https base URL instead.
+- Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the `tick_token` appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch.
+  Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
+
+Pushed revocation lists such as {{CRLite}} and {{CRLSets}} are checked by the client entirely offline.
+This mechanism preserves the same relying-party privacy, since the client fetches nothing either way, and does so universally, for any TLS client rather than only browsers that ship the list.
+Its one difference is the authenticating party's own fetch, and that metadata concerns the server's own public certificate (whose liveness a public server already exposes by answering connections), not any relying party.
+It also need not reach the CA at all.
+Because ticks are self-authenticating, distribution can be delegated to CDNs, mirrors, or other distributors ({{delegated-distribution}}), so the server fetches from a distributor rather than the CA and the CA observes no per-server fetch pattern.
+Caching leaves the origin seeing aggregated cache-miss traffic rather than every server's every-period fetch.
 
 # Security Considerations
 
@@ -1428,37 +1461,6 @@ Fixed, not a lever:
 If the base specification adopts the general `proof_extensions` field ({{mtcproof-extensibility}}), further relying-party handling applies: size-budget enforcement, committed admissibility, and unknown-type handling ({{proof-extensions-considerations}}).
 
 The resilience levers that involve holding certificates from multiple CAs, operating redundant tick distribution, and choosing `tick_interval` are authenticating-party or CA decisions, not relying-party policy ({{availability-considerations}}, {{construction}}).
-
-# Privacy Considerations
-
-The Privacy Considerations of the base MTC specification ({{Section 11 of !I-D.ietf-plants-merkle-tree-certs}}) apply to Merkle Tree Certificates that use this mechanism.
-This mechanism adds one network interaction, the authenticating party's periodic tick fetch ({{distribution}}), and deliberately adds none on the relying-party side.
-
-No relying-party activity is exposed.
-The current tick is embedded in the certificate presentation and verified offline against the committed anchor, and relying parties MUST NOT fetch ticks ({{rp-no-fetch}}).
-Consequently the CA learns nothing about which certificates a relying party validates or which sites it visits.
-This is the central privacy difference from client-driven OCSP {{?RFC6960}}, whose status fetches revealed relying-party browsing to the CA.
-That failure mode is avoided here by construction rather than by policy.
-
-The authenticating party's tick fetch, by contrast, exposes request metadata.
-An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which `tbs_cert_entry_hash` is being requested, or with unguessable tick URLs which `tick_token` ({{unguessable-urls}}).
-It can thereby learn which certificate the authenticating party holds.
-For a public-facing server this reveals little, since the certificate it serves is itself public.
-The request identifies the authenticating party's own certificate, not any relying party.
-Two points nonetheless bear noting:
-
-- Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}).
-  Plain HTTP leaves the requested `tbs_cert_entry_hash` or `tick_token` visible to on-path observers.
-  A deployment that considers this metadata sensitive, for example one serving certificates that are not otherwise publicly enumerable, SHOULD publish an https base URL instead.
-- Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the `tick_token` appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch.
-  Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
-
-Pushed revocation lists such as {{CRLite}} and {{CRLSets}} are checked by the client entirely offline.
-This mechanism preserves the same relying-party privacy, since the client fetches nothing either way, and does so universally, for any TLS client rather than only browsers that ship the list.
-Its one difference is the authenticating party's own fetch, and that metadata concerns the server's own public certificate (whose liveness a public server already exposes by answering connections), not any relying party.
-It also need not reach the CA at all.
-Because ticks are self-authenticating, distribution can be delegated to CDNs, mirrors, or other distributors ({{delegated-distribution}}), so the server fetches from a distributor rather than the CA and the CA observes no per-server fetch pattern.
-Caching leaves the origin seeing aggregated cache-miss traffic rather than every server's every-period fetch.
 
 # Operational and Availability Considerations {#operational-considerations}
 
