@@ -538,6 +538,20 @@ All fields are encoded with the TLS presentation language ({{!RFC9846}}).
 `issuer_ca_id` is a TrustAnchorID, which the base specification declares as `opaque TrustAnchorID<1..2^8-1>` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}) and which therefore already carries its own one-byte length prefix.
 No further vector wrapping is applied to it.
 For TrustAnchorID 32473.1, that is the five bytes 04 81fd5901 ({{test-vectors}}).
+{{fig-hashchaininput}} shows the resulting layout.
+
+~~~aasvg
+     0        8            13              21             53
+     +--------+------------+---------------+--------------+
+     | label  |issuer_ca_id| serial_number |   preimage   |
+     |   8    |    5 *     |       8       |      32      |
+     +--------+------------+---------------+--------------+
+     |<---------------- 53 bytes ------------------------>|
+
+     * TrustAnchorID is variable-length. 5 bytes is the
+       test-vector value, for TrustAnchorID 32473.1.
+~~~
+{: #fig-hashchaininput title="HashChainInput byte layout for the test vectors, with SHA-256 as HASH. The 53 bytes, together with SHA-256's 9 bytes of padding, occupy a single 64-byte compression block"}
 
 Carrying the serial number whole, rather than its `log_number` and index components as separate fields, encodes the identical eight bytes, since those components are exactly its high 16 and low 48 bits.
 It matches what both parties hold and removes a split-and-rejoin step in which the field widths could be mistaken.
@@ -1392,6 +1406,23 @@ It is not specific to this mechanism.
 The default acceptance window of verification step 4 accepts a tick whose period is the verifier's `expected_period`, the immediately preceding period (`expected_period` - 1), or the immediately following period (`expected_period` + 1).
 This tolerates a verifier clock that is behind or ahead of the authenticating party's by up to one full `tick_interval` in either direction.
 It also tolerates an authenticating party that is still serving the previous period's tick for caching or staggered refresh ({{load-distribution}}).
+{{fig-acceptance-window}} shows the window.
+
+~~~aasvg
+                    expected_period
+                           |
+                           v
+    +------+------+------+------+------+------+
+    | t-3  | t-2  | t-1  |  t   | t+1  | t+2  |
+    +------+------+------+------+------+------+
+       ^          |                    |     ^
+       |          +---- accepted ------+     |
+       |             default window          |
+       |                                     |
+    rejected                             rejected
+    too stale                         clock behind
+~~~
+{: #fig-acceptance-window title="The default acceptance window. A tick outside it is rejected with certificate_expired, whichever side it falls on"}
 
 The two directions are not equivalent in cost.
 Accepting the immediately following period, which is what a verifier whose clock is behind will see, costs nothing in revocation terms.
