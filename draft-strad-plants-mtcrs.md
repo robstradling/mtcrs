@@ -782,9 +782,10 @@ If the tick is absent, malformed, or fails verification, the relying party MUST 
 
 ## Standalone and Landmark-Relative Certificates {#cert-profiles}
 
-A Merkle Tree CA can issue two certificate profiles for the same log entry: a standalone certificate and a landmark-relative certificate (Sections 6.3 and 6.4 of {{!I-D.ietf-plants-merkle-tree-certs}}).
+Two certificate profiles exist for the same log entry: a standalone certificate and a landmark-relative certificate (Sections 6.3 and 6.4 of {{!I-D.ietf-plants-merkle-tree-certs}}).
 The two differ only in the subtree and signatures carried in their MTCProof.
 They certify the same TBSCertificateLogEntry.
+Either may be issued by the CA, and the landmark-relative form may also be constructed by any party holding the standalone certificate, since the procedure is not specific to the CA ({{Section 6.4.4 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 Hash chain revocation is keyed by the log entry, not by the certificate profile:
 
@@ -795,6 +796,10 @@ Hash chain revocation is keyed by the log entry, not by the certificate profile:
 An authenticating party may hold both a standalone and a landmark-relative certificate for the same entry, for example during the renewal overlap described in {{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}.
 It fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
 Refreshing the tick is independent of profile selection: the authenticating party selects between the two certificates using the base MTC mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and updates the HashChainTick in whichever MTCProof it sends.
+
+An authenticating party that constructs its own landmark-relative certificate acquires no further obligation under this document.
+Construction recovers the certificate inputs from the standalone certificate and takes the subtree and inclusion proof from the issuance log, none of which touches the log entry.
+The anchor and the tick URL are therefore unchanged, and the tick the authenticating party already holds applies to the constructed certificate without a further fetch.
 
 # Verification {#verification}
 
