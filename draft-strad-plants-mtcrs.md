@@ -593,6 +593,33 @@ The Hash function is HASH, the hash function of the issuing CA, which is uniform
 
 This document defines a new X.509 certificate extension for carrying the hash chain anchor.
 This extension is included in the TBSCertificateLogEntry's extensions field ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), and thus appears in the TBSCertificate of the resulting Merkle Tree Certificate and in the entry's `tbs_cert_entry_data` that the base specification commits to the Merkle Tree.
+{{fig-committed}} shows how this divides the certificate.
+
+~~~aasvg
+    Merkle Tree Certificate
+
+    +-------------------------------------------------+
+    |  TBSCertificate                                 |
+    |    id-pe-hashChainAnchor: tickInterval, anchor  |
+    +-------------------------------------------------+
+                       |
+                       | part of tbs_cert_entry_data,
+                       | hashed into the Merkle Tree leaf
+                       v
+              committed once, then fixed for the
+              life of the certificate
+
+    +-------------------------------------------------+
+    |  signatureValue = MTCProof                      |
+    |    ... , status_tick = HashChainTick            |
+    +-------------------------------------------------+
+                       |
+                       | not committed to the tree
+                       v
+              rewritten by the authenticating party
+              once per period
+~~~
+{: #fig-committed title="The anchor is committed to the Merkle Tree and fixed for the certificate's life, while the tick rides in the MTCProof, which is not committed and is rewritten each period"}
 
 ~~~asn.1
 id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
@@ -828,6 +855,28 @@ The relying party MUST complete the base MTC validity check, which bounds the ce
 That ordering is what confines the work of step 5 to a certificate the relying party is otherwise willing to accept.
 The steps below name the id-pe-hashChainAnchor X.509 extension of the primary design.
 Under the entry-extension alternative ({{anchor-entry-extension}}) the relying party instead reads the same HashChainAnchorInfo from the entry's extensions, and the procedure is otherwise identical.
+{{fig-verification}} shows the two checks that bind a tick to the certificate.
+
+~~~aasvg
+    HashChainTick, carried in the MTCProof
+    +---------------------+
+    | period p |  value v |
+    +---------------------+
+          |
+          |  1. is p within expected_period +/- 1 ?
+          |     if not -> certificate_expired
+          v
+    +----------------------------------+
+    |  hash forward p times            |
+    |    v = Hash(HashChainInput(v))   |
+    +----------------------------------+
+          |
+          |  2. compare with the committed anchor
+          |     if different -> bad_certificate
+          v
+    non-revocation confirmed as of period p
+~~~
+{: #fig-verification title="The two checks that bind a tick to the certificate, corresponding to steps 4 through 6 below. The window shown is the default one, which a relying party MAY widen"}
 
 The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to the period computation ({{construction}}).
 All of them are obtained from the certificate and the trust anchor being validated against.
