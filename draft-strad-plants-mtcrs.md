@@ -131,18 +131,23 @@ This mechanism adds a proof of non-revocation to the same structure, so that tog
 
 This approach achieves the following properties:
 
-- **Timely revocation:** Revocation takes effect within at most two periods (e.g., two hours) under the default acceptance window ({{clock-skew}}), regardless of when the relying party last updated its trusted subtrees.
+Timely revocation:
+: Revocation takes effect within at most two periods (e.g., two hours) under the default acceptance window ({{clock-skew}}), regardless of when the relying party last updated its trusted subtrees.
 
-- **No per-check signatures:** Unlike OCSP {{?RFC6960}}, verification requires only hash computations, not signature verification.
+No per-check signatures:
+: Unlike OCSP {{?RFC6960}}, verification requires only hash computations, not signature verification.
   The CA incurs no signing load for revocation status.
 
-- **Mandatory enforcement:** The hash chain value is a required component of the certificate presentation.
+Mandatory enforcement:
+: The hash chain value is a required component of the certificate presentation.
   Unlike OCSP stapling, the mechanism cannot be silently omitted by the authenticating party.
 
-- **Self-authenticating:** The hash chain value is verified against the anchor already committed in the Merkle Tree.
+Self-authenticating:
+: The hash chain value is verified against the anchor already committed in the Merkle Tree.
   No new trust relationships or authenticated channels are needed.
 
-- **Minimal overhead:** A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
+Minimal overhead:
+: A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
   The committed anchor adds about 50 bytes to each log entry ({{anchor-x509-extension}}).
 
 These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
@@ -1283,9 +1288,14 @@ In the targeted case it revokes that certificate with no auditable signal.
 This is analogous to a CA refusing to issue OCSP responses, or refusing to issue or renew certificates at all.
 It is inherent in the CA trust model rather than novel to this mechanism, and it is mitigated by the same forces that discipline CA behavior today:
 
-- **Detectability.** The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
-- **Third-party observability.** The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), making selective withholding observable.
-- **Market pressure.** An authenticating party that cannot reliably obtain ticks will switch CAs.
+Detectability:
+: The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
+
+Third-party observability:
+: The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), making selective withholding observable.
+
+Market pressure:
+: An authenticating party that cannot reliably obtain ticks will switch CAs.
 
 Because ticks are small and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
 
@@ -1565,10 +1575,12 @@ Both are CA-side only, and the on-the-wire tick and the relying party's verifica
 
 Within a single hash chain, a CA does not have to choose between the two naive extremes:
 
-- **Store the entire hash chain:** O(L) storage per certificate, but each revealed value is a free lookup.
+Store the entire hash chain:
+: O(L) storage per certificate, but each revealed value is a free lookup.
   For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
 
-- **Store only the seed:** O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
+Store only the seed:
+: O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
   Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.
 
 A CA MAY instead use **fractal hash chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
@@ -2134,9 +2146,11 @@ Implementations that predate the amendment will reject the certificate at the MT
 
 For the transition period, ecosystems have two options:
 
-- **Mark the extension critical:** Unaware implementations reject at the X.509 extension stage, producing a clear error rather than an opaque parse failure.
+Mark the extension critical:
+: Unaware implementations reject at the X.509 extension stage, producing a clear error rather than an opaque parse failure.
 
-- **Deploy the base spec amendment first:** Once the `proof_extensions` field is adopted into the base MTC specification, all conforming implementations will parse it (ignoring unknown types), enabling incremental deployment of hash chain revocation with a non-critical X.509 extension.
+Deploy the base spec amendment first:
+: Once the `proof_extensions` field is adopted into the base MTC specification, all conforming implementations will parse it (ignoring unknown types), enabling incremental deployment of hash chain revocation with a non-critical X.509 extension.
 
 ## Considerations for the proof_extensions Field {#proof-extensions-considerations}
 
@@ -2263,15 +2277,19 @@ It is this simultaneity, not any single property, that distinguishes hash chains
 
 A one-hour `tick_interval` provides a good balance:
 
-- **Revocation latency:** A compromised key is unusable within at most two hours (current period + grace period).
+Revocation latency:
+: A compromised key is unusable within at most two hours (current period + grace period).
 
-- **Operational feasibility:** Authenticating parties must fetch a new tick once per hour.
+Operational feasibility:
+: Authenticating parties must fetch a new tick once per hour.
   This is a trivial HTTP request for a small response.
 
-- **Hash chain length:** For 47-day certificates, the hash chain length is 1,128, well inside the 65,535 the 16-bit period field permits ({{construction}}).
+Hash chain length:
+: For 47-day certificates, the hash chain length is 1,128, well inside the 65,535 the 16-bit period field permits ({{construction}}).
   Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
 
-- **CA storage:** A CA MAY store one seed per active certificate (32 bytes each, or 32 GB for 1 billion), but need not.
+CA storage:
+: A CA MAY store one seed per active certificate (32 bytes each, or 32 GB for 1 billion), but need not.
   Deriving seeds from a single long-term CA secret ({{derived-seeds}}) reduces per-certificate secret storage to nothing, since any hash chain is recomputed on demand from that one secret and the public entry identity.
   Traversal or checkpoint schemes ({{hash-chain-traversal}}) bound the recomputation cost, so "store millions of secret seeds" is a choice, not a requirement.
 
@@ -2500,17 +2518,21 @@ Another alternative is to convey the tick distribution URL via a new Authority I
 
 This approach was rejected because:
 
-- **Inflates log entries:** AIA is part of the TBSCertificate, which is committed to the Merkle Tree.
+Inflates log entries:
+: AIA is part of the TBSCertificate, which is committed to the Merkle Tree.
   A ~50-80 byte URL in every log entry increases tree size and inclusion proof transmission costs, conflicting with MTC's goal of compactness.
 
-- **Immutable once issued:** If the CA migrates its tick distribution infrastructure, all existing certificates still contain the old URL.
+Immutable once issued:
+: If the CA migrates its tick distribution infrastructure, all existing certificates still contain the old URL.
   Delivering the URL out of band ({{discovery}}) lets the CA migrate its tick infrastructure without certificate reissuance.
 
-- **Only the authenticating party needs it, and only it should fetch:** Relying parties verify the embedded tick offline against the committed anchor and MUST NOT fetch ticks ({{rp-no-fetch}}).
+Only the authenticating party needs it:
+: Relying parties verify the embedded tick offline against the committed anchor and MUST NOT fetch ticks ({{rp-no-fetch}}).
   Putting a per-certificate URL in the certificate would not make fetching infeasible, since the URL is derivable regardless ({{rp-no-fetch}}).
   Placing it in a field relying parties routinely parse would, however, standardize and encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids.
 
-- **Redundant given existing CA relationship:** The authenticating party obtained the certificate from the CA (e.g., via ACME) and can receive the tick base URL through that same channel at zero per-certificate cost ({{discovery}}).
+Redundant given existing CA relationship:
+: The authenticating party obtained the certificate from the CA (e.g., via ACME) and can receive the tick base URL through that same channel at zero per-certificate cost ({{discovery}}).
 
 Out-of-band delivery of the base URL at provisioning ({{discovery}}) conveys it at zero per-certificate cost.
 CAs MAY additionally publish the base URL in the CA certificate SIA ({{discovery}}) for a protocol-independent record.
@@ -2627,15 +2649,19 @@ The simplest revocation strategy is to make certificates short-lived enough that
 The general case for functional revocation over passive expiry is made once, in {{revocation-vs-expiry}}.
 This section only catalogs the specific operational costs that nonetheless motivate longer lifetimes:
 
-- **Issuance infrastructure load:** Shorter lifetimes require more frequent issuance.
+Issuance infrastructure load:
+: Shorter lifetimes require more frequent issuance.
   With millions of subscribers, daily certificate issuance produces proportionally larger logs and more frequent Merkle Tree constructions.
 
-- **Availability risk:** An authenticating party that cannot reach the CA for one day loses its certificate entirely.
+Availability risk:
+: An authenticating party that cannot reach the CA for one day loses its certificate entirely.
   Longer lifetimes provide more buffer against CA outages.
 
-- **Trusted subtree state:** The number of landmark subtrees relying parties must maintain grows with shorter lifetimes and more frequent landmark allocation, at the cost of increased CA operational complexity.
+Trusted subtree state:
+: The number of landmark subtrees relying parties must maintain grows with shorter lifetimes and more frequent landmark allocation, at the cost of increased CA operational complexity.
 
-- **Deployment constraints:** Root program policies such as {{CHROME-MTC}} have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments, and permit them alongside a shorter recommended validity precisely because not every deployment can renew on the shorter cadence.
+Deployment constraints:
+: Root program policies such as {{CHROME-MTC}} have set maximum lifetimes (e.g., 47 days) based on ecosystem-wide operational feasibility assessments, and permit them alongside a shorter recommended validity precisely because not every deployment can renew on the shorter cadence.
   Not all deployments can support arbitrarily short lifetimes.
 
 Matching a one-hour period's revocation latency with lifetime alone would mean certificates expiring about every two hours.
@@ -2654,13 +2680,16 @@ The base MTC specification suggests using these as a complement.
 
 This approach has limitations when used as the sole revocation mechanism for MTC:
 
-- **Push latency:** These systems are updated on the order of hours to days, depending on the deployment.
+Push latency:
+: These systems are updated on the order of hours to days, depending on the deployment.
   They do not provide a guaranteed upper bound on revocation latency.
 
-- **Relying party coverage:** Not all relying parties subscribe to external revocation feeds.
+Relying party coverage:
+: Not all relying parties subscribe to external revocation feeds.
   A mechanism that depends on the relying party having an up-to-date feed cannot provide universal revocation enforcement.
 
-- **Separate trust path:** External revocation requires the relying party to trust the feed provider (e.g., the browser vendor) in addition to the CA.
+Separate trust path:
+: External revocation requires the relying party to trust the feed provider (e.g., the browser vendor) in addition to the CA.
   Hash chain revocation uses only the existing CA trust relationship.
 
 These mechanisms remain valuable as defense in depth and as a fallback for the hash chain mechanism, as discussed in {{interaction-with-base-mtc-revocation}}.
@@ -2671,13 +2700,16 @@ A CA could sign per-certificate non-revocation statements each period, analogous
 
 This approach was rejected because:
 
-- **Signing load:** A CA with a billion active certificates would need to produce a billion signatures per period.
+Signing load:
+: A CA with a billion active certificates would need to produce a billion signatures per period.
   With post-quantum signature algorithms, this is computationally expensive.
 
-- **Response size:** OCSP responses include a full signature (e.g., 3,309 bytes for ML-DSA-65).
+Response size:
+: OCSP responses include a full signature (e.g., 3,309 bytes for ML-DSA-65).
   Hash chain ticks are 34 bytes.
 
-- **Complexity:** OCSP requires its own responder infrastructure, certificate chain, and protocol.
+Complexity:
+: OCSP requires its own responder infrastructure, certificate chain, and protocol.
   Hash chains require only a hash function.
 
 # Acknowledgments
