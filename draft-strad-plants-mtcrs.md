@@ -157,8 +157,11 @@ Withholding a tick is not a signed, logged artifact, so monitors cannot observe 
 Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
 
 A third point is better met directly than left to be inferred.
-This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial: a CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second ({{distribution}}).
-What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it ({{rp-no-fetch}}), so it lies outside the handshake path entirely; it holds no key and signs nothing; and every response is a public value that is immutable within its period.
+This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial.
+A CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second ({{distribution}}).
+What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it ({{rp-no-fetch}}), so it lies outside the handshake path entirely.
+It holds no key and signs nothing.
+Every response is a public value that is immutable within its period.
 It is therefore a static, cacheable origin that a CA can delegate wholesale to parties trusted for availability alone ({{delegated-distribution}}, {{operational-resilience}}).
 The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
 
@@ -182,7 +185,8 @@ For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
 Every party already holds it.
-A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA, taking it from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA.
+It takes the algorithm from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 <!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-06 is published, since the renamed structures will then be in the published reference. -->
 
@@ -346,7 +350,8 @@ A CA MUST NOT issue a certificate with the id-pe-hashChainAnchor extension whose
 This ceiling is deliberate, and it is the reason the period field is 16 bits rather than wider.
 Verification hashes forward up to `tick.period` times ({{verification}}), so the relying party's work per full handshake is set by the CA's choice of `tick_interval` relative to the certificate lifetime.
 A wider field would let a CA impose an arbitrarily large number of forward hashes on every relying party that validates its certificates, which is a cost those relying parties cannot decline.
-Bounding the field at 16 bits caps that work at 65,535 hash evaluations for any certificate from any CA, and does so in the parser rather than by CA compliance: a `tick.period` read from a 16-bit field cannot exceed 65,535 whatever the issuer did.
+Bounding the field at 16 bits caps that work at 65,535 hash evaluations for any certificate from any CA, and does so in the parser rather than by CA compliance.
+A `tick.period` read from a 16-bit field cannot exceed 65,535 whatever the issuer did.
 
 The ceiling is on the number of periods, not on `tick_interval` directly, so the shortest usable period scales with the certificate's lifetime.
 It is about 62 seconds for a 47-day certificate, 10 seconds for a 7-day one, and 2 seconds for a 1-day one.
@@ -364,7 +369,8 @@ A CA MUST NOT include the id-pe-hashChainAnchor extension, and MUST NOT use this
 Because the period-0 grace defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}), deployments SHOULD choose a validity period substantially longer than twice `tick_interval` so that revocation is effective for most of the certificate's life.
 
 `tick_interval` is carried per certificate, in the HashChainAnchorInfo committed to the Merkle Tree ({{anchor-x509-extension}}), rather than being a CA-wide configuration constant.
-A relying party verifies offline and has no provisioning relationship with the CA, so reading the value from the certificate is the only way it can obtain it without a new authenticated distribution channel, and committing it to the tree makes it self-authenticating.
+A relying party verifies offline and has no provisioning relationship with the CA, so reading the value from the certificate is the only way it can obtain it without a new authenticated distribution channel.
+Committing it to the tree makes it self-authenticating.
 It also lets a CA change the interval for newly issued certificates without redistributing anything, since each existing certificate keeps the value it was issued with.
 A CA MAY of course use the same interval throughout.
 The point is only that each verifier takes the value from the certificate, not from CA-wide configuration it cannot see.
@@ -409,7 +415,8 @@ The standalone and landmark-relative certificates for an entry can therefore car
 
 Backdating `notBefore`, as CAs commonly do to accommodate relying-party clock skew, shifts the certificate forward in its own schedule.
 Backdating by less than one `tick_interval` is harmless, placing the certificate a little way into period 0 when it is first presented.
-Backdating by one `tick_interval` or more places it in period 1 or later at the moment of issuance, which forfeits the period 0 grace ({{period-zero-rationale}}) in both its parts: the CA no longer has until period 1 to serve the first secret tick, and the authenticating party can no longer present the committed anchor while it installs.
+Backdating by one `tick_interval` or more places it in period 1 or later at the moment of issuance, which forfeits the period 0 grace ({{period-zero-rationale}}) in both its parts.
+The CA no longer has until period 1 to serve the first secret tick, and the authenticating party can no longer present the committed anchor while it installs.
 A CA that backdates that far MUST therefore be serving the entry's ticks from the moment it issues the certificate, since the authenticating party cannot present it at all until it has fetched one.
 Deployments that want the grace preserved keep backdating below one `tick_interval`.
 
@@ -529,7 +536,8 @@ label:
 `issuer_ca_id`:
 : The issuing CA's ID, which is its trust anchor ID.
   Both parties read it from the certificate's `issuer` field, which the base specification defines as that CA ID encoded as a PKIX distinguished name ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
-  Taking it from the certificate rather than from the verifier's own trust anchor keeps this input a property of the certificate, so it does not depend on path-building state, and it gives the authenticating party a source too, since it has no trust anchor of its own to consult.
+  Taking it from the certificate rather than from the verifier's own trust anchor keeps this input a property of the certificate, so it does not depend on path-building state.
+  It also gives the authenticating party a source, since it has no trust anchor of its own to consult.
   It is the same value the base verification procedure already extracts from `issuer` to construct the log ID ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
 
 `serial_number`:
@@ -573,7 +581,8 @@ Deriving the salt from the certificate or the entry instead, as a hash of the TB
 The first is circularity.
 The anchor is committed inside those structures, whereas the salt must be fixed before the hash chain that produces the anchor can be computed, so a hash of either is unavailable when the chain is generated.
 The second is cost.
-HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}), and substituting a 32-byte hash for the 8-byte serial number would push a typical structure past the 55 bytes SHA-256 accommodates in a single compression block, roughly doubling that work.
+HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}).
+Substituting a 32-byte hash for the 8-byte serial number would push a typical structure past the 55 bytes SHA-256 accommodates in a single compression block, roughly doubling that work.
 The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
 
 The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -604,7 +613,8 @@ HashChainAnchorInfo ::= SEQUENCE {
 : The tick interval in seconds for this certificate ({{construction}}), with a default of 3600 (one hour).
   Under DER, a certificate using the default value MUST omit this field (Section 11.5 of {{X.690}}), so the common one-hour case adds no per-entry bytes.
   A relying party that finds the field absent MUST use the default of 3600, and MUST reject a certificate that carries the field with the value 3600 ({{verification}}).
-  The upper bound of 4294967295 (2<sup>32</sup> - 1 seconds, about 136 years) is a parser bound rather than a policy one, in the same spirit as the 16-bit period field ({{construction}}): it keeps `tickInterval` a fixed-width integer, so a relying party never has to allocate or evaluate an arbitrarily large INTEGER before reaching the checks that would reject it.
+  The upper bound of 4294967295 (2<sup>32</sup> - 1 seconds, about 136 years) is a parser bound rather than a policy one, in the same spirit as the 16-bit period field ({{construction}}).
+  It keeps `tickInterval` a fixed-width integer, so a relying party never has to allocate or evaluate an arbitrarily large INTEGER before reaching the checks that would reject it.
   It sits far above any certificate lifetime, and `tick_interval` must in any case be shorter than the certificate's validity period ({{construction}}), which is the constraint that actually binds.
   The relying party reads this value (or the default) from here.
   It is used to number periods and to compute the expected period during verification ({{verification}}).
@@ -634,7 +644,9 @@ It is incurred once per entry rather than per period, and is far below the per-c
 The second is the certificate presentation, where the same anchor bytes travel in each handshake as ordinary TBSCertificate content.
 The inclusion proof is unaffected.
 Its size depends on tree depth, not entry size, so the anchor adds no hashes to the proof path.
-That proof is also the right yardstick for the per-handshake cost, since the anchor and the tick travel beside it: the base specification estimates it at 384 bytes for a standalone certificate and 736 bytes for a landmark-relative one ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), against which the 34-byte tick ({{cert-format}}) is some 5 to 9 percent.
+That proof is also the right yardstick for the per-handshake cost, since the anchor and the tick travel beside it.
+The base specification estimates it at 384 bytes for a standalone certificate and 736 bytes for a landmark-relative one ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}).
+Against that, the 34-byte tick ({{cert-format}}) is some 5 to 9 percent.
 
 This committed cost is the unavoidable price of self-authentication.
 Unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
@@ -686,7 +698,9 @@ A relying party could omit it and instead try each period its acceptance window 
 This document carries the period explicitly for two reasons.
 The first is cost: trial verification multiplies the forward hashing, which {{construction}} shows is the axis that needs bounding rather than relaxing, and it does so in the worst case at exactly the moment the count is already largest.
 It also degrades as the window widens, since a relying party accepting k preceding periods would need k + 2 trials ({{clock-skew}}).
-The second is diagnosis: an explicit period distinguishes a stale tick from a forged or misrouted one, both for the relying party's error reporting and for the authenticating party's pre-installation freshness check ({{distribution}}), which has no acceptance window to search and no way to detect staleness without it.
+The second is diagnosis.
+An explicit period distinguishes a stale tick from a forged or misrouted one, both for the relying party's error reporting and for the authenticating party's pre-installation freshness check ({{distribution}}).
+That check has no acceptance window to search and no way to detect staleness without the period.
 
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
@@ -739,7 +753,8 @@ Whether the anchor is present is therefore known before `status_tick` is read, f
 No new parsing capability is introduced, and the construction is within the presentation language as specified.
 {{Section 3.8 of !RFC9846}} requires only that the selector be an enumerated type, which AnchorPresence is, and states that the mechanism by which the variant is selected at runtime is not prescribed.
 An externally determined selector is moreover what TLS itself does in the structure that carries this very MTCProof: the CertificateEntry of {{Section 4.5.1 of !RFC9846}} selects on `certificate_type`, which is negotiated by extension rather than encoded in the structure.
-The absent case reuses the base specification's own Empty type ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which it defines for the same purpose in the MTCLogEntry select, so a certificate that does not use this mechanism carries no additional bytes and is byte-identical to a base MTCProof.
+The absent case reuses the base specification's own Empty type ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which it defines for the same purpose in the MTCLogEntry select.
+A certificate that does not use this mechanism therefore carries no additional bytes and is byte-identical to a base MTCProof.
 
 This resolves precisely the "extra data after the MTCProof" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}, which that section is amended to interpret as follows:
 
@@ -866,7 +881,8 @@ Using these inputs, the verifier performs the following steps:
    Two edges of the window need separate treatment.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
    The upper neighbor needs no such treatment.
-   A relying party does not know `hash_chain_length` ({{anchor-x509-extension}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not: no tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
+   A relying party does not know `hash_chain_length` ({{anchor-x509-extension}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not.
+   No tick exists for a period the CA never reveals, and one cannot be forged ({{hash-function-requirements}}), so admitting the value costs nothing.
 
    Two arithmetic hazards attend the comparison.
    A verifier MUST NOT compute `expected_period` - 1 in unsigned arithmetic, which would underflow (the same hazard as the negative period expression of {{construction}}).
@@ -923,7 +939,8 @@ Nothing in this section concerns relying parties, which verify the embedded tick
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
-Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are, and concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
+Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are.
+It concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
 At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
 Those techniques, along with bulk retrieval and delegation of the serving path, are operational rather than protocol matters and are described in {{operational-considerations}}.
 
@@ -993,7 +1010,8 @@ That channel is therefore the natural carrier for the base URL, and no locator n
 
 A CA MUST make the tick base URL available through at least one of the following mechanisms.
 An authenticating party MUST support the provisioning-channel mechanism appropriate to how it obtains certificates, and MUST also support the CA certificate SIA.
-Supporting only the former would leave it unable to obtain the base URL from a CA that publishes only the latter, which is the CA's sole option for an issuance protocol with no provisioning binding, so a CA and an authenticating party could each conform and still fail to interoperate.
+Supporting only the former would leave it unable to obtain the base URL from a CA that publishes only the latter, which is the CA's sole option for an issuance protocol with no provisioning binding.
+A CA and an authenticating party could then each conform and still fail to interoperate.
 
 Provisioning channel (primary):
 : The base URL is delivered when the certificate is provisioned.
@@ -1176,7 +1194,8 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the acceptance window ({{cert-format}}).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
-Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does ({{Section 4.5.1.2 of !RFC9846}}, {{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and where the authenticating party holds a certificate from another CA it selects that one instead (see below).
+Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does ({{Section 4.5.1.2 of !RFC9846}}, {{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
+Where the authenticating party holds a certificate from another CA, it selects that one instead (see below).
 If no eligible certificate remains, it has none to present.
 A server's certificate_list MUST NOT be empty ({{Section 4.5.1 of !RFC9846}}), so it MUST abort the handshake with a fatal alert rather than complete one that cannot verify.
 The RECOMMENDED alert is handshake_failure, which {{!RFC9846}} defines as indicating that the sender was "unable to negotiate an acceptable set of security parameters given the options available".
@@ -1206,7 +1225,8 @@ Continuing to present a certificate whose newest tick has already fallen outside
 A deployment that terminates TLS on many nodes must get each fresh tick to every node that presents the certificate.
 This document does not prescribe how.
 Either arrangement works: every node MAY fetch independently, since the per-entry offset already spreads their requests and a cache or CDN collapses them ({{load-distribution}}), or one node MAY fetch and push the result to the rest.
-The tick is a public, immutable, 34-byte value with no validity window of its own, no signature to check and no per-node state, so nothing is lost by fetching it more than once, and a node still holding the preceding period's tick keeps serving correctly while it catches up.
+The tick is a public, immutable, 34-byte value with no validity window of its own, no signature to check and no per-node state, so nothing is lost by fetching it more than once.
+A node still holding the preceding period's tick keeps serving correctly while it catches up.
 This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale ({{ocsp-stapling-comparison}}).
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
 
@@ -1516,7 +1536,8 @@ The subsections run in the order the work does, from the CA that generates hash 
 
 ## Availability Considerations {#availability-considerations}
 
-Because an authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}), a tick-distribution outage that outlasts the runway a single successful fetch provides, which is up to about two periods, renders the affected certificate unusable until a fresh tick is obtained.
+An authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}).
+A tick-distribution outage that outlasts the runway a single successful fetch provides, which is up to about two periods, renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
 It is intrinsic to enforceable revocation rather than a defect.
 A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects ({{ocsp-stapling-comparison}}).
