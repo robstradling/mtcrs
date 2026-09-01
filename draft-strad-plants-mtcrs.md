@@ -1112,6 +1112,9 @@ A CA that wishes to make relying-party fetching infeasible by construction, rath
 `tick_token`:
 : A high-entropy (at least 128-bit) value that does not appear anywhere in the certificate.
   Because the token is absent from the certificate, a relying party cannot construct the URL, while the authenticating party is given it at provisioning time (see below).
+  It is carried as a single URL path segment, so a CA that derives it from binary material, as the deterministic construction below does, MUST encode it in characters that need no percent-encoding in a path segment.
+  Lowercase hexadecimal, as used for `tbs_cert_entry_hash` above, and base64url without padding ({{?RFC4648}}) both qualify.
+  The encoded segment MUST NOT exceed 255 characters, which leaves ample room for the construction below and keeps the request within the URL lengths intermediaries and origin servers commonly accept.
 
 The CA MAY generate the token by either of the following methods:
 
