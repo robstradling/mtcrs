@@ -17,13 +17,12 @@ Abstract
    Tree Certificates (MTC).  A Merkle Tree CA includes a hash chain
    anchor in the certificate at issuance time.  For each certificate it
    has not revoked, once per period (typically hourly), the CA reveals
-   the next value working backwards along that chain.  The
-   authenticating party packages the current value with its period as a
-   _tick_ and embeds it in the certificate's MTCProof as the
-   certificate's non-revocation proof, alongside the inclusion proof
-   that establishes authenticity.  The relying party can then
-   cryptographically verify that the certificate has not been revoked,
-   without contacting anyone.
+   the next value working backwards along that chain, paired with its
+   period as a _tick_. The authenticating party fetches that tick and
+   embeds it in the certificate's MTCProof as the certificate's non-
+   revocation proof, alongside the inclusion proof that establishes
+   authenticity.  The relying party can then cryptographically verify
+   that the certificate has not been revoked, without contacting anyone.
 
    This mechanism provides timely revocation without requiring
    signatures per revocation check, without relying on the relying party
@@ -221,9 +220,10 @@ Table of Contents
    (e.g., every hour), the CA reveals the previous hash chain value,
    walking the committed hash chain backward.  To revoke a certificate,
    the CA simply stops revealing values (Section 5).  The authenticating
-   party (server) embeds the current hash chain value in the
-   certificate's MTCProof (the signatureValue), and the relying party
-   (client) verifies it against the anchor committed in the log entry.
+   party (server) embeds the current tick, the revealed value paired
+   with its period, in the certificate's MTCProof (the signatureValue),
+   and the relying party (client) verifies it against the anchor
+   committed in the log entry.
 
    The MTCProof already carries a proof of inclusion: the evidence that
    a certificate is authentic, because its entry sits in a cosigned
@@ -282,7 +282,10 @@ Table of Contents
    trusted for availability alone (Section 15.5, Appendix F.6.3).  The
    load is real, but it is the load of serving a small static file, not
    of operating a signing service in the critical path of every
-   connection.
+   connection.  That is a shape the ecosystem already operates at
+   population scale, in software update and revocation-list
+   distribution, and one a CA can hand to the parties already running it
+   (Section 15.5).
 
    This mechanism is designed to layer onto the base MTC specification
    [I-D.ietf-plants-merkle-tree-certs] with a single required change.
@@ -996,7 +999,9 @@ Table of Contents
       and rejected in Appendix G.5.  A relying party MUST reject the
       certificate if it is not (Section 9).
 
-   The extension MUST appear at most once in a certificate.  The
+   The extension MUST appear at most once in a certificate, as
+   Section 4.2 of [RFC5280] requires of any extension.  A relying party
+   rejects a certificate carrying more than one (Section 9).  The
    extension MUST NOT be present in a certificate whose validity period
    is not longer than tick_interval (Section 4).  Such a certificate
    cannot advance beyond period 0, so the mechanism would enforce
@@ -1423,7 +1428,11 @@ Table of Contents
    1.  Extract the HashChainAnchorInfo from the certificate's id-pe-
        hashChainAnchor extension.  If not present, skip hash chain
        verification (the certificate does not use this mechanism).  If
-       the extension value does not DER-decode as a well-formed
+       more than one is present, reject the certificate with a
+       bad_certificate error.  Section 4.2 of [RFC5280] forbids a
+       certificate from including more than one instance of an
+       extension, and nothing would select between two anchors.  If the
+       extension value does not DER-decode as a well-formed
        HashChainAnchorInfo, reject the certificate with a
        bad_certificate error.  Examples are a malformed SEQUENCE, a
        tickInterval outside INTEGER (1..4294967295), a tickInterval
@@ -1802,7 +1811,15 @@ Table of Contents
       appear anywhere in the certificate.  Because the token is absent
       from the certificate, a relying party cannot construct the URL,
       while the authenticating party is given it at provisioning time
-      (see below).
+      (see below).  It is carried as a single URL path segment, so a CA
+      that derives it from binary material, as the deterministic
+      construction below does, MUST encode it in characters that need no
+      percent-encoding in a path segment.  Lowercase hexadecimal, as
+      used for tbs_cert_entry_hash above, and base64url without padding
+      ([RFC4648]) both qualify.  The encoded segment MUST NOT exceed 255
+      characters, which leaves ample room for the construction below and
+      keeps the request within the URL lengths intermediaries and origin
+      servers commonly accept.
 
    The CA MAY generate the token by either of the following methods:
 
@@ -2099,15 +2116,13 @@ Table of Contents
    The authenticating party may be unable to obtain a fresh tick, for
    example because the CA is unavailable.  It then continues to serve
    the most recent tick it holds for as long as that tick remains within
-   the default acceptance window (step 4 of Section 9).  Because a
-   relying party also accepts the immediately preceding period's tick, a
-   tick fetched for period t stays acceptable until the end of period
-   t+1.  That is close to two periods of runway from a single successful
-   fetch, not one (Section 15.1).  Once that runway is exhausted, the
-   certificate becomes unusable until a fresh tick is obtained or a new
-   certificate is provisioned.  Section 15.1 discusses this dependency
-   and its mitigations, including widening the acceptance window
-   (Section 14.10) and holding certificates from multiple CAs.
+   the default acceptance window (step 4 of Section 9), which gives it
+   between one and two periods of runway from its last successful fetch
+   (Section 15.1).  Once that runway is exhausted, the certificate
+   becomes unusable until a fresh tick is obtained or a new certificate
+   is provisioned.  Section 15.1 discusses this dependency and its
+   mitigations, including widening the acceptance window (Section 14.10)
+   and holding certificates from multiple CAs.
 
 13.  Privacy Considerations
 
@@ -2248,8 +2263,13 @@ Table of Contents
       monitored externally (Certificate Transparency-style auditing
       [RFC9162]), making selective withholding observable.
 
-   Market pressure:  An authenticating party that cannot reliably obtain
-      ticks will switch CAs.
+   Substitutability:  The interface is mandatory at both ends and
+      addressed identically at every CA (Section 10), so an
+      authenticating party is not tied to one CA's tick service.
+      Deployments are in any case encouraged to hold certificates from
+      several CAs (Section 15.1), so a party facing withheld ticks fails
+      over to another CA's certificate at once, rather than waiting on a
+      commercial response.
 
    Because ticks are small and cacheable, they are readily distributed
    via CDN, which further reduces the attack surface for withholding.
@@ -2631,23 +2651,25 @@ Table of Contents
 15.1.  Availability Considerations
 
    An authenticating party must fetch a fresh tick at least once per
-   tick_interval (Section 10).  A tick-distribution outage that outlasts
-   the runway a single successful fetch provides, which is up to about
-   two periods, renders the affected certificate unusable until a fresh
-   tick is obtained.  This is an availability dependency that the base
-   MTC short-lived-certificate model does not have, and deployments
-   SHOULD plan for it.  It is intrinsic to enforceable revocation rather
-   than a defect.  A mechanism that let a server keep presenting a
-   usable certificate regardless of CA state would, by construction,
-   fail open, which is the soft-fail behavior this design rejects
-   (Appendix F.6.2).  The goal is therefore to bound the dependency, not
-   to eliminate it.  Several factors and mitigations limit its impact:
+   tick_interval (Section 10).  A tick fetched for period t remains
+   acceptable until the end of period t+1, because a relying party also
+   accepts the immediately preceding period's tick (step 4 of
+   Section 9).  A single successful fetch therefore provides between one
+   and two periods of runway, depending on how far into period t it
+   landed.  An outage that outlasts that runway renders the affected
+   certificate unusable until a fresh tick is obtained.  This is an
+   availability dependency that the base MTC short-lived-certificate
+   model does not have, and deployments SHOULD plan for it.  It is
+   intrinsic to enforceable revocation rather than a defect.  A
+   mechanism that let a server keep presenting a usable certificate
+   regardless of CA state would, by construction, fail open, which is
+   the soft-fail behavior this design rejects (Appendix F.6.2).  The
+   goal is therefore to bound the dependency, not to eliminate it.
+   Several factors and mitigations limit its impact:
 
-   *  *The tick interval is the outage-tolerance budget.* A one-hour
-      period gives on the order of one period of tolerance for tick-
-      distribution unavailability before a certificate becomes unusable,
-      and up to about two periods from a single successful fetch (see
-      below).  A one-day period scales that to the order of a day, at
+   *  *The tick interval is the outage-tolerance budget.* The runway
+      above is measured in periods, so tick_interval sets its absolute
+      length: hours for a one-hour period, days for a one-day one, at
       the cost of proportionally delayed revocation enforcement.
       Deployments choose tick_interval to balance revocation latency
       against their realistic availability expectations for tick
@@ -2657,8 +2679,9 @@ Table of Contents
       single lightweight HTTP GET with no per-request cryptography.  It
       is far less fragile than ACME issuance or an OCSP responder, and
       simpler to operate and more resilient than the latter
-      (Appendix F.6.3).  Because the authenticating party retains a full
-      period of buffer, brief outages are invisible to relying parties.
+      (Appendix F.6.3).  Because the authenticating party keeps serving
+      through the runway above, brief outages are invisible to relying
+      parties.
 
    *  *The acceptance window can be widened, deliberately.* A relying
       party MAY accept ticks from further preceding periods, converting
@@ -2698,17 +2721,12 @@ Table of Contents
 
    Compared with relying on short lifetimes alone, this is a shift in
    the availability dependency rather than a new one, and the shift is
-   smaller than it first appears.  A single successful fetch gives more
-   than one period of runway.  Because a relying party also accepts the
-   immediately preceding period's tick (Section 14.10), a tick fetched
-   for one period stays acceptable through the end of the next.  A
-   distribution outage therefore breaks a certificate only after it
-   outlasts that runway of up to about two periods, not the instant it
-   passes one.  Short-lived certificates do not remove the dependency on
-   CA availability.  They relocate it.  Such a certificate depends on
-   the CA's issuance pipeline being reachable each time it must renew,
-   and one due to renew during an issuance outage expires just as an
-   MTCRS certificate does when a tick outage outlasts its runway.
+   smaller than it first appears.  Short-lived certificates do not
+   remove the dependency on CA availability.  They relocate it.  Such a
+   certificate depends on the CA's issuance pipeline being reachable
+   each time it must renew, and one due to renew during an issuance
+   outage expires just as an MTCRS certificate does when a tick outage
+   outlasts its runway.
 
    The difference is cadence and weight.  MTCRS moves the dependency
    onto a static, cacheable, CDN- and anycast-friendly GET with no
@@ -3355,6 +3373,10 @@ Table of Contents
               "Randomness Requirements for Security", BCP 106, RFC 4086,
               DOI 10.17487/RFC4086, June 2005,
               <https://www.rfc-editor.org/rfc/rfc4086>.
+
+   [RFC4648]  Josefsson, S., "The Base16, Base32, and Base64 Data
+              Encodings", RFC 4648, DOI 10.17487/RFC4648, October 2006,
+              <https://www.rfc-editor.org/rfc/rfc4648>.
 
    [RFC5297]  Harkins, D., "Synthetic Initialization Vector (SIV)
               Authenticated Encryption Using the Advanced Encryption

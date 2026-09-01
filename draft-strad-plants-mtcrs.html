@@ -9,8 +9,8 @@
 <meta content="
        This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC).
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
-For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain.
-The authenticating party packages the current value with its period as a  tick  and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
+For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain, paired with its period as a  tick .
+The authenticating party fetches that tick and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
 The relying party can then cryptographically verify that the certificate has not been revoked, without contacting anyone. 
        This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA. 
     " name="description">
@@ -1086,8 +1086,8 @@ svg {
       <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
 <p id="section-abstract-1">This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC).
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
-For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain.
-The authenticating party packages the current value with its period as a <em>tick</em> and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
+For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain, paired with its period as a <em>tick</em>.
+The authenticating party fetches that tick and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
 The relying party can then cryptographically verify that the certificate has not been revoked, without contacting anyone.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
 <p id="section-abstract-2">This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
 </section>
@@ -1525,7 +1525,7 @@ That primitive is thirty years old and never took hold in the Web PKI, for reaso
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
 For each non-revoked certificate, once per tick interval (e.g., every hour), the CA reveals the previous hash chain value, walking the committed hash chain backward.
 To revoke a certificate, the CA simply stops revealing values (<a href="#ca-operation" class="auto internal xref">Section 5</a>).
-The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the <code>signatureValue</code>), and the relying party (client) verifies it against the anchor committed in the log entry.<a href="#section-1-3" class="pilcrow">¶</a></p>
+The authenticating party (server) embeds the current tick, the revealed value paired with its period, in the certificate's MTCProof (the <code>signatureValue</code>), and the relying party (client) verifies it against the anchor committed in the log entry.<a href="#section-1-3" class="pilcrow">¶</a></p>
 <p id="section-1-4">The MTCProof already carries a proof of inclusion: the evidence that a certificate is authentic, because its entry sits in a cosigned Merkle Tree.
 This mechanism adds a proof of non-revocation to the same structure, so that together they let a relying party confirm not merely that the certificate was issued, but that it may be relied upon now.<a href="#section-1-4" class="pilcrow">¶</a></p>
 <p id="section-1-5">This approach achieves the following properties:<a href="#section-1-5" class="pilcrow">¶</a></p>
@@ -1572,7 +1572,8 @@ What separates it from the OCSP responder MTC was built to do without is that re
 It holds no key and signs nothing.
 Every response is a public value that is immutable within its period.
 It is therefore a static, cacheable origin that a CA can delegate wholesale to parties trusted for availability alone (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>, <a href="#operational-resilience" class="auto internal xref">Appendix F.6.3</a>).
-The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.<a href="#section-1-8" class="pilcrow">¶</a></p>
+The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
+That is a shape the ecosystem already operates at population scale, in software update and revocation-list distribution, and one a CA can hand to the parties already running it (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>).<a href="#section-1-8" class="pilcrow">¶</a></p>
 <p id="section-1-9">This mechanism is designed to layer onto the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> with a single required change.
 <a href="#base-spec-amendments" class="auto internal xref">Appendix C</a> collects what this document asks of the base specification, and <a href="#open-questions" class="auto internal xref">Appendix D</a> the design choices it leaves open for the working group to settle.
 The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in <a href="#rationale" class="auto internal xref">Appendix F</a>.
@@ -2552,7 +2553,8 @@ A relying party <span class="bcp14">MUST</span> reject the certificate if it is 
 </dd>
         <dd class="break"></dd>
 </dl>
-<p id="section-7.1-7">The extension <span class="bcp14">MUST</span> appear at most once in a certificate.
+<p id="section-7.1-7">The extension <span class="bcp14">MUST</span> appear at most once in a certificate, as <span><a href="https://rfc-editor.org/rfc/rfc5280#section-4.2" class="relref">Section 4.2</a> of [<a href="#RFC5280" class="cite xref">RFC5280</a>]</span> requires of any extension.
+A relying party rejects a certificate carrying more than one (<a href="#verification" class="auto internal xref">Section 9</a>).
 The extension <span class="bcp14">MUST NOT</span> be present in a certificate whose validity period is not longer than <code>tick_interval</code> (<a href="#construction" class="auto internal xref">Section 4</a>).
 Such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.<a href="#section-7.1-7" class="pilcrow">¶</a></p>
 <p id="section-7.1-8">Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
@@ -2907,6 +2909,8 @@ If <code>tickInterval</code> is absent, use its default of 3600 (<a href="#ancho
 <li id="section-9-6.1">
           <p id="section-9-6.1.1">Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
 If not present, skip hash chain verification (the certificate does not use this mechanism).
+If more than one is present, reject the certificate with a bad_certificate error.
+<span><a href="https://rfc-editor.org/rfc/rfc5280#section-4.2" class="relref">Section 4.2</a> of [<a href="#RFC5280" class="cite xref">RFC5280</a>]</span> forbids a certificate from including more than one instance of an extension, and nothing would select between two anchors.
 If the extension value does not DER-decode as a well-formed HashChainAnchorInfo, reject the certificate with a bad_certificate error.
 Examples are a malformed SEQUENCE, a <code>tickInterval</code> outside INTEGER (1..4294967295), a <code>tickInterval</code> present carrying the DEFAULT value 3600, which DER requires to be omitted (Section 11.5 of <span>[<a href="#X.690" class="cite xref">X.690</a>]</span>), or trailing data after the structure.
 A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it <span class="bcp14">MUST</span> be checked explicitly.
@@ -3133,7 +3137,10 @@ A CA that wishes to make relying-party fetching infeasible by construction, rath
 <code>tick_token</code>:</dt>
           <dd style="margin-left: 1.5em" id="section-10.3-3.2">
             <p id="section-10.3-3.2.1">A high-entropy (at least 128-bit) value that does not appear anywhere in the certificate.
-Because the token is absent from the certificate, a relying party cannot construct the URL, while the authenticating party is given it at provisioning time (see below).<a href="#section-10.3-3.2.1" class="pilcrow">¶</a></p>
+Because the token is absent from the certificate, a relying party cannot construct the URL, while the authenticating party is given it at provisioning time (see below).
+It is carried as a single URL path segment, so a CA that derives it from binary material, as the deterministic construction below does, <span class="bcp14">MUST</span> encode it in characters that need no percent-encoding in a path segment.
+Lowercase hexadecimal, as used for <code>tbs_cert_entry_hash</code> above, and base64url without padding (<span>[<a href="#RFC4648" class="cite xref">RFC4648</a>]</span>) both qualify.
+The encoded segment <span class="bcp14">MUST NOT</span> exceed 255 characters, which leaves ample room for the construction below and keeps the request within the URL lengths intermediaries and origin servers commonly accept.<a href="#section-10.3-3.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -3329,9 +3336,7 @@ A node still holding the preceding period's tick keeps serving correctly while i
 This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.6.2</a>).
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.<a href="#section-12-9" class="pilcrow">¶</a></p>
 <p id="section-12-10">The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
-It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
-Because a relying party also accepts the immediately preceding period's tick, a tick fetched for period t stays acceptable until the end of period t+1.
-That is close to two periods of runway from a single successful fetch, not one (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).
+It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>), which gives it between one and two periods of runway from its last successful fetch (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 <a href="#availability-considerations" class="auto internal xref">Section 15.1</a> discusses this dependency and its mitigations, including widening the acceptance window (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>) and holding certificates from multiple CAs.<a href="#section-12-10" class="pilcrow">¶</a></p>
 </section>
@@ -3438,9 +3443,10 @@ It is inherent in the CA trust model rather than novel to this mechanism, and it
             <p id="section-14.4-2.4.1">The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing <span>[<a href="#RFC9162" class="cite xref">RFC9162</a>]</span>), making selective withholding observable.<a href="#section-14.4-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-14.4-2.5">Market pressure:</dt>
+<dt id="section-14.4-2.5">Substitutability:</dt>
           <dd style="margin-left: 1.5em" id="section-14.4-2.6">
-            <p id="section-14.4-2.6.1">An authenticating party that cannot reliably obtain ticks will switch CAs.<a href="#section-14.4-2.6.1" class="pilcrow">¶</a></p>
+            <p id="section-14.4-2.6.1">The interface is mandatory at both ends and addressed identically at every CA (<a href="#distribution" class="auto internal xref">Section 10</a>), so an authenticating party is not tied to one CA's tick service.
+Deployments are in any case encouraged to hold certificates from several CAs (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>), so a party facing withheld ticks fails over to another CA's certificate at once, rather than waiting on a commercial response.<a href="#section-14.4-2.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
@@ -3744,7 +3750,9 @@ The subsections run in the order the work does, from the CA that generates hash 
 <a href="#section-15.1" class="section-number selfRef">15.1. </a><a href="#name-availability-considerations" class="section-name selfRef">Availability Considerations</a>
         </h3>
 <p id="section-15.1-1">An authenticating party must fetch a fresh tick at least once per <code>tick_interval</code> (<a href="#distribution" class="auto internal xref">Section 10</a>).
-A tick-distribution outage that outlasts the runway a single successful fetch provides, which is up to about two periods, renders the affected certificate unusable until a fresh tick is obtained.
+A tick fetched for period t remains acceptable until the end of period t+1, because a relying party also accepts the immediately preceding period's tick (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
+A single successful fetch therefore provides between one and two periods of runway, depending on how far into period t it landed.
+An outage that outlasts that runway renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments <span class="bcp14">SHOULD</span> plan for it.
 It is intrinsic to enforceable revocation rather than a defect.
 A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.6.2</a>).
@@ -3753,15 +3761,14 @@ Several factors and mitigations limit its impact:<a href="#section-15.1-1" class
 <ul class="normal">
 <li class="normal" id="section-15.1-2.1">
             <p id="section-15.1-2.1.1"><strong>The tick interval is the outage-tolerance budget.</strong>
-A one-hour period gives on the order of one period of tolerance for tick-distribution unavailability before a certificate becomes unusable, and up to about two periods from a single successful fetch (see below).
-A one-day period scales that to the order of a day, at the cost of proportionally delayed revocation enforcement.
+The runway above is measured in periods, so <code>tick_interval</code> sets its absolute length: hours for a one-hour period, days for a one-day one, at the cost of proportionally delayed revocation enforcement.
 Deployments choose <code>tick_interval</code> to balance revocation latency against their realistic availability expectations for tick distribution.<a href="#section-15.1-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-15.1-2.2">
             <p id="section-15.1-2.2.1"><strong>The dependency is on a lightweight service.</strong>
 Fetching a tick is a single lightweight HTTP GET with no per-request cryptography.
 It is far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter (<a href="#operational-resilience" class="auto internal xref">Appendix F.6.3</a>).
-Because the authenticating party retains a full period of buffer, brief outages are invisible to relying parties.<a href="#section-15.1-2.2.1" class="pilcrow">¶</a></p>
+Because the authenticating party keeps serving through the runway above, brief outages are invisible to relying parties.<a href="#section-15.1-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-15.1-2.3">
             <p id="section-15.1-2.3.1"><strong>The acceptance window can be widened, deliberately.</strong>
@@ -3784,9 +3791,6 @@ Because Merkle Tree Certificates are lightweight to obtain and maintain, the inc
 </li>
         </ul>
 <p id="section-15.1-3">Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
-A single successful fetch gives more than one period of runway.
-Because a relying party also accepts the immediately preceding period's tick (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>), a tick fetched for one period stays acceptable through the end of the next.
-A distribution outage therefore breaks a certificate only after it outlasts that runway of up to about two periods, not the instant it passes one.
 Short-lived certificates do not remove the dependency on CA availability.
 They relocate it.
 Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.<a href="#section-15.1-3" class="pilcrow">¶</a></p>
@@ -4348,6 +4352,10 @@ When the <span class="bcp14">RECOMMENDED</span> trailing <code>status_tick</code
 <dt id="RFC4086">[RFC4086]</dt>
         <dd>
 <span class="refAuthor">Eastlake 3rd, D.</span>, <span class="refAuthor">Schiller, J.</span>, and <span class="refAuthor">S. Crocker</span>, <span class="refTitle">"Randomness Requirements for Security"</span>, <span class="seriesInfo">BCP 106</span>, <span class="seriesInfo">RFC 4086</span>, <span class="seriesInfo">DOI 10.17487/RFC4086</span>, <time datetime="2005-06" class="refDate">June 2005</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc4086">https://www.rfc-editor.org/rfc/rfc4086</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC4648">[RFC4648]</dt>
+        <dd>
+<span class="refAuthor">Josefsson, S.</span>, <span class="refTitle">"The Base16, Base32, and Base64 Data Encodings"</span>, <span class="seriesInfo">RFC 4648</span>, <span class="seriesInfo">DOI 10.17487/RFC4648</span>, <time datetime="2006-10" class="refDate">October 2006</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc4648">https://www.rfc-editor.org/rfc/rfc4648</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC5297">[RFC5297]</dt>
         <dd>
