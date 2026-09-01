@@ -1667,8 +1667,15 @@ Several factors and mitigations limit its impact:
   The tick is embedded in the MTCProof rather than negotiated as a separate stapled response.
   A server holding certificates from several CAs therefore simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
   This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange.
-  Its one precondition is that the relying party support the alternate CA's trust anchor.
+  Its preconditions are that the relying party support the alternate CA's trust anchor, and that the two CAs fail independently, which is not automatic (see below).
   Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
+
+The last of these mitigations rests on an assumption worth stating.
+Ticks are safe to delegate because they are self-authenticating, so a CA is encouraged to serve them from mirrors, content delivery networks, or other distributors ({{delegated-distribution}}).
+Relatively few operators run distribution infrastructure at that scale, so two CAs may delegate to the same one, and their tick availability is then perfectly correlated.
+Holding certificates from both buys nothing in that case, and the concentration makes the failure large as well as correlated, since a single distributor's outage renders every affected certificate unusable once its runway expires, whichever CA issued it.
+A deployment relying on multi-CA failover SHOULD therefore confirm that its CAs do not share a tick distributor, and CAs SHOULD publish enough about their distribution arrangements for that to be checkable.
+Delegation and multi-CA operation are both worth doing, but they are not independent of one another, and a deployment that treats them as independent overestimates its resilience.
 
 Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
 Short-lived certificates do not remove the dependency on CA availability.
