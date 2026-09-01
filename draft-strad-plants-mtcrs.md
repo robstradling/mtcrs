@@ -99,6 +99,13 @@ informative:
       - name: Adrian Perrig
     date: 2005
     target: https://doi.org/10.1007/11496137_29
+  LE-OCSP:
+    title: "Intent to End OCSP Service"
+    author:
+      - name: Josh Aas
+        org: Let's Encrypt
+    date: 2024-07
+    target: https://letsencrypt.org/2024/07/23/replacing-ocsp-with-crls/
 
 ...
 
@@ -1407,6 +1414,7 @@ It declines to standardize or advertise such a fetch as an affordance to relying
 A CA that wishes to remove this derivability entirely MAY use the optional per-certificate capability-token hardening in {{unguessable-urls}}, which makes the tick URL unguessable to a party holding only the certificate.
 A relying-party fetch would gain nothing over the embedded tick, since the authenticating party already presents the current value.
 It would meanwhile reintroduce the CA-visibility of relying-party activity (the CA learning which sites a relying party visits), the added latency, and the soft-fail behavior that made client-driven OCSP {{?RFC6960}} problematic.
+That visibility is the exposure CAs cited when they began retiring OCSP altogether ({{ocsp-retirement}}).
 
 The CA certificate SIA access method ({{discovery}}) exists to convey the base URL to authenticating-party tooling.
 Relying parties possess the CA certificate but MUST NOT use its tick base URL to fetch tick status.
@@ -2462,10 +2470,11 @@ It is embedded directly in the MTCProof (the certificate's `signatureValue`) rat
 
 ## Relationship to Prior Revocation Mechanisms {#prior-mechanisms}
 
-Three earlier approaches bear directly on this design.
-Micali's own certificate revocation system introduced the primitive, OCSP stapling is the closest existing analogue, and the browsers' migration to pushed revocation lists is the ecosystem's most recent verdict on the alternatives.
-Each fell short for reasons with a common root: status could not be delivered to the relying party both cheaply and enforceably.
-They are treated together here because the answer in each case is the same property of Merkle Tree Certificates, that the certificate presentation is itself the delivery channel.
+Four earlier developments bear directly on this design.
+Micali's own certificate revocation system introduced the primitive, and OCSP stapling is the closest existing analogue.
+The other two are the ecosystem's own verdict on the alternatives, delivered from opposite ends: the browsers' migration to pushed revocation lists, and the CAs' retirement of OCSP responders.
+The first two fell short for reasons with a common root, that status could not be delivered to the relying party both cheaply and enforceably, and the second two followed from that failure.
+They are treated together here because the answer in each case turns on the same property of Merkle Tree Certificates, that the certificate presentation is itself the delivery channel.
 
 ### Why Micali's CRS Did Not Deploy {#why-crs-succeeds}
 
@@ -2546,6 +2555,34 @@ Must-Staple's stapling pipeline was fragile, whereas the refresh here is a trivi
 The pushed-list systems remain valuable and complementary, being comprehensive and fail-closed, but they are vendor-controlled and effective only for relying parties that ship the feed ({{external-revocation}}).
 This mechanism provides a universal, CA-operated baseline enforced by every relying party, including non-browser TLS clients and IoT devices with no external feed.
 The browser move in fact validates the design adopted here, which is fail-closed enforcement with no handshake-time relying-party network dependency.
+
+### Why CAs Are Retiring OCSP {#ocsp-retirement}
+
+The most recent movement is on the CA side rather than the relying-party side.
+Let's Encrypt announced in 2024 its intent to end OCSP service in favor of CRLs {{LE-OCSP}}, following a CA/Browser Forum ballot that had already made providing OCSP optional for publicly trusted CAs.
+A mechanism that asks CAs to operate a new per-certificate, per-period status service therefore owes an answer to the charge that it asks the ecosystem to rebuild what it has just finished dismantling.
+The two reasons given divide cleanly, and only one of them applies here.
+
+The first, given as the primary reason, was privacy.
+When a relying party checks status online, "the Certificate Authority operating the OCSP responder immediately becomes aware of which website is being visited from that visitor's particular IP address" {{LE-OCSP}}, and a CA that chooses not to retain that information may still be compelled to collect it.
+This mechanism does not reduce that exposure, it removes the interaction that creates it.
+Relying parties never contact the CA or any distributor ({{rp-no-fetch}}), because the tick is already embedded in the certificate presentation and verified offline ({{verification}}).
+There is no relying-party request to observe, to log, or to be compelled to retain.
+The objection that ended OCSP is therefore answered here by construction, and in the strongest available form, which is that the data never comes into existence rather than that it is discarded.
+
+The second reason was operational.
+Running OCSP had "taken up considerable resources", and keeping CA infrastructure as simple as possible was described as critical to the continuity of compliance, reliability, and efficiency {{LE-OCSP}}.
+This mechanism does not escape that objection by being smaller, and its request volume is in fact higher, because a tick is per certificate and per period whereas an OCSP response was long-lived and widely cached ({{distribution}}).
+What differs is the kind of service rather than its size.
+An OCSP responder is an online signing service.
+It holds a private key, carries a responder certificate, performs cryptography in the request path, and sits inside the CA's audited perimeter, which is what makes it a continuity-of-compliance problem rather than merely a traffic problem.
+A tick service holds no key, signs nothing, and returns precomputed public values that are immutable within their period ({{operational-resilience}}).
+It can therefore be run as ordinary static content distribution and delegated in whole to parties trusted for availability alone ({{delegated-distribution}}), which is exactly what an online signing service cannot be.
+
+One consequence of the retirement is worth stating plainly, because it cuts the other way.
+CAs retiring OCSP moved to CRLs, which reach browsers through the pushed-list systems described above and reach other relying parties only if those parties fetch and process CRLs for themselves, which few TLS clients do ({{external-revocation}}).
+The retirement removed a mechanism that did not work well.
+It did not supply one that does, and it leaves the majority of TLS clients with no in-band per-certificate revocation status at all.
 
 ## Incremental Deployment and Transition {#deployment-transition}
 
