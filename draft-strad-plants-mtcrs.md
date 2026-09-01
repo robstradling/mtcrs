@@ -1283,9 +1283,7 @@ This is the point at which OCSP stapling has historically been most difficult to
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
 
 The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
-It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification}}).
-Because a relying party also accepts the immediately preceding period's tick, a tick fetched for period t stays acceptable until the end of period t+1.
-That is close to two periods of runway from a single successful fetch, not one ({{availability-considerations}}).
+It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification}}), which gives it between one and two periods of runway from its last successful fetch ({{availability-considerations}}).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
@@ -1590,7 +1588,9 @@ The subsections run in the order the work does, from the CA that generates hash 
 ## Availability Considerations {#availability-considerations}
 
 An authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}).
-A tick-distribution outage that outlasts the runway a single successful fetch provides, which is up to about two periods, renders the affected certificate unusable until a fresh tick is obtained.
+A tick fetched for period t remains acceptable until the end of period t+1, because a relying party also accepts the immediately preceding period's tick (step 4 of {{verification}}).
+A single successful fetch therefore provides between one and two periods of runway, depending on how far into period t it landed.
+An outage that outlasts that runway renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
 It is intrinsic to enforceable revocation rather than a defect.
 A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects ({{ocsp-stapling-comparison}}).
@@ -1598,14 +1598,13 @@ The goal is therefore to bound the dependency, not to eliminate it.
 Several factors and mitigations limit its impact:
 
 - **The tick interval is the outage-tolerance budget.**
-  A one-hour period gives on the order of one period of tolerance for tick-distribution unavailability before a certificate becomes unusable, and up to about two periods from a single successful fetch (see below).
-  A one-day period scales that to the order of a day, at the cost of proportionally delayed revocation enforcement.
+  The runway above is measured in periods, so `tick_interval` sets its absolute length: hours for a one-hour period, days for a one-day one, at the cost of proportionally delayed revocation enforcement.
   Deployments choose `tick_interval` to balance revocation latency against their realistic availability expectations for tick distribution.
 
 - **The dependency is on a lightweight service.**
   Fetching a tick is a single lightweight HTTP GET with no per-request cryptography.
   It is far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
-  Because the authenticating party retains a full period of buffer, brief outages are invisible to relying parties.
+  Because the authenticating party keeps serving through the runway above, brief outages are invisible to relying parties.
 
 - **The acceptance window can be widened, deliberately.**
   A relying party MAY accept ticks from further preceding periods, converting a tick-distribution outage longer than one period into bounded additional revocation latency rather than a hard failure ({{clock-skew}}).
@@ -1625,9 +1624,6 @@ Several factors and mitigations limit its impact:
   Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
 Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
-A single successful fetch gives more than one period of runway.
-Because a relying party also accepts the immediately preceding period's tick ({{clock-skew}}), a tick fetched for one period stays acceptable through the end of the next.
-A distribution outage therefore breaks a certificate only after it outlasts that runway of up to about two periods, not the instant it passes one.
 Short-lived certificates do not remove the dependency on CA availability.
 They relocate it.
 Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
