@@ -177,7 +177,7 @@ A CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> 
 What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it ({{rp-no-fetch}}), so it lies outside the handshake path entirely.
 It holds no key and signs nothing.
 Every response is a public value that is immutable within its period.
-It is therefore a static, cacheable origin that a CA can delegate wholesale to parties trusted for availability alone ({{delegated-distribution}}, {{operational-resilience}}).
+The service is therefore a precomputed dataset rather than a computation, which a CA can replicate to, or delegate wholesale to, parties trusted for availability alone ({{delegated-distribution}}, {{operational-resilience}}).
 The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
 That is a shape the ecosystem already operates at population scale, in software update and revocation-list distribution, and one a CA can hand to the parties already running it ({{delegated-distribution}}).
 
@@ -1012,8 +1012,12 @@ At large deployment scale, tick distribution is dominated by aggregate request v
 A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
 Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are.
 It concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
-At this scale, edge caching (each tick is immutable within its period and cacheable for up to `tick_interval` seconds) and spreading of client refresh timing are required, not merely recommended, to avoid a thundering-herd load on the origin.
-Those techniques, along with bulk retrieval and delegation of the serving path, are operational rather than protocol matters and are described in {{operational-considerations}}.
+At this scale the serving path is fed by replication rather than by cache fill.
+Each tick is immutable within its period and so is freely cacheable, but caching collapses requests only where an entry has several fetchers, as in a deployment that terminates TLS on many nodes ({{ap-behavior}}).
+A certificate presented by a single server has one fetcher per period, so its request is a cache miss whenever it is made, and edge caching alone therefore does not reduce the number of distinct entries an origin must answer for.
+What does is delegated distribution ({{delegated-distribution}}), in which the CA publishes the currently-revealed values to distributors as a bundle and those distributors answer the requests, so no per-certificate request need reach the CA at all.
+Spreading client refresh timing ({{load-distribution}}) then flattens what remains.
+Both are operational rather than protocol matters, and are described alongside bulk retrieval in {{operational-considerations}}.
 
 ## HTTP Interface
 
@@ -1743,7 +1747,8 @@ This is preferable to independent random jitter, which can still cluster and whi
 
 ### Server-Side: Cache Freshness and Retry-After
 
-The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than `tick_interval` seconds ({{response-format}}), so that a caching layer collapses many client requests for the same entry into a single origin fetch per period.
+The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than `tick_interval` seconds ({{response-format}}), so that a caching layer can collapse repeated requests for the same entry into a single origin fetch per period.
+This helps an entry that has several fetchers, as in a multi-node deployment ({{ap-behavior}}), and does nothing for an entry that has one.
 A CA MAY additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.
 
 Under transient overload, the CA or edge MAY respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
@@ -1751,9 +1756,9 @@ To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values 
 Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
 
 The deterministic per-entry offset above and edge caching together flatten period-boundary load.
-The offset spreads fetches uniformly across the period, and caching collapses the fetches for each entry into a single origin request per period regardless of client timing.
-At large scale these are required rather than merely recommended, as {{distribution}} notes.
-This document nonetheless specifies them as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
+The offset spreads fetches uniformly across the period whatever the entry, and caching absorbs the repeated fetches of entries that have more than one fetcher.
+Neither reduces the number of distinct entries an origin must answer for in a period, which is what delegating the serving path addresses ({{delegated-distribution}}).
+This document specifies both as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
 A specific load-shaping or availability target is left to root-program or CA operational policy.
 
 ## Bulk Retrieval for Large Deployments {#bulk-retrieval}
@@ -1781,6 +1786,11 @@ Distribution is therefore safe to delegate to third parties, which serve only pu
 
 The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `tbs_cert_entry_hash`, refreshing it as certificates advance through their own periods ({{construction}}).
 Each distributor serves those values through the HTTP interface of {{distribution}}.
+This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA ({{distribution}}).
+The bundle is small in relation to that volume.
+One record is an entry identifier and a tick, on the order of 66 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 70 GB per period.
+Because period boundaries are each certificate's own ({{construction}}), that need not be sent as a periodic bulk transfer.
+A CA can stream records as certificates cross their boundaries, which at hourly periods is a sustained rate of roughly 150 Mbit/s to each distributor.
 To revoke a certificate the CA drops its entry from subsequent refreshes, so absence is revocation and no revocation list is exchanged.
 Compromising a distributor exposes nothing that is not already public.
 
