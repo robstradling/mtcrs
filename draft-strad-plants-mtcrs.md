@@ -164,6 +164,7 @@ It holds no key and signs nothing.
 Every response is a public value that is immutable within its period.
 It is therefore a static, cacheable origin that a CA can delegate wholesale to parties trusted for availability alone ({{delegated-distribution}}, {{operational-resilience}}).
 The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
+That is a shape the ecosystem already operates at population scale, in software update and revocation-list distribution, and one a CA can hand to the parties already running it ({{delegated-distribution}}).
 
 This mechanism is designed to layer onto the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} with a single required change.
 {{base-spec-amendments}} collects what this document asks of the base specification, and {{open-questions}} the design choices it leaves open for the working group to settle.
@@ -1370,8 +1371,9 @@ Detectability:
 Third-party observability:
 : The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), making selective withholding observable.
 
-Market pressure:
-: An authenticating party that cannot reliably obtain ticks will switch CAs.
+Substitutability:
+: The interface is mandatory at both ends and addressed identically at every CA ({{distribution}}), so an authenticating party is not tied to one CA's tick service.
+  Deployments are in any case encouraged to hold certificates from several CAs ({{availability-considerations}}), so a party facing withheld ticks fails over to another CA's certificate at once, rather than waiting on a commercial response.
 
 Because ticks are small and cacheable, they are readily distributed via CDN, which further reduces the attack surface for withholding.
 
