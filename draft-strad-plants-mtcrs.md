@@ -652,7 +652,8 @@ anchor:
   Truncating it, to save bytes in the log entry and the handshake, is considered and rejected in {{truncated-anchor}}.
   A relying party MUST reject the certificate if it is not ({{verification}}).
 
-The extension MUST appear at most once in a certificate.
+The extension MUST appear at most once in a certificate, as {{Section 4.2 of !RFC5280}} requires of any extension.
+A relying party rejects a certificate carrying more than one ({{verification}}).
 The extension MUST NOT be present in a certificate whose validity period is not longer than `tick_interval` ({{construction}}).
 Such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.
 
@@ -903,6 +904,8 @@ Using these inputs, the verifier performs the following steps:
 
 1. Extract the HashChainAnchorInfo from the certificate's id-pe-hashChainAnchor extension.
    If not present, skip hash chain verification (the certificate does not use this mechanism).
+   If more than one is present, reject the certificate with a bad_certificate error.
+   {{Section 4.2 of !RFC5280}} forbids a certificate from including more than one instance of an extension, and nothing would select between two anchors.
    If the extension value does not DER-decode as a well-formed HashChainAnchorInfo, reject the certificate with a bad_certificate error.
    Examples are a malformed SEQUENCE, a `tickInterval` outside INTEGER (1..4294967295), a `tickInterval` present carrying the DEFAULT value 3600, which DER requires to be omitted (Section 11.5 of {{X.690}}), or trailing data after the structure.
    A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it MUST be checked explicitly.
