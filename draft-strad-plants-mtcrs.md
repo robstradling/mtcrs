@@ -2730,14 +2730,14 @@ Each step is a single compression block whatever primitive is used, and this mec
 Shortening the verification path is the only change that moves the order of magnitude.
 Two constructions do so: a hierarchical hash chain ({{hierarchical-chains}}) and, as the limiting case, a Merkle tree over the certificate's periods ({{merkle-periods}}).
 Both buy hash computations with bytes, and they differ only in where on that curve they sit.
-The columns below give the worst-case forward hash computations for a 1,128-period certificate (47 days at one-hour periods), the worst case for the longest chain the 16-bit period field admits, and the resulting tick size in bytes:
+The columns below give the worst-case forward hash computations for a 1,128-period certificate (47 days at one-hour periods), the worst case for the longest chain the 16-bit period field admits, and the resulting tick size:
 
-| Construction | Steps, 1,128 | Steps, worst | Tick |
+| Construction | Steps, 1,128 | Steps, worst | Tick bytes |
 | --- | --- | --- | --- |
-| Flat chain (this document) | 1,127 | 65,535 | 34 |
+| Flat chain (current) | 1,127 | 65,535 | 34 |
 | Two levels | 67 | 511 | 66 |
 | Three levels | 32 | 122 | 98 |
-| Merkle tree over periods | 11 | 16 | 386 |
+| Period Merkle tree | 11 | 16 | 386 |
 
 This document keeps the flat chain because it is the simplest construction that works, and because the added bytes are charged to every handshake whereas the verification cost is paid only on full handshakes.
 The balance between them is a working group judgment rather than an authorial one, and it is recorded as an open question ({{open-questions}}).
