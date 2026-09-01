@@ -1330,14 +1330,30 @@ That failure mode is avoided here by construction rather than by policy.
 
 The authenticating party's tick fetch, by contrast, exposes request metadata.
 An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which `tbs_cert_entry_hash` is being requested, or with unguessable tick URLs which `tick_token` ({{unguessable-urls}}).
-It can thereby learn which certificate the authenticating party holds.
-For a public-facing server this reveals little, since the certificate it serves is itself public.
-The request identifies the authenticating party's own certificate, not any relying party.
-Two points nonetheless bear noting:
+It can thereby learn which certificate the authenticating party holds, and from the source address of the request, where that certificate is deployed.
+The request identifies the authenticating party's own certificate rather than any relying party, so it discloses no relying-party activity.
+It is nonetheless a disclosure this mechanism introduces, and two aspects of it are worth stating.
+
+A certificate is public, but its deployment need not be.
+Publicly issued certificates are routinely used on hosts that are not reachable or enumerable from the public Internet, among them internal services, management interfaces, and development systems.
+Such a host contacts its CA at issuance and at renewal today.
+Under this mechanism it contacts the CA, or whichever distributor serves its ticks, once per period for the life of the certificate, and the source address of that request is not derivable from the certificate.
+
+The cadence is itself a signal.
+A per-certificate fetch once per period reports which certificates are in active use, and when a deployment starts, stops, or is interrupted.
+Issuance alone does not convey that.
+
+Both follow from the fetch existing rather than from how it is carried, so transport security does not address them.
+An https base URL protects the request against on-path observers and leaves it fully visible to the party serving it.
+The measure that does apply is delegation.
+Because ticks are self-authenticating, a deployment need not fetch from the CA at all ({{delegated-distribution}}), and may fetch instead from a distributor it selects or operates, so that no per-fetch record reaches the issuer.
+A CA or distributor SHOULD NOT retain per-fetch records beyond what operating the service requires, since a record that is not kept can be neither disclosed nor compelled ({{ocsp-retirement}}).
+
+Two further points concern the transport and the token:
 
 - Because a tick is self-authenticating and public, the fetch does not require transport-layer confidentiality for correctness, so a CA MAY serve ticks over plain HTTP ({{distribution}}).
   Plain HTTP leaves the requested `tbs_cert_entry_hash` or `tick_token` visible to on-path observers.
-  A deployment that considers this metadata sensitive, for example one serving certificates that are not otherwise publicly enumerable, SHOULD publish an https base URL instead.
+  A CA whose subscribers deploy certificates that are not otherwise publicly enumerable SHOULD publish an https base URL instead.
 - Unguessable tick URLs ({{unguessable-urls}}) are an addressing and access-control measure, not a confidentiality one: the `tick_token` appears in the request URL, so it offers no confidentiality against an observer of the authenticating party's own fetch.
   Its privacy benefit is solely that a relying party, or a third party holding only the certificate, cannot derive the URL and probe the CA for the certificate's status ({{rp-no-fetch}}).
 
@@ -1345,8 +1361,8 @@ Pushed revocation lists such as {{CRLite}} and {{CRLSets}} are checked by the cl
 This mechanism preserves the same relying-party privacy, since the client fetches nothing either way, and does so universally, for any TLS client rather than only browsers that ship the list.
 Its one difference is the authenticating party's own fetch, and that metadata concerns the server's own public certificate (whose liveness a public server already exposes by answering connections), not any relying party.
 It also need not reach the CA at all.
-Because ticks are self-authenticating, distribution can be delegated to CDNs, mirrors, or other distributors ({{delegated-distribution}}), so the server fetches from a distributor rather than the CA and the CA observes no per-server fetch pattern.
-Caching leaves the origin seeing aggregated cache-miss traffic rather than every server's every-period fetch.
+Because ticks are self-authenticating, distribution can be delegated to CDNs, mirrors, or other distributors ({{delegated-distribution}}).
+The CA then publishes a bundle of currently-revealed values and answers no per-certificate request, so it observes no per-server fetch pattern ({{distribution}}).
 
 # Security Considerations
 
