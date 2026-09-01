@@ -1049,11 +1049,11 @@ svg {
 <thead><tr>
 <td class="left">Internet-Draft</td>
 <td class="center">MTCRS</td>
-<td class="right">August 2026</td>
+<td class="right">September 2026</td>
 </tr></thead>
 <tfoot><tr>
 <td class="left">Stradling</td>
-<td class="center">Expires 4 March 2027</td>
+<td class="center">Expires 5 March 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1066,12 +1066,12 @@ svg {
 <dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-08-31" class="published">31 August 2026</time>
+<time datetime="2026-09-01" class="published">1 September 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-03-04">4 March 2027</time></dd>
+<dd class="expires"><time datetime="2027-03-05">5 March 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1126,7 +1126,7 @@ The relying party can then cryptographically verify that the certificate has not
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 4 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 5 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -2645,7 +2645,9 @@ An explicit period distinguishes a stale tick from a forged or misrouted one, bo
 That check has no acceptance window to search and no way to detect staleness without the period.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
 <p id="section-8.1-5">The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the <code>signatureValue</code> with a fresh tick while reusing the same inclusion proof and signatures.<a href="#section-8.1-5" class="pilcrow">¶</a></p>
-<p id="section-8.1-6">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick whose period falls within the acceptance window the relying party applies (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
+<p id="section-8.1-6">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick whose period falls within the <em>default</em> acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
+It is bound to the default because the window a given relying party applies is that party's own policy and is not observable to it.
+The default suffices, since a relying party may only widen the window and therefore accepts a superset of what the default admits.
 In practice this is the most recent tick it has fetched and verified (<a href="#distribution" class="auto internal xref">Section 10</a>).
 It <span class="bcp14">SHOULD</span> present the current period's tick once it holds one, but is not required to switch at the period boundary.
 The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period (<a href="#load-distribution" class="auto internal xref">Section 15.3</a>), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).
@@ -2929,6 +2931,7 @@ expected_period = floor((current_time - not_before) / tick_interval)
           <p id="section-9-6.4.1">Check that <code>tick.period</code> lies within the <em>acceptance window</em>.
 The default acceptance window is <code>expected_period</code> - 1, <code>expected_period</code>, and <code>expected_period</code> + 1.
 A relying party <span class="bcp14">MAY</span> widen it in either direction as a matter of policy, with the consequences described in <a href="#clock-skew" class="auto internal xref">Section 14.10</a> and collected in <a href="#rp-policy" class="auto internal xref">Section 14.11</a>.
+It <span class="bcp14">MUST NOT</span> narrow it, because the authenticating party targets the default and cannot observe a narrower one (<a href="#cert-format" class="auto internal xref">Section 8</a>).
 A relying party <span class="bcp14">MUST</span> reject a certificate whose <code>tick.period</code> falls outside the acceptance window it applies, with a certificate_expired error.
 That alert covers both directions, because <span>[<a href="#RFC9846" class="cite xref">RFC9846</a>]</span> defines it as "a certificate has expired or is not currently valid".
 A tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
@@ -3206,7 +3209,7 @@ A CA <span class="bcp14">MAY</span> return 410 in place of 404 where it holds th
 A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>).
 A 410 is a diagnostic hint and nothing more.
 It is unsigned and <span class="bcp14">MAY</span> be carried over plain HTTP (<a href="#distribution" class="auto internal xref">Section 10</a>), so an on-path observer or a faulty distributor can forge one.
-An authenticating party <span class="bcp14">MUST NOT</span> let it curtail a tick that is still within the acceptance window (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).
+An authenticating party <span class="bcp14">MUST NOT</span> let it curtail a tick that is still within the default acceptance window (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).
 Nor may its absence be read the other way.
 A plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor <span class="bcp14">MUST NOT</span> infer non-revocation from the lack of a 410.<a href="#section-10.4-3.6.1" class="pilcrow">¶</a></p>
 </dd>
@@ -3293,7 +3296,7 @@ The inclusion proof and cosignatures remain unchanged.<a href="#section-12-3.3.1
           <p id="section-12-3.4.1">During TLS handshakes, the authenticating party presents the certificate with the current tick.<a href="#section-12-3.4.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
-<p id="section-12-4">An authenticating party <span class="bcp14">MUST NOT</span> present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the acceptance window (<a href="#cert-format" class="auto internal xref">Section 8</a>).
+<p id="section-12-4">An authenticating party <span class="bcp14">MUST NOT</span> present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window (<a href="#cert-format" class="auto internal xref">Section 8</a>).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
 Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does (<span><a href="https://rfc-editor.org/rfc/rfc9846#section-4.5.1.2" class="relref">Section 4.5.1.2</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>, <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-8" class="relref">Section 8</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 Where the authenticating party holds a certificate from another CA, it selects that one instead (see below).
@@ -3314,9 +3317,9 @@ An authenticating party <span class="bcp14">SHOULD</span> therefore raise an ope
 By then it has at most one period of runway left.<a href="#section-12-6" class="pilcrow">¶</a></p>
 <p id="section-12-7">Where the server offers the optional 410 (<a href="#response-format" class="auto internal xref">Section 10.4</a>), the authenticating party learns that no further tick is coming.
 It can then attribute that alarm correctly, stop retrying an entry that will never be served again, and begin provisioning a replacement certificate.
-Because the signal is unauthenticated, it <span class="bcp14">MUST NOT</span> cause the authenticating party to stop presenting a tick that is still within the acceptance window.
+Because the signal is unauthenticated, it <span class="bcp14">MUST NOT</span> cause the authenticating party to stop presenting a tick that is still within the default acceptance window.
 Treating a forged 410 as grounds to withdraw a healthy certificate would hand anyone able to inject a response a remote kill switch, which is a worse position than simply continuing to serve the valid tick it already holds.<a href="#section-12-7" class="pilcrow">¶</a></p>
-<p id="section-12-8">An authenticating party that holds a certificate from another CA <span class="bcp14">SHOULD</span> fail over to it before its newest tick leaves the acceptance window (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>), which restores service whichever of the two causes applies.
+<p id="section-12-8">An authenticating party that holds a certificate from another CA <span class="bcp14">SHOULD</span> fail over to it before its newest tick leaves the default acceptance window (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>), which restores service whichever of the two causes applies.
 Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).<a href="#section-12-8" class="pilcrow">¶</a></p>
 <p id="section-12-9">A deployment that terminates TLS on many nodes must get each fresh tick to every node that presents the certificate.
 This document does not prescribe how.
@@ -3326,7 +3329,7 @@ A node still holding the preceding period's tick keeps serving correctly while i
 This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.6.2</a>).
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.<a href="#section-12-9" class="pilcrow">¶</a></p>
 <p id="section-12-10">The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
-It then continues to serve the most recent tick it holds for as long as that tick remains within the acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
+It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
 Because a relying party also accepts the immediately preceding period's tick, a tick fetched for period t stays acceptable until the end of period t+1.
 That is close to two periods of runway from a single successful fetch, not one (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
@@ -3677,7 +3680,8 @@ Each is specified in full in the section cited, and nothing here is a new requir
           <dd style="margin-left: 1.5em" id="section-14.11-2.2">
             <p id="section-14.11-2.2.1">The default accepts a tick for the current, immediately preceding, or immediately following period.
 A relying party <span class="bcp14">MAY</span> widen the preceding side to tolerate a tick-distribution outage, at the cost of correspondingly delayed revocation, or the following side to tolerate a clock that runs behind, at no revocation cost.
-Widening applies to every certificate the relying party validates (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>, <a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).<a href="#section-14.11-2.2.1" class="pilcrow">¶</a></p>
+Widening applies to every certificate the relying party validates (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>, <a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).
+Widening is the only direction available: a relying party <span class="bcp14">MUST NOT</span> narrow the window, since authenticating parties target the default and cannot observe a narrower one (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).<a href="#section-14.11-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-14.11-2.3">Trusted time:</dt>

@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             31 August 2026
-Expires: 4 March 2027
+Intended status: Experimental                           1 September 2026
+Expires: 5 March 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -62,7 +62,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 4 March 2027.
+   This Internet-Draft will expire on 5 March 2027.
 
 Copyright Notice
 
@@ -1130,17 +1130,21 @@ Table of Contents
    proof and signatures.
 
    The authenticating party MUST include a HashChainTick whose period
-   falls within the acceptance window the relying party applies (step 4
-   of Section 9).  In practice this is the most recent tick it has
-   fetched and verified (Section 10).  It SHOULD present the current
-   period's tick once it holds one, but is not required to switch at the
-   period boundary.  The deterministic fetch offset means the preceding
-   period's tick is normally presented for the first part of each period
-   (Section 15.3), and an authenticating party that cannot obtain a
-   fresh tick continues to present its most recent still-valid one
-   (Section 15.1).  The relying party checks tick.period against its own
-   clock using the acceptance window, which allows for clock skew and
-   caching and is specified in step 4 of Section 9.
+   falls within the _default_ acceptance window (step 4 of Section 9).
+   It is bound to the default because the window a given relying party
+   applies is that party's own policy and is not observable to it.  The
+   default suffices, since a relying party may only widen the window and
+   therefore accepts a superset of what the default admits.  In practice
+   this is the most recent tick it has fetched and verified
+   (Section 10).  It SHOULD present the current period's tick once it
+   holds one, but is not required to switch at the period boundary.  The
+   deterministic fetch offset means the preceding period's tick is
+   normally presented for the first part of each period (Section 15.3),
+   and an authenticating party that cannot obtain a fresh tick continues
+   to present its most recent still-valid one (Section 15.1).  The
+   relying party checks tick.period against its own clock using the
+   acceptance window, which allows for clock skew and caching and is
+   specified in step 4 of Section 9.
 
    This document describes two possible ways to carry the HashChainTick
    inside the MTCProof, of which the base MTC specification fixes
@@ -1457,7 +1461,9 @@ Table of Contents
        expected_period, and expected_period + 1.  A relying party MAY
        widen it in either direction as a matter of policy, with the
        consequences described in Section 14.10 and collected in
-       Section 14.11.  A relying party MUST reject a certificate whose
+       Section 14.11.  It MUST NOT narrow it, because the authenticating
+       party targets the default and cannot observe a narrower one
+       (Section 8).  A relying party MUST reject a certificate whose
        tick.period falls outside the acceptance window it applies, with
        a certificate_expired error.  That alert covers both directions,
        because [RFC9846] defines it as "a certificate has expired or is
@@ -1898,10 +1904,11 @@ Table of Contents
       nothing more.  It is unsigned and MAY be carried over plain HTTP
       (Section 10), so an on-path observer or a faulty distributor can
       forge one.  An authenticating party MUST NOT let it curtail a tick
-      that is still within the acceptance window (Section 12).  Nor may
-      its absence be read the other way.  A plain 404 says nothing about
-      whether the certificate is revoked, so an authenticating party or
-      monitor MUST NOT infer non-revocation from the lack of a 410.
+      that is still within the default acceptance window (Section 12).
+      Nor may its absence be read the other way.  A plain 404 says
+      nothing about whether the certificate is revoked, so an
+      authenticating party or monitor MUST NOT infer non-revocation from
+      the lack of a 410.
 
    429 (Too Many Requests) or 503 (Service Unavailable):  Transient
       overload.  The authenticating party retries according to the
@@ -2011,9 +2018,9 @@ Table of Contents
 
    An authenticating party MUST NOT present a certificate carrying a
    hash chain anchor unless it holds a tick for that certificate whose
-   period falls within the acceptance window (Section 8).  Every relying
-   party implementing this mechanism rejects such a certificate, so
-   presenting one converts a tick-distribution problem into a failed
+   period falls within the default acceptance window (Section 8).  Every
+   relying party implementing this mechanism rejects such a certificate,
+   so presenting one converts a tick-distribution problem into a failed
    handshake for no benefit.  Such a certificate is therefore ineligible
    for selection, dropping out of the candidate set exactly as one whose
    trust anchor the relying party does not support does (Section 4.5.1.2
@@ -2059,17 +2066,17 @@ Table of Contents
    never be served again, and begin provisioning a replacement
    certificate.  Because the signal is unauthenticated, it MUST NOT
    cause the authenticating party to stop presenting a tick that is
-   still within the acceptance window.  Treating a forged 410 as grounds
-   to withdraw a healthy certificate would hand anyone able to inject a
-   response a remote kill switch, which is a worse position than simply
-   continuing to serve the valid tick it already holds.
+   still within the default acceptance window.  Treating a forged 410 as
+   grounds to withdraw a healthy certificate would hand anyone able to
+   inject a response a remote kill switch, which is a worse position
+   than simply continuing to serve the valid tick it already holds.
 
    An authenticating party that holds a certificate from another CA
-   SHOULD fail over to it before its newest tick leaves the acceptance
-   window (Section 15.1), which restores service whichever of the two
-   causes applies.  Continuing to present a certificate whose newest
-   tick has already fallen outside that window achieves nothing: every
-   relying party implementing this mechanism rejects it (step 4 of
+   SHOULD fail over to it before its newest tick leaves the default
+   acceptance window (Section 15.1), which restores service whichever of
+   the two causes applies.  Continuing to present a certificate whose
+   newest tick has already fallen outside that window achieves nothing:
+   every relying party implementing this mechanism rejects it (step 4 of
    Section 9).
 
    A deployment that terminates TLS on many nodes must get each fresh
@@ -2092,15 +2099,15 @@ Table of Contents
    The authenticating party may be unable to obtain a fresh tick, for
    example because the CA is unavailable.  It then continues to serve
    the most recent tick it holds for as long as that tick remains within
-   the acceptance window (step 4 of Section 9).  Because a relying party
-   also accepts the immediately preceding period's tick, a tick fetched
-   for period t stays acceptable until the end of period t+1.  That is
-   close to two periods of runway from a single successful fetch, not
-   one (Section 15.1).  Once that runway is exhausted, the certificate
-   becomes unusable until a fresh tick is obtained or a new certificate
-   is provisioned.  Section 15.1 discusses this dependency and its
-   mitigations, including widening the acceptance window (Section 14.10)
-   and holding certificates from multiple CAs.
+   the default acceptance window (step 4 of Section 9).  Because a
+   relying party also accepts the immediately preceding period's tick, a
+   tick fetched for period t stays acceptable until the end of period
+   t+1.  That is close to two periods of runway from a single successful
+   fetch, not one (Section 15.1).  Once that runway is exhausted, the
+   certificate becomes unusable until a fresh tick is obtained or a new
+   certificate is provisioned.  Section 15.1 discusses this dependency
+   and its mitigations, including widening the acceptance window
+   (Section 14.10) and holding certificates from multiple CAs.
 
 13.  Privacy Considerations
 
@@ -2553,7 +2560,10 @@ Table of Contents
       outage, at the cost of correspondingly delayed revocation, or the
       following side to tolerate a clock that runs behind, at no
       revocation cost.  Widening applies to every certificate the
-      relying party validates (Section 14.10, Section 15.1).
+      relying party validates (Section 14.10, Section 15.1).  Widening
+      is the only direction available: a relying party MUST NOT narrow
+      the window, since authenticating parties target the default and
+      cannot observe a narrower one (step 4 of Section 9).
 
    Trusted time:  The acceptance window is anchored to the relying
       party's clock, so revocation timeliness is bounded by clock
