@@ -1512,11 +1512,26 @@ This document neither defines nor requires such a feed.
 Hash chain revocation applies per certificate, not per key.
 More precisely, it applies per log entry carrying the id-pe-hashChainAnchor extension.
 An attacker who holds a private key (the only party who can use any certificate for that key) could therefore present a different, still-valid certificate for the same key that does not carry the anchor extension, escaping tick enforcement.
-Such certificates are outside this mechanism's scope and are handled exactly as in base MTC: by the per-serial revoked-ranges mechanism, which is independent of hash chain revocation, and bounded by the short lifetimes and trusted-validity windows of the base model.
+
+This bounds what the mechanism claims.
+Withholding ticks bounds the exposure of the certificates that carry an anchor, and revokes a *key* only when every unexpired certificate for that key carries one.
+The limitation bites where the mechanism is most wanted, since key compromise is the case for which a two-period bound is worth having at all.
+
+Certificates without an anchor are outside this mechanism's scope and are handled exactly as in base MTC, by the per-serial revoked-ranges mechanism, which is independent of hash chain revocation and bounded by the short lifetimes and trusted-validity windows of the base model.
 A CA revoking a compromised key MUST therefore revoke all of that key's certificates, withholding ticks for those that use this mechanism ({{revealing-values}}) and revoking the serial ranges of the rest ({{interaction-with-base-mtc-revocation}}).
 Withholding ticks alone would revoke only the certificates that carry an anchor.
-This is the general property that revocation targets certificates rather than keys.
-It is not specific to this mechanism.
+
+That fallback is weaker than the mechanism it stands in for, and this document does not claim otherwise.
+Revoked ranges are relying-party configuration distributed out of band, so they reach only the relying parties that receive them ({{interaction-with-base-mtc-revocation}}), which is the same property this document gives as a reason not to depend on external revocation systems ({{external-revocation}}).
+For a key whose certificates do not all carry anchors, the effective guarantee is that of the weakest certificate for that key.
+
+Unanchored certificates for a key are most likely to exist during a transition.
+A deployment presenting a Merkle Tree Certificate to relying parties that support it and a traditionally-signed certificate to those that do not may hold both for one key, and holding certificates from several CAs for resilience ({{availability-considerations}}) permits the same across issuers.
+A deployment that wants key-level revocation SHOULD therefore not share a key between certificates that carry an anchor and certificates that do not.
+Keeping them on separate keys confines each certificate this mechanism does not cover to a key that is not also used with one it does, so that withholding a certificate's ticks is sufficient to retire it.
+
+This is the general property that revocation targets certificates rather than keys, and it is not specific to this mechanism.
+It is more visible here only because this mechanism makes the certificates it covers substantially harder to keep alive than the ones it does not.
 
 ## Clock Skew {#clock-skew}
 
