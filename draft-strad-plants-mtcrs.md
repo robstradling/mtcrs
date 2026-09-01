@@ -98,8 +98,8 @@ informative:
 
 This document defines a hash chain revocation mechanism for Merkle Tree Certificates (MTC).
 A Merkle Tree CA includes a hash chain anchor in the certificate at issuance time.
-For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain.
-The authenticating party packages the current value with its period as a *tick* and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
+For each certificate it has not revoked, once per period (typically hourly), the CA reveals the next value working backwards along that chain, paired with its period as a *tick*.
+The authenticating party fetches that tick and embeds it in the certificate's MTCProof as the certificate's non-revocation proof, alongside the inclusion proof that establishes authenticity.
 The relying party can then cryptographically verify that the certificate has not been revoked, without contacting anyone.
 
 This mechanism provides timely revocation without requiring signatures per revocation check, without relying on the relying party to poll for revocation updates, and without introducing new trust relationships beyond the existing CA.
@@ -124,7 +124,7 @@ That primitive is thirty years old and never took hold in the Web PKI, for reaso
 At issuance, the CA commits a hash chain anchor into the MTC log entry as an X.509 extension.
 For each non-revoked certificate, once per tick interval (e.g., every hour), the CA reveals the previous hash chain value, walking the committed hash chain backward.
 To revoke a certificate, the CA simply stops revealing values ({{ca-operation}}).
-The authenticating party (server) embeds the current hash chain value in the certificate's MTCProof (the `signatureValue`), and the relying party (client) verifies it against the anchor committed in the log entry.
+The authenticating party (server) embeds the current tick, the revealed value paired with its period, in the certificate's MTCProof (the `signatureValue`), and the relying party (client) verifies it against the anchor committed in the log entry.
 
 The MTCProof already carries a proof of inclusion: the evidence that a certificate is authentic, because its entry sits in a cosigned Merkle Tree.
 This mechanism adds a proof of non-revocation to the same structure, so that together they let a relying party confirm not merely that the certificate was issued, but that it may be relied upon now.
