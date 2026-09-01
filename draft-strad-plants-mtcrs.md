@@ -1803,26 +1803,38 @@ This is not required for relying-party security, which rests on self-authenticat
 ## Verification Cost {#verification-cost}
 
 A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
-This linear cost is small in every setting that has been raised as a concern.
+Two properties of that loop set its cost.
+Each step hashes a 53-byte HashChainInput ({{encoding}}), which occupies a single compression block, so the work is one block per elapsed period.
+The steps cannot be batched or pipelined, because each input is the preceding output, so every step also pays the hash function's initialization and finalization.
 
-On modern hardware, 1,127 SHA-256 operations take roughly 10 to 20 microseconds.
-That is negligible beside the handshake's asymmetric cryptography (one signature verification is worth hundreds of SHA-256 operations), which is itself dwarfed by the network round-trip.
-On constrained IoT devices SHA-256 is usually hardware-accelerated and the computation finishes in under a millisecond.
-A shorter certificate lifetime or a longer `tick_interval` both reduce `hash_chain_length` and so bound the cost directly.
+On a current x86-64 core with SHA-256 instructions, 1,127 steps measure approximately 300 microseconds, or about 270 nanoseconds per step.
+That is the same order as the handshake's asymmetric cryptography rather than negligible beside it.
+On the same core it is roughly five times the cost of one ECDSA P-256 signature verification.
+The figure is small in absolute terms and is paid only on full handshakes, but a deployment budgeting for it should treat it as equivalent to a few additional signature checks rather than as free.
 
-Those figures are for the RECOMMENDED one-hour period.
-The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}), which is a few milliseconds on general-purpose hardware but is a poor fit for a constrained verifier.
-A relying party that cannot afford it rejects such a certificate outright, having computed its implied maximum period from the certificate before hashing anything (step 5 of {{verification}}).
+The cost is proportional to `hash_chain_length`, which is `ceil(lifetime / tick_interval)` ({{construction}}), so a shorter certificate lifetime or a longer `tick_interval` reduces it directly.
+It is also worst at the end of a certificate's life and near zero just after issuance, averaging half the maximum.
 
-Across the many connections a page load opens, three effects keep the total small.
-The hashing is a small fraction of what each full handshake already spends on asymmetric cryptography, so summing it across several origins remains a small fraction of that cryptography summed across the same handshakes.
+Constrained relying parties are where this cost is significant.
+A software SHA-256 on a 32-bit microcontroller without a hash accelerator costs on the order of a thousand cycles per block, which puts 1,127 steps in the tens of milliseconds at typical clock rates.
+A hardware SHA engine lowers the per-block cost but not the per-call overhead, which dominates for single-block messages.
+Such a verifier can compute `hash_chain_length` from the certificate and reject before hashing anything if it exceeds a configured ceiling (step 5 of {{verification}}, {{rp-policy}}), and a deployment that controls its own CA can choose parameters that suit it.
+Neither remedy helps a constrained client validating an arbitrary server's certificate, where the issuing CA chooses both the lifetime and `tick_interval` and the client can only bear the cost or reject the certificate.
+
+The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}).
+That measures approximately 18 milliseconds on the general-purpose core above and is of the order of a second on a constrained one, which is why a relying party that cannot afford it rejects such a certificate before hashing (step 5 of {{verification}}).
+
+Across the many connections a page load opens, the total stays bounded.
 Most connections pay nothing.
 A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
-And a relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
+The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
+A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
+On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
 
-The same reasoning covers energy on a battery-powered sensor or wearable.
-One verification costs a fraction of a millijoule in software and is near-free with a hardware SHA engine, so it is dominated by the asymmetric key exchange and signature verification the same handshake performs.
-The effects above apply equally, and a newly issued certificate is the cheapest of all to verify, since the forward-hash count equals the current period and so is near zero just after issuance.
+Selecting a different hash function does not materially change any of this.
+The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what lets it avoid carrying an algorithm identifier of its own.
+Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
+The quantity that governs this cost is the number of periods, not the speed of the primitive.
 
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
@@ -2364,7 +2376,7 @@ Operational feasibility:
 
 Hash chain length:
 : For 47-day certificates, the hash chain length is 1,128, well inside the 65,535 the 16-bit period field permits ({{construction}}).
-  Verification requires at most 1,127 hash computations, which takes microseconds on modern hardware.
+  Verification requires at most 1,127 hash computations, a few hundred microseconds on a general-purpose core and tens of milliseconds on a constrained one ({{verification-cost}}).
 
 CA storage:
 : A CA MAY store one seed per active certificate (32 bytes each, or 32 GB for 1 billion), but need not.
@@ -2747,7 +2759,7 @@ That attains comparable worst-case exposure but does not remove the cost.
 It moves it to the heavier places cataloged above.
 For the CA that means a roughly hundredfold increase in issuance, tree cosigning, and log growth, and for relying parties the same increase in trusted-subtree sync, discarding the batched compactness MTC exists to provide.
 It also imposes a stricter availability dependency, since re-issuance (key generation, CSR, challenge, log inclusion) is far heavier to keep continuously live than a lightweight tick fetch.
-Hash chain revocation buys the same fine-grained revocation for a few microseconds of hashing instead, which is why the microseconds are the cheap side of the trade, not over-engineering.
+Hash chain revocation buys the same fine-grained revocation for a few hundred microseconds of hashing per full handshake instead ({{verification-cost}}), which is the cheap side of the trade by a wide margin.
 
 Hash chain revocation provides the revocation latency benefits of short-lived certificates while retaining the operational advantages of longer lifetimes.
 
