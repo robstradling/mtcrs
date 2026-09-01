@@ -1842,7 +1842,7 @@ On a battery-powered sensor or wearable one verification costs a fraction of a m
 Selecting a different hash function does not materially change any of this.
 The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what lets it avoid carrying an algorithm identifier of its own.
 Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
-The quantity that governs this cost is the number of periods, not the speed of the primitive.
+The quantity that governs this cost is the number of periods, not the speed of the primitive, and reducing it is a property of the construction ({{shorter-verification}}).
 
 ## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
 
@@ -2722,20 +2722,15 @@ A truncation length would additionally have to be either fixed, creating a secon
 
 A deployment that wants smaller anchors should reduce them by choosing a CA whose tree hash is smaller, since this mechanism inherits HASH from the issuing CA ({{post-quantum}}), rather than by truncating a stronger hash beneath the security level the rest of the ecosystem assumes.
 
-## Hierarchical Hash Chains {#hierarchical-chains}
+## Shortening the Verification Path {#shorter-verification}
 
 This document uses a single flat hash chain, so a relying party hashes forward once per elapsed period and verification costs up to `hash_chain_length` - 1 hash computations ({{verification-cost}}).
 That cost is set by the construction rather than by the hash function.
 Each step is a single compression block whatever primitive is used, and this mechanism inherits HASH from the issuing CA ({{construction}}), so substituting a faster hash offers a small constant factor at best.
-Shortening the verification path is the only change that moves the order of magnitude, and a hierarchical chain does exactly that {{ONE-WAY-CHAINS}}.
-
-In the two-level form, the period is decomposed into a coarse index and a fine index using a branching factor `b` = `ceil(sqrt(hash_chain_length))`, which both parties derive from the certificate so that it occupies no wire bytes.
-A coarse chain advances once every `b` periods.
-Each coarse value seeds, through a domain-separated derivation, a fine chain of `b` values covering the periods within that coarse step.
-The tick carries the fine value and the coarse value, because the verifier cannot invert the derivation to recover the latter.
-Verification hashes the fine value forward to its chain's head, checks that head against the derivation of the coarse value, and hashes the coarse value forward to the anchor, for at most 2`b` - 1 hash computations in place of `hash_chain_length` - 1.
-
-The generalization to more levels gives the following, for a 1,128-period certificate (47 days at one-hour periods) and for the longest chain the 16-bit period field admits:
+Shortening the verification path is the only change that moves the order of magnitude.
+Two constructions do so: a hierarchical hash chain ({{hierarchical-chains}}) and, as the limiting case, a Merkle tree over the certificate's periods ({{merkle-periods}}).
+Both buy hash computations with bytes, and they differ only in where on that curve they sit.
+The columns below give the worst-case forward hash computations for a 1,128-period certificate (47 days at one-hour periods), the worst case for the longest chain the 16-bit period field admits, and the resulting tick size in bytes:
 
 | Construction | Steps, 1,128 | Steps, worst | Tick |
 | --- | --- | --- | --- |
@@ -2744,7 +2739,19 @@ The generalization to more levels gives the following, for a 1,128-period certif
 | Three levels | 32 | 122 | 98 |
 | Merkle tree over periods | 11 | 16 | 386 |
 
-Two levels is the interesting point on that curve, and it would buy two things.
+This document keeps the flat chain because it is the simplest construction that works, and because the added bytes are charged to every handshake whereas the verification cost is paid only on full handshakes.
+The balance between them is a working group judgment rather than an authorial one, and it is recorded as an open question ({{open-questions}}).
+
+### Hierarchical Hash Chains {#hierarchical-chains}
+
+A hierarchical chain gives the relying party a few short chains to walk in place of one long one {{ONE-WAY-CHAINS}}.
+In the two-level form, the period is decomposed into a coarse index and a fine index using a branching factor `b` = `ceil(sqrt(hash_chain_length))`, which both parties derive from the certificate so that it occupies no wire bytes.
+A coarse chain advances once every `b` periods.
+Each coarse value seeds, through a domain-separated derivation, a fine chain of `b` values covering the periods within that coarse step.
+The tick carries the fine value and the coarse value, because the verifier cannot invert the derivation to recover the latter.
+Verification hashes the fine value forward to its chain's head, checks that head against the derivation of the coarse value, and hashes the coarse value forward to the anchor, for at most 2`b` - 1 hash computations in place of `hash_chain_length` - 1.
+
+Two levels is the interesting point on the curve above, and it would buy two things.
 
 The first is verification cost.
 It falls from about 300 microseconds to about 18 microseconds on a general-purpose core, and from tens of milliseconds to one or two milliseconds on a constrained one ({{verification-cost}}).
@@ -2761,15 +2768,17 @@ Against the base specification's estimate of 384 bytes for a standalone inclusio
 In a specification whose surrounding design is built on compactness, that is the material objection.
 The construction is also less simple than a single chain, and the period decomposition would have to be reconciled with the period 0 grace ({{period-zero-rationale}}), with backdating ({{construction}}), and with the acceptance window ({{clock-skew}}).
 
-A Merkle tree over the certificate's periods is the limiting case of the same trade.
-The CA commits a root in place of the anchor and reveals, for each period, the leaf authenticating that period together with its path to the root, which the relying party verifies in about log<sub>2</sub>(`hash_chain_length`) hash computations rather than by walking a chain.
-Revocation still works by withholding, since the CA simply stops publishing leaves, and the cost becomes logarithmic in the worst case as well as the typical one.
-It is rejected here on size.
-At 11 hashes of path the tick reaches 386 bytes, which is the size of the entire inclusion proof it accompanies, so it would roughly double the certificate's proof material to save work that two levels already reduce to a few hundred microseconds.
-It would also cost the property that a tick is a single opaque value of fixed size, which is what keeps the distribution interface a fixed-length key-value fetch ({{response-format}}).
+### A Merkle Tree over Periods {#merkle-periods}
 
-This document keeps the flat chain because it is the simplest construction that works, and because the 32 bytes are charged to every handshake whereas the verification cost is paid only on full handshakes.
-The balance between them is a working group judgment rather than an authorial one, and it is recorded as an open question ({{open-questions}}).
+The limiting case of the same trade replaces the chain with a tree.
+The CA commits a Merkle root in place of the anchor, and reveals for each period the leaf authenticating that period together with its path to the root.
+The relying party verifies that path in about log<sub>2</sub>(`hash_chain_length`) hash computations rather than by walking a chain, so the cost is logarithmic in the worst case as well as the typical one and no longer grows with the certificate's age.
+Revocation is unchanged in kind, since the CA simply stops publishing leaves and withholding remains the whole of the revocation action ({{revoking}}).
+
+It is rejected here on size.
+At 11 hashes of path the tick reaches 386 bytes, about the size of the entire inclusion proof it accompanies ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), so it would roughly double the certificate's proof material to save work that two levels already reduce to a few hundred microseconds.
+It would also cost the property that a tick is a single opaque value of fixed size, which is what keeps the distribution interface a fixed-length key-value fetch and its response-length check a constant ({{response-format}}).
+A tree is the wrong shape for the CA as well, which would have to hold or recompute a certificate's whole period tree to answer a request, where a chain position is reachable by hashing forward from the seed.
 
 ## TLS Extension or status_request Reuse
 
