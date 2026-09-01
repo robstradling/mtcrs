@@ -732,7 +732,9 @@ That check has no acceptance window to search and no way to detect staleness wit
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
 
-The authenticating party MUST include a HashChainTick whose period falls within the acceptance window the relying party applies (step 4 of {{verification}}).
+The authenticating party MUST include a HashChainTick whose period falls within the *default* acceptance window (step 4 of {{verification}}).
+It is bound to the default because the window a given relying party applies is that party's own policy and is not observable to it.
+The default suffices, since a relying party may only widen the window and therefore accepts a superset of what the default admits.
 In practice this is the most recent tick it has fetched and verified ({{distribution}}).
 It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary.
 The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
@@ -919,6 +921,7 @@ Using these inputs, the verifier performs the following steps:
 4. Check that `tick.period` lies within the *acceptance window*.
    The default acceptance window is `expected_period` - 1, `expected_period`, and `expected_period` + 1.
    A relying party MAY widen it in either direction as a matter of policy, with the consequences described in {{clock-skew}} and collected in {{rp-policy}}.
+   It MUST NOT narrow it, because the authenticating party targets the default and cannot observe a narrower one ({{cert-format}}).
    A relying party MUST reject a certificate whose `tick.period` falls outside the acceptance window it applies, with a certificate_expired error.
    That alert covers both directions, because {{!RFC9846}} defines it as "a certificate has expired or is not currently valid".
    A tick too far in the future, which a verifier whose clock is well behind the authenticating party's would see, is not currently valid either.
@@ -1167,7 +1170,7 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   A delegated distributor generally cannot produce it at all: the CA revokes by dropping the entry from subsequent bundles, so a distributor cannot distinguish a revoked entry from one it was never given ({{delegated-distribution}}).
   A 410 is a diagnostic hint and nothing more.
   It is unsigned and MAY be carried over plain HTTP ({{distribution}}), so an on-path observer or a faulty distributor can forge one.
-  An authenticating party MUST NOT let it curtail a tick that is still within the acceptance window ({{ap-behavior}}).
+  An authenticating party MUST NOT let it curtail a tick that is still within the default acceptance window ({{ap-behavior}}).
   Nor may its absence be read the other way.
   A plain 404 says nothing about whether the certificate is revoked, so an authenticating party or monitor MUST NOT infer non-revocation from the lack of a 410.
 
@@ -1241,7 +1244,7 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
-An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the acceptance window ({{cert-format}}).
+An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window ({{cert-format}}).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
 Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does ({{Section 4.5.1.2 of !RFC9846}}, {{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
 Where the authenticating party holds a certificate from another CA, it selects that one instead (see below).
@@ -1265,10 +1268,10 @@ By then it has at most one period of runway left.
 
 Where the server offers the optional 410 ({{response-format}}), the authenticating party learns that no further tick is coming.
 It can then attribute that alarm correctly, stop retrying an entry that will never be served again, and begin provisioning a replacement certificate.
-Because the signal is unauthenticated, it MUST NOT cause the authenticating party to stop presenting a tick that is still within the acceptance window.
+Because the signal is unauthenticated, it MUST NOT cause the authenticating party to stop presenting a tick that is still within the default acceptance window.
 Treating a forged 410 as grounds to withdraw a healthy certificate would hand anyone able to inject a response a remote kill switch, which is a worse position than simply continuing to serve the valid tick it already holds.
 
-An authenticating party that holds a certificate from another CA SHOULD fail over to it before its newest tick leaves the acceptance window ({{availability-considerations}}), which restores service whichever of the two causes applies.
+An authenticating party that holds a certificate from another CA SHOULD fail over to it before its newest tick leaves the default acceptance window ({{availability-considerations}}), which restores service whichever of the two causes applies.
 Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification}}).
 
 A deployment that terminates TLS on many nodes must get each fresh tick to every node that presents the certificate.
@@ -1280,7 +1283,7 @@ This is the point at which OCSP stapling has historically been most difficult to
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
 
 The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
-It then continues to serve the most recent tick it holds for as long as that tick remains within the acceptance window (step 4 of {{verification}}).
+It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification}}).
 Because a relying party also accepts the immediately preceding period's tick, a tick fetched for period t stays acceptable until the end of period t+1.
 That is close to two periods of runway from a single successful fetch, not one ({{availability-considerations}}).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
@@ -1545,6 +1548,7 @@ Acceptance window:
 : The default accepts a tick for the current, immediately preceding, or immediately following period.
   A relying party MAY widen the preceding side to tolerate a tick-distribution outage, at the cost of correspondingly delayed revocation, or the following side to tolerate a clock that runs behind, at no revocation cost.
   Widening applies to every certificate the relying party validates ({{clock-skew}}, {{availability-considerations}}).
+  Widening is the only direction available: a relying party MUST NOT narrow the window, since authenticating parties target the default and cannot observe a narrower one (step 4 of {{verification}}).
 
 Trusted time:
 : The acceptance window is anchored to the relying party's clock, so revocation timeliness is bounded by clock integrity.
