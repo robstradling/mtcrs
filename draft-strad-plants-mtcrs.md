@@ -91,6 +91,14 @@ informative:
       - name: Markus Jakobsson
     date: 2003
     target: https://doi.org/10.1007/3-540-36504-4_8
+  ONE-WAY-CHAINS:
+    title: "Efficient Constructions for One-Way Hash Chains"
+    author:
+      - name: Yih-Chun Hu
+      - name: Markus Jakobsson
+      - name: Adrian Perrig
+    date: 2005
+    target: https://doi.org/10.1007/11496137_29
 
 ...
 
@@ -2163,6 +2171,14 @@ Nothing in this section is itself a normative requirement.
    *Preference:* keep "tick".
    The accurate alternative, "non-revocation proof", is too long to carry as the primary name and is used as the gloss at first mention instead.
 
+7. **Should the hash chain be flat or hierarchical?**
+   A flat chain costs a relying party up to `hash_chain_length` - 1 hash computations, about 300 microseconds for a 47-day, one-hour-period certificate on a general-purpose core and tens of milliseconds on a constrained one ({{verification-cost}}).
+   A two-level chain reduces that to about 67, and reduces the worst case any certificate can impose from 65,535 hash computations to 511, at the cost of a 66-byte tick in place of a 34-byte one ({{hierarchical-chains}}).
+   The trade is 32 bytes in every handshake against the verification cost borne by the least capable relying party in the ecosystem.
+   It also determines whether a CA needs per-certificate traversal state at all.
+   *Preference:* the flat chain, for its simplicity and its smaller per-handshake cost, but this is the least settled preference in this section.
+   A working group that treats constrained relying parties as a first-class constituency should prefer the two-level chain.
+
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
 The RECOMMENDED way to carry the tick is the fixed trailing `status_tick` field ({{tick-trailing-field}}), which needs no general extensibility mechanism.
@@ -2705,6 +2721,55 @@ The 16 bytes come off a TBSCertificateLogEntry of a few hundred bytes, so the en
 A truncation length would additionally have to be either fixed, creating a second notion of hash size alongside the CA's HASH, or carried per certificate as a further parameter, adding a knob and a negotiation surface to a structure whose simplicity is the point ({{construction}}).
 
 A deployment that wants smaller anchors should reduce them by choosing a CA whose tree hash is smaller, since this mechanism inherits HASH from the issuing CA ({{post-quantum}}), rather than by truncating a stronger hash beneath the security level the rest of the ecosystem assumes.
+
+## Hierarchical Hash Chains {#hierarchical-chains}
+
+This document uses a single flat hash chain, so a relying party hashes forward once per elapsed period and verification costs up to `hash_chain_length` - 1 hash computations ({{verification-cost}}).
+That cost is set by the construction rather than by the hash function.
+Each step is a single compression block whatever primitive is used, and this mechanism inherits HASH from the issuing CA ({{construction}}), so substituting a faster hash offers a small constant factor at best.
+Shortening the verification path is the only change that moves the order of magnitude, and a hierarchical chain does exactly that {{ONE-WAY-CHAINS}}.
+
+In the two-level form, the period is decomposed into a coarse index and a fine index using a branching factor `b` = `ceil(sqrt(hash_chain_length))`, which both parties derive from the certificate so that it occupies no wire bytes.
+A coarse chain advances once every `b` periods.
+Each coarse value seeds, through a domain-separated derivation, a fine chain of `b` values covering the periods within that coarse step.
+The tick carries the fine value and the coarse value, because the verifier cannot invert the derivation to recover the latter.
+Verification hashes the fine value forward to its chain's head, checks that head against the derivation of the coarse value, and hashes the coarse value forward to the anchor, for at most 2`b` - 1 hash computations in place of `hash_chain_length` - 1.
+
+The generalization to more levels gives the following, for a 1,128-period certificate (47 days at one-hour periods) and for the longest chain the 16-bit period field admits:
+
+| Construction | Steps, 1,128 | Steps, worst | Tick |
+| --- | --- | --- | --- |
+| Flat chain (this document) | 1,127 | 65,535 | 34 |
+| Two levels | 67 | 511 | 66 |
+| Three levels | 32 | 122 | 98 |
+| Merkle tree over periods | 11 | 16 | 386 |
+
+Two levels is the interesting point on that curve, and it would buy two things.
+
+The first is verification cost.
+It falls from about 300 microseconds to about 18 microseconds on a general-purpose core, and from tens of milliseconds to one or two milliseconds on a constrained one ({{verification-cost}}).
+The worst case any certificate can impose matters more than the typical one, and it falls from 65,535 hash computations to 511, which is about 140 microseconds on a general-purpose core and around ten milliseconds on a constrained one.
+That would make the worst case affordable for every verifier, so the local ceiling of {{rp-policy}} and the defensive bound of verification step 5 would no longer be needed.
+As specified in this document, a constrained relying party validating an arbitrary server's certificate can only bear the cost or reject the certificate, because the issuing CA chooses both the lifetime and `tick_interval`.
+
+The second is that it would remove the CA's per-certificate mutable state.
+Any tick becomes recomputable from the seed in about 2`b` hash computations, so fractal traversal ({{hash-chain-traversal}}) would be unnecessary, and a CA deriving seeds from a long-term secret ({{derived-seeds}}) would hold no per-certificate state at all.
+The CA's hashing rises in exchange, from about 5 hash computations per revealed value to about 2`b`, which at 10<sup>9</sup> certificates and hourly periods is a few cores rather than a storage system.
+
+The cost is that the tick doubles, from 34 bytes to 66.
+Against the base specification's estimate of 384 bytes for a standalone inclusion proof ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), that is a rise from about 9 percent to about 17 percent of the proof it travels beside.
+In a specification whose surrounding design is built on compactness, that is the material objection.
+The construction is also less simple than a single chain, and the period decomposition would have to be reconciled with the period 0 grace ({{period-zero-rationale}}), with backdating ({{construction}}), and with the acceptance window ({{clock-skew}}).
+
+A Merkle tree over the certificate's periods is the limiting case of the same trade.
+The CA commits a root in place of the anchor and reveals, for each period, the leaf authenticating that period together with its path to the root, which the relying party verifies in about log<sub>2</sub>(`hash_chain_length`) hash computations rather than by walking a chain.
+Revocation still works by withholding, since the CA simply stops publishing leaves, and the cost becomes logarithmic in the worst case as well as the typical one.
+It is rejected here on size.
+At 11 hashes of path the tick reaches 386 bytes, which is the size of the entire inclusion proof it accompanies, so it would roughly double the certificate's proof material to save work that two levels already reduce to a few hundred microseconds.
+It would also cost the property that a tick is a single opaque value of fixed size, which is what keeps the distribution interface a fixed-length key-value fetch ({{response-format}}).
+
+This document keeps the flat chain because it is the simplest construction that works, and because the 32 bytes are charged to every handshake whereas the verification cost is paid only on full handshakes.
+The balance between them is a working group judgment rather than an authorial one, and it is recorded as an open question ({{open-questions}}).
 
 ## TLS Extension or status_request Reuse
 
