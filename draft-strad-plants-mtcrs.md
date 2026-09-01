@@ -147,7 +147,8 @@ This mechanism adds a proof of non-revocation to the same structure, so that tog
 This approach achieves the following properties:
 
 Timely revocation:
-: Revocation takes effect within at most two periods (e.g., two hours) under the default acceptance window ({{clock-skew}}), regardless of when the relying party last updated its trusted subtrees.
+: At any full handshake, revocation takes effect within at most two periods (e.g., two hours) under the default acceptance window ({{clock-skew}}), regardless of when the relying party last updated its trusted subtrees.
+  Session resumption defers the check ({{enforcement-latency}}).
 
 No per-check signatures:
 : Unlike OCSP {{?RFC6960}}, verification requires only hash computations, not signature verification.
@@ -165,13 +166,16 @@ Minimal overhead:
 : A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
   The committed anchor adds about 50 bytes to each log entry ({{anchor-x509-extension}}).
 
-These properties come with two deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
+These properties come with three deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
 First, enforcement introduces an availability dependency: because an authenticating party must refresh its tick each period, a tick-distribution outage that outlasts the certificate's buffer renders it unusable ({{availability-considerations}}).
 Second, revocation is enforceable but not transparent.
 Withholding a tick is not a signed, logged artifact, so monitors cannot observe revocation events in the Merkle Tree, and a deployment that needs an auditable revocation record obtains it from a mechanism outside MTC ({{revocation-transparency}}).
-Both are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
+Third, the two-period bound is a property of the full handshake.
+A resumed TLS session carries no certificate and therefore checks no tick, so the latency a given client actually experiences is the longer of that bound and its session-resumption window, which TLS 1.3 caps at seven days ({{enforcement-latency}}).
+The first two are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
+The third is shared with every handshake-time revocation mechanism, and even under it each full handshake re-checks a live non-revocation proof where passive expiry consults only a static `notAfter`.
 
-A third point is better met directly than left to be inferred.
+A further point is better met directly than left to be inferred.
 This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial.
 A CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second ({{distribution}}).
 What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it ({{rp-no-fetch}}), so it lies outside the handshake path entirely.
@@ -2326,7 +2330,7 @@ Three independent time intervals govern the security of a certificate:
 
 2. **Revocation latency:** Once the CA decides to revoke, how quickly can the certificate become unusable?
    Without a revocation mechanism, this equals the remaining certificate lifetime.
-   With hash chain revocation, this is at most two periods (e.g., two hours).
+   With hash chain revocation, this is at most two periods (e.g., two hours) at any full handshake, and at a client that resumes sessions it is bounded instead by that client's resumption window ({{enforcement-latency}}).
 
 3. **CA validation frequency:** How often the CA re-verifies that the subscriber remains authorized (domain control, organization identity, etc.).
    This determines how quickly the CA *learns* of problems that are not self-reported by the subscriber.
