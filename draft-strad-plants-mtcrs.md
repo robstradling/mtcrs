@@ -782,8 +782,9 @@ That check has no acceptance window to search and no way to detect staleness wit
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
 
-The authenticating party MUST include a HashChainTick whose period falls within the *default* acceptance window (step 4 of {{verification}}).
-It is bound to the default because the window a given relying party applies is that party's own policy and is not observable to it.
+The authenticating party MUST include a HashChainTick whose period falls within the *default* acceptance window (step 4 of {{verification}}), computed against its own clock.
+It is bound to the default, and to its own clock, because neither the window a given relying party applies nor that party's clock is observable to it.
+The window's tolerance of one period in each direction is what absorbs the difference between the two clocks ({{clock-skew}}).
 The default suffices, since a relying party may only widen the window and therefore accepts a superset of what the default admits.
 In practice this is the most recent tick it has fetched and verified ({{distribution}}).
 It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary.
@@ -1117,9 +1118,13 @@ The authenticating party already obtains its certificate through a provisioning 
 That channel is therefore the natural carrier for the base URL, and no locator need be derived from the certificate.
 
 A CA MUST make the tick base URL available through at least one of the following mechanisms.
-An authenticating party MUST support the provisioning-channel mechanism appropriate to how it obtains certificates, and MUST also support the CA certificate SIA.
+An authenticating party MUST support the provisioning-channel mechanism appropriate to how it obtains certificates, and MUST also support reading the base URL from the CA certificate SIA whenever it holds that certificate.
 Supporting only the former would leave it unable to obtain the base URL from a CA that publishes only the latter, which is the CA's sole option for an issuance protocol with no provisioning binding.
 A CA and an authenticating party could then each conform and still fail to interoperate.
+
+The base specification defines the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) but not how a party comes to hold it, and an authenticating party, unlike a relying party, has no trust anchor configuration for it to arrive in ({{encoding}}).
+In practice it comes from the channel that issued the certificate, where that protocol returns one, or from local configuration.
+A CA relying on the SIA as its only discovery route MUST therefore ensure its subscribers can obtain its CA certificate, since otherwise the fallback is unavailable to exactly the deployments it exists to serve.
 
 Provisioning channel (primary):
 : The base URL is delivered when the certificate is provisioned.
@@ -1311,7 +1316,7 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
-An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window ({{cert-format}}).
+An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window, computed against its own clock ({{cert-format}}).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
 Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does ({{Section 4.5.1.2 of !RFC9846}}, {{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
 Where the authenticating party holds a certificate from another CA, it selects that one instead (see below).
