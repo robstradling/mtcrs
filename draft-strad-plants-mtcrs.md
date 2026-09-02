@@ -2260,6 +2260,17 @@ Nothing in this section is itself a normative requirement.
    A narrower period field does touch that bound, which makes question 8 an alternative to this one rather than a complement to it.
    The trade is 32 bytes in every handshake against the verification cost borne by the least capable relying party in the ecosystem.
    It also determines whether a CA needs per-certificate traversal state at all.
+   The question is which construction to choose, not whether to permit both.
+   Recording the choice as a committed field of the HashChainAnchorInfo, DEFAULT-encoded so that the flat case costs no bytes ({{anchor-x509-extension}}), is how a second construction would be carried if one were ever added.
+   Making it a per-certificate freedom that relying-party policy may insist on is a different proposal, and this document does not recommend it.
+   The construction is the wrong variable for such a policy, because what a relying party bears is a number of hash computations, which it can already bound directly from committed fields ({{rp-policy}}).
+   The two do not track each other.
+   A flat chain over 48 daily periods costs 47 computations, whereas a two-level chain over the longest chain the period field admits costs 511, so a relying party insisting on the hierarchy would reject the cheaper certificate and accept the one ten times dearer.
+   There is also no way to act on such a policy, since a relying party signals the trust anchors it supports rather than the constructions it accepts ({{Section 4.5.1.2 of !RFC9846}}) and this mechanism adds nothing to the handshake ({{tls-use}}), so an authenticating party cannot tell which certificate to present.
+   Making the choice selectable would mean issuing each construction under a separate trust anchor, which makes the construction part of trust-anchor identity and doubles relying-party configuration.
+   If any substantial population of relying parties may insist on the hierarchy, every CA seeking universal acceptance must issue it, so the ecosystem pays the additional bytes in every handshake and carries both code paths as well.
+   A variable-size tick would additionally cost the constant response-length check the distribution interface relies on ({{response-format}}) and turn the minimal `status_tick` amendment into a variable-length one ({{tick-trailing-field}}).
+   Whichever construction is chosen should therefore be chosen once for the ecosystem, as the anchor's home is in question 1.
    *Preference:* the flat chain, for its simplicity and its smaller per-handshake cost, but this is the least settled preference in this section.
    A working group that treats constrained relying parties as a first-class constituency should prefer the two-level chain.
 
