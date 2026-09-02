@@ -1290,6 +1290,10 @@ For each certificate it serves, the authenticating party periodically fetches th
 1. At least once per `tick_interval`, the authenticating party fetches an updated HashChainTick for the certificate.
 
 2. Before installing a fetched tick, the authenticating party MUST verify it against the anchor committed in its own certificate: that hashing `tick.value` forward `tick.period` times yields the anchor ({{verification}}).
+   It MAY instead verify the tick against one it has already verified for an earlier period, by hashing the new value forward the difference between the two periods and comparing the result with the value it holds.
+   Consecutive revealed values are adjacent in the hash chain, since period t reveals `h[hash_chain_length - t]` ({{revealing-values}}), so the ordinary case of a single elapsed period costs one hash computation rather than `tick.period` of them.
+   This is transitively a verification against the anchor, because the held tick was itself verified against the anchor, so it is neither weaker nor an approximation.
+   Only the first tick an authenticating party installs for a certificate requires the full walk.
    A tick that fails this check MUST NOT be installed or presented.
    The authenticating party discards it and continues to serve its most recent still-valid tick, retrying as under {{response-format}}.
    This catches a corrupted, truncated, or misrouted (wrong-entry) response before it is ever presented in a handshake, where it would otherwise cause relying parties to reject the certificate.
@@ -1970,6 +1974,7 @@ Most connections pay nothing.
 A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
 The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
 A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
+One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check ({{ap-behavior}}).
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
 
 Selecting a different hash function does not materially change any of this.
