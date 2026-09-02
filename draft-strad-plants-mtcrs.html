@@ -2307,7 +2307,7 @@ On deciding to revoke an entry, a CA:<a href="#section-5.2-4" class="pilcrow">¶
             <p id="section-5.2-5.1.1"><span class="bcp14">MUST</span> stop revealing that entry's hash chain values from the start of the next period, and <span class="bcp14">MUST NOT</span> serve them from its own tick distribution service (<a href="#distribution" class="auto internal xref">Section 10</a>) thereafter.<a href="#section-5.2-5.1.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-5.2-5.2">
-            <p id="section-5.2-5.2.1"><span class="bcp14">MUST</span> omit the entry from every subsequent bundle published to delegated distributors (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>).
+            <p id="section-5.2-5.2.1"><span class="bcp14">MUST</span> stop supplying that entry's values to delegated distributors (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>), whatever the form of the feed, which this document does not standardize (<a href="#bulk-retrieval" class="auto internal xref">Section 15.4</a>).
 A distributor pre-provisioned with a buffer of future values cannot be revoked through that channel until the buffer is exhausted, which is why the buffer <span class="bcp14">SHOULD</span> be short.<a href="#section-5.2-5.2.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-5.2-5.3">
@@ -2437,6 +2437,9 @@ For TrustAnchorID 32473.1, that is the five bytes 04 81fd5901 (<a href="#test-ve
 It matches what both parties hold and removes a split-and-rejoin step in which the field widths could be mistaken.<a href="#section-6-6" class="pilcrow">¶</a></p>
 <p id="section-6-7">Both parties read <code>serial_number</code> directly from the certificate: the relying party when verifying (<a href="#verification" class="auto internal xref">Section 9</a>), and the authenticating party for its pre-installation check (<a href="#distribution" class="auto internal xref">Section 10</a>).
 It cannot be taken from the TBSCertificateLogEntry, which omits <code>serialNumber</code> (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.6" class="relref">Section 12.6</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
+Reading it from the certificate rather than from committed data is nonetheless safe, because the serial is not a free field.
+It encodes the log number and the entry's index, so the base verification procedure derives the inclusion-proof index from it, and a certificate whose serial has been altered reconstructs an entry that does not sit at the index it claims.
+Base verification rejects such a certificate before any tick is examined, so the value this mechanism salts with is bound by the inclusion proof even though it is not committed directly.
 An authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives <code>tbs_cert_entry_hash</code> and its fetch offset (<a href="#distribution" class="auto internal xref">Section 10</a>, <a href="#load-distribution" class="auto internal xref">Section 15.3</a>).<a href="#section-6-7" class="pilcrow">¶</a></p>
 <p id="section-6-8">The <code>issuer_ca_id</code> and <code>serial_number</code> fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
 This salting is defense in depth rather than load-bearing, since each hash chain already starts from an independent random seed and the committed anchor binds each revealed value to that specific chain (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
@@ -2670,8 +2673,9 @@ An explicit period distinguishes a stale tick from a forged or misrouted one, bo
 That check has no acceptance window to search and no way to detect staleness without the period.<a href="#section-8.1-4" class="pilcrow">¶</a></p>
 <p id="section-8.1-5">The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the <code>signatureValue</code> with a fresh tick while reusing the same inclusion proof and signatures.<a href="#section-8.1-5" class="pilcrow">¶</a></p>
-<p id="section-8.1-6">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick whose period falls within the <em>default</em> acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>).
-It is bound to the default because the window a given relying party applies is that party's own policy and is not observable to it.
+<p id="section-8.1-6">The authenticating party <span class="bcp14">MUST</span> include a HashChainTick whose period falls within the <em>default</em> acceptance window (step 4 of <a href="#verification" class="auto internal xref">Section 9</a>), computed against its own clock.
+It is bound to the default, and to its own clock, because neither the window a given relying party applies nor that party's clock is observable to it.
+The window's tolerance of one period in each direction is what absorbs the difference between the two clocks (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>).
 The default suffices, since a relying party may only widen the window and therefore accepts a superset of what the default admits.
 In practice this is the most recent tick it has fetched and verified (<a href="#distribution" class="auto internal xref">Section 10</a>).
 It <span class="bcp14">SHOULD</span> present the current period's tick once it holds one, but is not required to switch at the period boundary.
@@ -3106,23 +3110,26 @@ This is not a gap.
 The authenticating party already obtains its certificate through a provisioning channel that involves a real CA endpoint, for example an ACME directory.
 That channel is therefore the natural carrier for the base URL, and no locator need be derived from the certificate.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
 <p id="section-10.2-2">A CA <span class="bcp14">MUST</span> make the tick base URL available through at least one of the following mechanisms.
-An authenticating party <span class="bcp14">MUST</span> support the provisioning-channel mechanism appropriate to how it obtains certificates, and <span class="bcp14">MUST</span> also support the CA certificate SIA.
+An authenticating party <span class="bcp14">MUST</span> support the provisioning-channel mechanism appropriate to how it obtains certificates, and <span class="bcp14">MUST</span> also support reading the base URL from the CA certificate SIA whenever it holds that certificate.
 Supporting only the former would leave it unable to obtain the base URL from a CA that publishes only the latter, which is the CA's sole option for an issuance protocol with no provisioning binding.
 A CA and an authenticating party could then each conform and still fail to interoperate.<a href="#section-10.2-2" class="pilcrow">¶</a></p>
-<span class="break"></span><dl class="dlParallel" id="section-10.2-3">
-          <dt id="section-10.2-3.1">Provisioning channel (primary):</dt>
-          <dd style="margin-left: 1.5em" id="section-10.2-3.2">
-            <p id="section-10.2-3.2.1">The base URL is delivered when the certificate is provisioned.
+<p id="section-10.2-3">The base specification defines the CA's certificate representation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.5" class="relref">Section 5.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) but not how a party comes to hold it, and an authenticating party, unlike a relying party, has no trust anchor configuration for it to arrive in (<a href="#encoding" class="auto internal xref">Section 6</a>).
+In practice it comes from the channel that issued the certificate, where that protocol returns one, or from local configuration.
+A CA relying on the SIA as its only discovery route <span class="bcp14">MUST</span> therefore ensure its subscribers can obtain its CA certificate, since otherwise the fallback is unavailable to exactly the deployments it exists to serve.<a href="#section-10.2-3" class="pilcrow">¶</a></p>
+<span class="break"></span><dl class="dlParallel" id="section-10.2-4">
+          <dt id="section-10.2-4.1">Provisioning channel (primary):</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-4.2">
+            <p id="section-10.2-4.2.1">The base URL is delivered when the certificate is provisioned.
 <a href="#acme-integration" class="auto internal xref">Section 11</a> defines this binding for ACME.
 Each other issuance protocol needs an analogous binding, which this document does not define.
 A CA issuing over such a protocol <span class="bcp14">MUST</span> either specify one (for example, in a short companion document registering the equivalent of the ACME fields of <a href="#acme-integration" class="auto internal xref">Section 11</a>) or publish the base URL through the CA certificate SIA below.
 A provisioning binding is moreover required for unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>), which the SIA cannot carry.
-A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.<a href="#section-10.2-3.2.1" class="pilcrow">¶</a></p>
+A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.<a href="#section-10.2-4.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
-<dt id="section-10.2-3.3">CA certificate SIA (fallback):</dt>
-          <dd style="margin-left: 1.5em" id="section-10.2-3.4">
-            <p id="section-10.2-3.4.1">The base URL <span class="bcp14">MAY</span> additionally be published in the CA's certificate representation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.5" class="relref">Section 5.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) using the id-ad-mtcrsTicks Subject Information Access access method defined in <a href="#iana-considerations" class="auto internal xref">Section 17</a>, whose <code>accessLocation</code> is a <code>uniformResourceIdentifier</code> giving the tick base URL.
+<dt id="section-10.2-4.3">CA certificate SIA (fallback):</dt>
+          <dd style="margin-left: 1.5em" id="section-10.2-4.4">
+            <p id="section-10.2-4.4.1">The base URL <span class="bcp14">MAY</span> additionally be published in the CA's certificate representation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.5" class="relref">Section 5.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) using the id-ad-mtcrsTicks Subject Information Access access method defined in <a href="#iana-considerations" class="auto internal xref">Section 17</a>, whose <code>accessLocation</code> is a <code>uniformResourceIdentifier</code> giving the tick base URL.
 Publishing it is the CA's choice; understanding it is not the authenticating party's, since this is the only carrier available to a CA whose issuance protocol has no provisioning binding.
 This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
 Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access (<a href="#aia-discovery" class="auto internal xref">Appendix G.3</a>).
@@ -3132,18 +3139,18 @@ Where none exists, it is the only interoperable carrier of the base URL.
 It carries only the base URL, so it does not apply when unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>) are used.
 In that case the full per-certificate URL is delivered through the provisioning channel and the SIA <span class="bcp14">SHOULD NOT</span> be published.
 A deployment that uses unguessable tick URLs therefore has a single discovery channel, the provisioning channel, with no SIA fallback.
-The CA <span class="bcp14">MUST</span> ensure that channel reliably delivers the complete per-certificate URL.<a href="#section-10.2-3.4.1" class="pilcrow">¶</a></p>
+The CA <span class="bcp14">MUST</span> ensure that channel reliably delivers the complete per-certificate URL.<a href="#section-10.2-4.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
-<p id="section-10.2-4">Keeping the base URL out of the certificate is not a secrecy measure, since the URL is derivable by anyone holding the certificate (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).
+<p id="section-10.2-5">Keeping the base URL out of the certificate is not a secrecy measure, since the URL is derivable by anyone holding the certificate (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).
 It is instead a way to avoid standardizing a per-certificate fetch affordance in a field relying parties routinely parse.
 Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents.
 Relying parties verify the embedded tick offline (<a href="#verification" class="auto internal xref">Section 9</a>) and <span class="bcp14">MUST NOT</span> fetch ticks (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).
 The base URL (or, for unguessable tick URLs, the full per-certificate URL) is delivered once at provisioning.
-The authenticating party <span class="bcp14">MUST</span> retain it for as long as it presents the certificate and reuse it to refresh the tick each period (<a href="#distribution" class="auto internal xref">Section 10</a>), rather than rediscovering it per fetch.<a href="#section-10.2-4" class="pilcrow">¶</a></p>
-<p id="section-10.2-5">Merkle Tree Certificates are renewed frequently (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-10.4" class="relref">Section 10.4</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> recommends renewal at about 75% of lifetime).
-A CA that migrates its tick infrastructure can therefore update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.<a href="#section-10.2-5" class="pilcrow">¶</a></p>
+The authenticating party <span class="bcp14">MUST</span> retain it for as long as it presents the certificate and reuse it to refresh the tick each period (<a href="#distribution" class="auto internal xref">Section 10</a>), rather than rediscovering it per fetch.<a href="#section-10.2-5" class="pilcrow">¶</a></p>
+<p id="section-10.2-6">Merkle Tree Certificates are renewed frequently (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-10.4" class="relref">Section 10.4</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> recommends renewal at about 75% of lifetime).
+A CA that migrates its tick infrastructure can therefore update the base URL it hands out and rely on renewals to propagate the change, optionally serving HTTP redirects from the old origin in the meantime.<a href="#section-10.2-6" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="unguessable-urls">
@@ -3206,6 +3213,9 @@ An authenticating party could disclose it, and an on-path observer of a plain-HT
 Possession of it grants only the ability to fetch that public value, or to observe its absence.
 It does not permit forging ticks, which requires the secret hash chain values (<a href="#seed-confidentiality" class="auto internal xref">Section 14.3</a>), nor using the certificate, which requires the corresponding private key.
 Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).<a href="#section-10.3-8" class="pilcrow">¶</a></p>
+<p id="section-10.3-9">That benefit has a matching cost, because a monitor is also a third party holding the certificate.
+Unguessable tick URLs therefore trade away the external observability that <a href="#dos-withholding" class="auto internal xref">Section 14.4</a> offers as a check on a CA withholding ticks, leaving the affected subscriber as the only party positioned to notice.
+A CA adopting them is to that extent asking to be taken on trust, and a deployment that values the check above the unprobeability should keep its tick URLs derivable.<a href="#section-10.3-9" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="response-format">
@@ -3314,6 +3324,10 @@ It is the counterpart to <a href="#verification" class="auto internal xref">Sect
 </li>
         <li id="section-12-3.2">
           <p id="section-12-3.2.1">Before installing a fetched tick, the authenticating party <span class="bcp14">MUST</span> verify it against the anchor committed in its own certificate: that hashing <code>tick.value</code> forward <code>tick.period</code> times yields the anchor (<a href="#verification" class="auto internal xref">Section 9</a>).
+It <span class="bcp14">MAY</span> instead verify the tick against one it has already verified for an earlier period, by hashing the new value forward the difference between the two periods and comparing the result with the value it holds.
+Consecutive revealed values are adjacent in the hash chain, since period t reveals <code>h[hash_chain_length - t]</code> (<a href="#revealing-values" class="auto internal xref">Section 5.1</a>), so the ordinary case of a single elapsed period costs one hash computation rather than <code>tick.period</code> of them.
+This is transitively a verification against the anchor, because the held tick was itself verified against the anchor, so it is neither weaker nor an approximation.
+Only the first tick an authenticating party installs for a certificate requires the full walk.
 A tick that fails this check <span class="bcp14">MUST NOT</span> be installed or presented.
 The authenticating party discards it and continues to serve its most recent still-valid tick, retrying as under <a href="#response-format" class="auto internal xref">Section 10.4</a>.
 This catches a corrupted, truncated, or misrouted (wrong-entry) response before it is ever presented in a handshake, where it would otherwise cause relying parties to reject the certificate.
@@ -3330,7 +3344,7 @@ The inclusion proof and cosignatures remain unchanged.<a href="#section-12-3.3.1
           <p id="section-12-3.4.1">During TLS handshakes, the authenticating party presents the certificate with the current tick.<a href="#section-12-3.4.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
-<p id="section-12-4">An authenticating party <span class="bcp14">MUST NOT</span> present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window (<a href="#cert-format" class="auto internal xref">Section 8</a>).
+<p id="section-12-4">An authenticating party <span class="bcp14">MUST NOT</span> present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window, computed against its own clock (<a href="#cert-format" class="auto internal xref">Section 8</a>).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
 Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does (<span><a href="https://rfc-editor.org/rfc/rfc9846#section-4.5.1.2" class="relref">Section 4.5.1.2</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>, <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-8" class="relref">Section 8</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 Where the authenticating party holds a certificate from another CA, it selects that one instead (see below).
@@ -3479,7 +3493,12 @@ It is inherent in the CA trust model rather than novel to this mechanism, and it
           <dd class="break"></dd>
 <dt id="section-14.4-2.3">Third-party observability:</dt>
           <dd style="margin-left: 1.5em" id="section-14.4-2.4">
-            <p id="section-14.4-2.4.1">The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing <span>[<a href="#RFC9162" class="cite xref">RFC9162</a>]</span>), making selective withholding observable.<a href="#section-14.4-2.4.1" class="pilcrow">¶</a></p>
+            <p id="section-14.4-2.4.1">Where tick URLs are derivable (<a href="#distribution" class="auto internal xref">Section 10</a>), the endpoint can be monitored externally (Certificate Transparency-style auditing <span>[<a href="#RFC9162" class="cite xref">RFC9162</a>]</span>), which makes broad withholding observable.
+Two limits apply.
+A CA using unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>) cannot be monitored this way at all, a monitor being exactly the third party that scheme prevents from deriving the URL.
+And nothing obliges the endpoint to answer every requester alike, so a CA willing to discriminate by source address can serve monitors the current tick while withholding it from the subscriber.
+External observation therefore disciplines broad or careless withholding rather than a determined and targeted one, against which the subscriber's own detection above is the dependable signal.
+Supplying an artifact a third party could rely on instead is the subject of <a href="#logged-revocation" class="auto internal xref">Section 14.8.1</a>.<a href="#section-14.4-2.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-14.4-2.5">Substitutability:</dt>
@@ -4111,6 +4130,7 @@ Most connections pay nothing.
 A resumed session carries no Certificate message and verifies no tick (<a href="#enforcement-latency" class="auto internal xref">Section 15.7</a>), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
 The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
 A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, <span class="bcp14">MAY</span> cache the verified result and skip the forward hashing on repeat.
+One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.<a href="#section-15.6-6" class="pilcrow">¶</a></p>
 <p id="section-15.6-7">Selecting a different hash function does not materially change any of this.
 The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA (<a href="#construction" class="auto internal xref">Section 4</a>) rather than choosing it, which is what lets it avoid carrying an algorithm identifier of its own.

@@ -797,8 +797,9 @@ Table of Contents
        of the next period, and MUST NOT serve them from its own tick
        distribution service (Section 10) thereafter.
 
-   2.  MUST omit the entry from every subsequent bundle published to
-       delegated distributors (Section 15.5).  A distributor pre-
+   2.  MUST stop supplying that entry's values to delegated distributors
+       (Section 15.5), whatever the form of the feed, which this
+       document does not standardize (Section 15.4).  A distributor pre-
        provisioned with a buffer of future values cannot be revoked
        through that channel until the buffer is exhausted, which is why
        the buffer SHOULD be short.
@@ -904,9 +905,17 @@ Table of Contents
    relying party when verifying (Section 9), and the authenticating
    party for its pre-installation check (Section 10).  It cannot be
    taken from the TBSCertificateLogEntry, which omits serialNumber
-   (Section 12.6 of [I-D.ietf-plants-merkle-tree-certs]).  An
-   authenticating party therefore needs its certificate to compute
-   HashChainInput, not only the log entry from which it derives
+   (Section 12.6 of [I-D.ietf-plants-merkle-tree-certs]).  Reading it
+   from the certificate rather than from committed data is nonetheless
+   safe, because the serial is not a free field.  It encodes the log
+   number and the entry's index, so the base verification procedure
+   derives the inclusion-proof index from it, and a certificate whose
+   serial has been altered reconstructs an entry that does not sit at
+   the index it claims.  Base verification rejects such a certificate
+   before any tick is examined, so the value this mechanism salts with
+   is bound by the inclusion proof even though it is not committed
+   directly.  An authenticating party therefore needs its certificate to
+   compute HashChainInput, not only the log entry from which it derives
    tbs_cert_entry_hash and its fetch offset (Section 10, Section 15.3).
 
    The issuer_ca_id and serial_number fields together identify the log
@@ -1149,10 +1158,13 @@ Table of Contents
    proof and signatures.
 
    The authenticating party MUST include a HashChainTick whose period
-   falls within the _default_ acceptance window (step 4 of Section 9).
-   It is bound to the default because the window a given relying party
-   applies is that party's own policy and is not observable to it.  The
-   default suffices, since a relying party may only widen the window and
+   falls within the _default_ acceptance window (step 4 of Section 9),
+   computed against its own clock.  It is bound to the default, and to
+   its own clock, because neither the window a given relying party
+   applies nor that party's clock is observable to it.  The window's
+   tolerance of one period in each direction is what absorbs the
+   difference between the two clocks (Section 14.10).  The default
+   suffices, since a relying party may only widen the window and
    therefore accepts a superset of what the default admits.  In practice
    this is the most recent tick it has fetched and verified
    (Section 10).  It SHOULD present the current period's tick once it
@@ -1748,12 +1760,24 @@ Table of Contents
    A CA MUST make the tick base URL available through at least one of
    the following mechanisms.  An authenticating party MUST support the
    provisioning-channel mechanism appropriate to how it obtains
-   certificates, and MUST also support the CA certificate SIA.
-   Supporting only the former would leave it unable to obtain the base
-   URL from a CA that publishes only the latter, which is the CA's sole
-   option for an issuance protocol with no provisioning binding.  A CA
-   and an authenticating party could then each conform and still fail to
+   certificates, and MUST also support reading the base URL from the CA
+   certificate SIA whenever it holds that certificate.  Supporting only
+   the former would leave it unable to obtain the base URL from a CA
+   that publishes only the latter, which is the CA's sole option for an
+   issuance protocol with no provisioning binding.  A CA and an
+   authenticating party could then each conform and still fail to
    interoperate.
+
+   The base specification defines the CA's certificate representation
+   (Section 5.5 of [I-D.ietf-plants-merkle-tree-certs]) but not how a
+   party comes to hold it, and an authenticating party, unlike a relying
+   party, has no trust anchor configuration for it to arrive in
+   (Section 6).  In practice it comes from the channel that issued the
+   certificate, where that protocol returns one, or from local
+   configuration.  A CA relying on the SIA as its only discovery route
+   MUST therefore ensure its subscribers can obtain its CA certificate,
+   since otherwise the fallback is unavailable to exactly the
+   deployments it exists to serve.
 
    Provisioning channel (primary):  The base URL is delivered when the
       certificate is provisioned.  Section 11 defines this binding for
@@ -1897,6 +1921,14 @@ Table of Contents
    certificate, can no longer derive the tick URL from the certificate
    and probe the CA for its status (Section 14.5).
 
+   That benefit has a matching cost, because a monitor is also a third
+   party holding the certificate.  Unguessable tick URLs therefore trade
+   away the external observability that Section 14.4 offers as a check
+   on a CA withholding ticks, leaving the affected subscriber as the
+   only party positioned to notice.  A CA adopting them is to that
+   extent asking to be taken on trust, and a deployment that values the
+   check above the unprobeability should keep its tick URLs derivable.
+
 10.4.  Response Format
 
    The response body is the serialized HashChainTick structure: a 2-byte
@@ -2032,21 +2064,32 @@ Table of Contents
    2.  Before installing a fetched tick, the authenticating party MUST
        verify it against the anchor committed in its own certificate:
        that hashing tick.value forward tick.period times yields the
-       anchor (Section 9).  A tick that fails this check MUST NOT be
-       installed or presented.  The authenticating party discards it and
-       continues to serve its most recent still-valid tick, retrying as
-       under Section 10.4.  This catches a corrupted, truncated, or
-       misrouted (wrong-entry) response before it is ever presented in a
-       handshake, where it would otherwise cause relying parties to
-       reject the certificate.  The authenticating party SHOULD
-       additionally check that tick.period is the period it currently
-       expects, so that an unexpectedly stale or future-dated response
-       is also rejected.  Because a stale-but-genuine tick still hashes
-       to the anchor, only this freshness check detects it.  This part
-       is a SHOULD rather than a MUST because clock skew between the
-       authenticating party and the CA can legitimately shift the served
-       period by one (Section 14.10).  A deployment MAY narrow it to
-       strict equality where both clocks are trusted.
+       anchor (Section 9).  It MAY instead verify the tick against one
+       it has already verified for an earlier period, by hashing the new
+       value forward the difference between the two periods and
+       comparing the result with the value it holds.  Consecutive
+       revealed values are adjacent in the hash chain, since period t
+       reveals h[hash_chain_length - t] (Section 5.1), so the ordinary
+       case of a single elapsed period costs one hash computation rather
+       than tick.period of them.  This is transitively a verification
+       against the anchor, because the held tick was itself verified
+       against the anchor, so it is neither weaker nor an approximation.
+       Only the first tick an authenticating party installs for a
+       certificate requires the full walk.  A tick that fails this check
+       MUST NOT be installed or presented.  The authenticating party
+       discards it and continues to serve its most recent still-valid
+       tick, retrying as under Section 10.4.  This catches a corrupted,
+       truncated, or misrouted (wrong-entry) response before it is ever
+       presented in a handshake, where it would otherwise cause relying
+       parties to reject the certificate.  The authenticating party
+       SHOULD additionally check that tick.period is the period it
+       currently expects, so that an unexpectedly stale or future-dated
+       response is also rejected.  Because a stale-but-genuine tick
+       still hashes to the anchor, only this freshness check detects it.
+       This part is a SHOULD rather than a MUST because clock skew
+       between the authenticating party and the CA can legitimately
+       shift the served period by one (Section 14.10).  A deployment MAY
+       narrow it to strict equality where both clocks are trusted.
 
    3.  The authenticating party updates the HashChainTick carried in its
        certificate's MTCProof (signatureValue) with the newly fetched
@@ -2057,27 +2100,28 @@ Table of Contents
 
    An authenticating party MUST NOT present a certificate carrying a
    hash chain anchor unless it holds a tick for that certificate whose
-   period falls within the default acceptance window (Section 8).  Every
-   relying party implementing this mechanism rejects such a certificate,
-   so presenting one converts a tick-distribution problem into a failed
-   handshake for no benefit.  Such a certificate is therefore ineligible
-   for selection, dropping out of the candidate set exactly as one whose
-   trust anchor the relying party does not support does (Section 4.5.1.2
-   of [RFC9846], Section 8 of [I-D.ietf-plants-merkle-tree-certs]).
-   Where the authenticating party holds a certificate from another CA,
-   it selects that one instead (see below).  If no eligible certificate
-   remains, it has none to present.  A server's certificate_list MUST
-   NOT be empty (Section 4.5.1 of [RFC9846]), so it MUST abort the
-   handshake with a fatal alert rather than complete one that cannot
-   verify.  The RECOMMENDED alert is handshake_failure, which [RFC9846]
-   defines as indicating that the sender was "unable to negotiate an
-   acceptable set of security parameters given the options available".
-   A certificate-related alert SHOULD NOT be used, because nothing is
-   wrong with any certificate the relying party has sent or would
-   receive: the condition is an availability fault on the authenticating
-   party's side (Section 15.1).  The one case in which it holds a usable
-   tick without having fetched anything is period 0, where it can
-   construct the tick from the anchor committed in its own certificate.
+   period falls within the default acceptance window, computed against
+   its own clock (Section 8).  Every relying party implementing this
+   mechanism rejects such a certificate, so presenting one converts a
+   tick-distribution problem into a failed handshake for no benefit.
+   Such a certificate is therefore ineligible for selection, dropping
+   out of the candidate set exactly as one whose trust anchor the
+   relying party does not support does (Section 4.5.1.2 of [RFC9846],
+   Section 8 of [I-D.ietf-plants-merkle-tree-certs]).  Where the
+   authenticating party holds a certificate from another CA, it selects
+   that one instead (see below).  If no eligible certificate remains, it
+   has none to present.  A server's certificate_list MUST NOT be empty
+   (Section 4.5.1 of [RFC9846]), so it MUST abort the handshake with a
+   fatal alert rather than complete one that cannot verify.  The
+   RECOMMENDED alert is handshake_failure, which [RFC9846] defines as
+   indicating that the sender was "unable to negotiate an acceptable set
+   of security parameters given the options available".  A certificate-
+   related alert SHOULD NOT be used, because nothing is wrong with any
+   certificate the relying party has sent or would receive: the
+   condition is an availability fault on the authenticating party's side
+   (Section 15.1).  The one case in which it holds a usable tick without
+   having fetched anything is period 0, where it can construct the tick
+   from the anchor committed in its own certificate.
 
    During period 0 the authenticating party need not fetch at all.  The
    period 0 tick is the public anchor committed in its own certificate
@@ -2308,9 +2352,21 @@ Table of Contents
       tick, and can raise an alarm, switch to another CA, or fall back
       to a traditionally-signed certificate.
 
-   Third-party observability:  The tick distribution endpoint can be
-      monitored externally (Certificate Transparency-style auditing
-      [RFC9162]), making selective withholding observable.
+   Third-party observability:  Where tick URLs are derivable
+      (Section 10), the endpoint can be monitored externally
+      (Certificate Transparency-style auditing [RFC9162]), which makes
+      broad withholding observable.  Two limits apply.  A CA using
+      unguessable tick URLs (Section 10.3) cannot be monitored this way
+      at all, a monitor being exactly the third party that scheme
+      prevents from deriving the URL.  And nothing obliges the endpoint
+      to answer every requester alike, so a CA willing to discriminate
+      by source address can serve monitors the current tick while
+      withholding it from the subscriber.  External observation
+      therefore disciplines broad or careless withholding rather than a
+      determined and targeted one, against which the subscriber's own
+      detection above is the dependable signal.  Supplying an artifact a
+      third party could rely on instead is the subject of
+      Section 14.8.1.
 
    Substitutability:  The interface is mandatory at both ends and
       addressed identically at every CA (Section 10), so an
@@ -3297,9 +3353,14 @@ Table of Contents
    rather than per request, so it does not grow with page complexity.  A
    relying party that revalidates the same (entry, period), for example
    a recurring third-party CDN origin, MAY cache the verified result and
-   skip the forward hashing on repeat.  On a battery-powered sensor or
-   wearable one verification costs a fraction of a millijoule,
-   comparable to the asymmetric operations the same handshake performs.
+   skip the forward hashing on repeat.  One that has retained a verified
+   tick for an earlier period of the same entry can do better still,
+   verifying the current tick by hashing it forward only the difference
+   between the two periods, for the same reason and with the same
+   security as the authenticating party's incremental check
+   (Section 12).  On a battery-powered sensor or wearable one
+   verification costs a fraction of a millijoule, comparable to the
+   asymmetric operations the same handshake performs.
 
    Selecting a different hash function does not materially change any of
    this.  The cost is one compression block per elapsed period whatever
