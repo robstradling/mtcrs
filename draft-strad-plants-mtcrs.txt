@@ -119,6 +119,7 @@ Table of Contents
      14.6.  Unauthenticated Proof Extensions
      14.7.  Interaction with Base MTC Revocation
      14.8.  Revocation Transparency and Auditability
+       14.8.1.  A Logged Revocation Entry
      14.9.  Downgrade to a Non-MTCRS Certificate
      14.10. Clock Skew
      14.11. Relying-Party Policy Levers
@@ -186,7 +187,7 @@ Table of Contents
      G.9.  Shorter Certificate Lifetimes
      G.10. CRLite / CRLSets / External Revocation
      G.11. Per-Certificate Signatures (OCSP-like)
-   Acknowledgments
+   Acknowledgements
    Change log
    Author's Address
 
@@ -2450,7 +2451,11 @@ Table of Contents
    OCSP, whose signed responses are such artifacts.  The base MTC
    revoked-ranges mechanism does not supply one either.  It is relying-
    party configuration distributed out of band, not anything committed
-   to the log (Section 14.7).  The transparency here is asymmetric.
+   to the log (Section 14.7).  Nor is the absence peculiar to this
+   mechanism.  The Web PKI has no transparent, immutable record of
+   revocations answering to what Certificate Transparency provides for
+   issuance, and the measurement work that documents that gap argues for
+   one [REVOCATION-STATUSES].  The transparency here is asymmetric.
    Opting a certificate _into_ the mechanism is transparent, because the
    anchor is an extension committed to the Merkle Tree and so visible to
    monitors (Section 7).  The per-period revocation _state_, by
@@ -2492,16 +2497,20 @@ Table of Contents
       for an expired certificate, and because revocation is absence,
       nothing then distinguishes one that was revoked from one that was
       not.  CRLs and OCSP can in principle answer past notAfter, which
-      profiles for long-term signature validation depend on.  This is
-      out of scope for the TLS use case that motivates this mechanism,
-      where an expired certificate is rejected on validity grounds
-      before any tick is examined.  A tick retained while the
-      certificate was valid does remain verifiable indefinitely, since
-      verification is offline hashing against the anchor in the
-      certificate (Section 9).  It is therefore durable, self-
-      authenticating evidence of non-revocation as of its own period, in
-      34 bytes rather than an archived signed response.  Only the
-      negative cannot be reconstructed later.
+      profiles for long-term signature validation depend on.  In
+      practice they commonly do not, since a longitudinal study of over
+      a million revoked certificates observed the status still present
+      in the CRL after the certificate had expired in only 26.5 percent
+      of cases, and preserved for more than a week beyond expiry in 2.9
+      percent [REVOCATION-STATUSES].  This is out of scope for the TLS
+      use case that motivates this mechanism, where an expired
+      certificate is rejected on validity grounds before any tick is
+      examined.  A tick retained while the certificate was valid does
+      remain verifiable indefinitely, since verification is offline
+      hashing against the anchor in the certificate (Section 9).  It is
+      therefore durable, self-authenticating evidence of non-revocation
+      as of its own period, in 34 bytes rather than an archived signed
+      response.  Only the negative cannot be reconstructed later.
 
    None of this weakens enforcement, which is what the mechanism exists
    to provide.  A revoked certificate stops verifying at every relying
@@ -2513,7 +2522,80 @@ Table of Contents
    from CRLs or OCSP, which apply unchanged (Section 12.7 of
    [I-D.ietf-plants-merkle-tree-certs]), or from a signed revocation
    feed the CA publishes.  This document neither defines nor requires
-   such a feed.
+   such a feed.  The base specification's own extensibility would,
+   however, admit a record built inside the log rather than beside it,
+   and the following subsection sets out what such a record could and
+   could not establish.
+
+14.8.1.  A Logged Revocation Entry
+
+   MTCLogEntryType is an extensible enum, and the base specification
+   states that future documents MAY define new values for it with
+   corresponding semantics (Section 5.2.1 of
+   [I-D.ietf-plants-merkle-tree-certs]).  A revocation record is
+   therefore constructible within the log.  This document does not
+   define one.  The sketch here exists so that the working group can
+   judge whether it wants one, and where it belongs (Appendix D).
+
+   The construction is a new MTCLogEntryType whose data identifies the
+   revoked entry by its serial number, gives the first period for which
+   ticks will be withheld, and optionally carries a reason code.  The CA
+   appends it to its issuance log, so it is covered by the subtree hash
+   and by the cosignatures over that subtree.  Its evidentiary force
+   comes from a property the base specification already establishes,
+   that a subtree signature is a binding assertion by the CA that it has
+   certified every entry in the subtree, so any signed checkpoint
+   containing the entry together with an inclusion proof suffices to
+   prove the CA made it (Section 12.4 of
+   [I-D.ietf-plants-merkle-tree-certs]).  That is the signed, non-
+   repudiable artifact this section otherwise lacks, and unlike a CRL
+   entry it does not expire ([REVOCATION-STATUSES]).  Relying parties
+   are unaffected, since an unrecognized entry type differs in its type
+   field from the entry a relying party reconstructs, so its proof never
+   matches (Section 12.5 of [I-D.ietf-plants-merkle-tree-certs]).  The
+   record is for monitors, and enforcement continues to rest on the
+   presence of a fresh tick.
+
+   Such a record would bind the logged status to the served status in
+   one direction, and would do so cryptographically.  A logged
+   revocation naming period t, together with a tick for that entry whose
+   period is t or later, is a contradiction anyone can check offline.
+   The log entry cannot be repudiated and the tick cannot be forged
+   without inverting the hash (Section 14.1), so the pair is evidence
+   that the CA both declared a revocation and continued to supply the
+   material that defeats it.  Neither artifact requires trusting the
+   monitor that presents it.  One interaction needs care: a CA that has
+   pre-provisioned a distributor with a buffer of future values
+   (Section 15.5) can produce that contradiction without acting again,
+   so a deployment doing both would have to reconcile the logged period
+   with the buffer depth.
+
+   The converse direction cannot be bought at all, and the reason bounds
+   what any revocation transparency mechanism can promise here.
+   Withholding is the absence of a response, and absence is not
+   attributable.  A distribution outage, a failed distributor, a network
+   partition and a deliberate unlogged revocation are indistinguishable
+   to an observer, which is the same reason a 404 does not mean
+   "revoked" (Section 10.4).  Certificate Transparency closes the
+   corresponding gap for issuance by conscripting the relying party,
+   since a certificate lacking evidence of logging is rejected and
+   logging is thereby compelled.  That remedy is unavailable here,
+   because it requires the relying party to check something it does not
+   receive in the handshake, and this mechanism rests on the relying
+   party fetching nothing (Section 14.5).  Pushing the log's contents to
+   clients out of band would restore it only for the clients that
+   receive the push, which is the coverage limitation this document
+   declines to depend on (Appendix G.10).
+
+   Such a mechanism would therefore be sound rather than complete.
+   Nothing inconsistent can be logged and served without producing a
+   proof, but a CA can still withhold silently.  The most a
+   specification can add is an obligation to declare, so that ticks
+   stopping with no corresponding entry becomes a detectable failure to
+   comply rather than an unremarkable event.  This is the asymmetry that
+   governs enforcement reappearing in the transparency layer.  Presence
+   is provable and absence is not, whether the thing present is a tick
+   or a log entry.
 
 14.9.  Downgrade to a Non-MTCRS Certificate
 
@@ -2972,7 +3054,7 @@ Table of Contents
    even when the tick URL is addressed by an unguessable token
    (Section 10.3) rather than by tbs_cert_entry_hash.  The
    authenticating party fetches the current period's tick at
-   (period_start + offset), where period_start is the start time of that
+   period_start + offset, where period_start is the start time of that
    period.  During the first offset seconds of the period it continues
    to serve the preceding period's tick.
 
@@ -3518,6 +3600,9 @@ Table of Contents
               <https://www.chromium.org/Home/chromium-security/
               crlsets/>.
 
+   [CRT]      Kocher, P. C., "On Certificate Revocation and Validation",
+              1998, <https://doi.org/10.1007/BFb0055481>.
+
    [FRACTAL]  Jakobsson, M., "Fractal Hash Sequence Representation and
               Traversal", 2002,
               <https://doi.org/10.1109/ISIT.2002.1023709>.
@@ -3530,10 +3615,26 @@ Table of Contents
               MIT Technical Memo TM-542b, March 1996,
               <https://dl.acm.org/doi/10.5555/889659>.
 
+   [NOVOMODO] Micali, S., "NOVOMODO: Scalable Certificate Validation and
+              Simplified PKI Management", Proceedings 1st Annual PKI
+              Research Workshop, April 2002,
+              <https://web.archive.org/web/20060908132909/
+              http://www.cs.dartmouth.edu/~pki02/Micali/paper.pdf>.
+
    [ONE-WAY-CHAINS]
               Hu, Y.-C., Jakobsson, M., and A. Perrig, "Efficient
               Constructions for One-Way Hash Chains", 2005,
               <https://doi.org/10.1007/11496137_29>.
+
+   [QUASIMODO]
+              Elwailly, F. F., Gentry, C., and Z. Ramzan, "QuasiModo:
+              Efficient Certificate Validation and Revocation", 2004,
+              <https://doi.org/10.1007/978-3-540-24632-9_27>.
+
+   [REVOCATION-STATUSES]
+              Korzhitskii, N. and N. Carlsson, "Revocation Statuses on
+              the Internet", 2021,
+              <https://doi.org/10.1007/978-3-030-72582-2_11>.
 
    [RFC4086]  Eastlake 3rd, D., Schiller, J., and S. Crocker,
               "Randomness Requirements for Security", BCP 106, RFC 4086,
@@ -3816,11 +3917,8 @@ Appendix D.  Open Questions for the Working Group
        question.  Both concern recommended defaults and what root
        programs should require.  The one protocol question adjacent to
        them is the width of the tick's period field, which caps how
-       short a period can be at all: 16 bits, and so 65,535 periods,
-       deliberately bounds the forward hashing a CA can impose on
-       relying parties (Section 4).  A working group that wanted sub-
-       minute periods for multi-week certificates would have to widen
-       that field and accept the corresponding verification cost.
+       short a period can be at all and bounds the forward hashing a CA
+       can impose on relying parties (Section 4).  That is question 8.
 
    5.  *Should period 0 enforce revocation?* The period 0 tick is the
        public anchor, which gives the CA a one-period grace before it
@@ -3858,14 +3956,108 @@ Appendix D.  Open Questions for the Working Group
        chain reduces that to about 67, and reduces the worst case any
        certificate can impose from 65,535 hash computations to 511, at
        the cost of a 66-byte tick in place of a 34-byte one
-       (Appendix G.6.1).  The trade is 32 bytes in every handshake
-       against the verification cost borne by the least capable relying
-       party in the ecosystem.  It also determines whether a CA needs
-       per-certificate traversal state at all. _Preference:_ the flat
-       chain, for its simplicity and its smaller per-handshake cost, but
-       this is the least settled preference in this section.  A working
-       group that treats constrained relying parties as a first-class
-       constituency should prefer the two-level chain.
+       (Appendix G.6.1).  This question interacts with questions 4 and
+       8, which act on the same quantity by other means.  A longer
+       default tick_interval reduces the typical cost by more than the
+       two-level chain does and spends no bytes, but it does not touch
+       the 65,535 bound, which is what a relying party validating an
+       arbitrary certificate is exposed to.  A narrower period field
+       does touch that bound, which makes question 8 an alternative to
+       this one rather than a complement to it.  The trade is 32 bytes
+       in every handshake against the verification cost borne by the
+       least capable relying party in the ecosystem.  It also determines
+       whether a CA needs per-certificate traversal state at all.  The
+       question is which construction to choose, not whether to permit
+       both.  Recording the choice as a committed field of the
+       HashChainAnchorInfo, DEFAULT-encoded so that the flat case costs
+       no bytes (Section 7), is how a second construction would be
+       carried if one were ever added.  Making it a per-certificate
+       freedom that relying-party policy may insist on is a different
+       proposal, and this document does not recommend it.  The
+       construction is the wrong variable for such a policy, because
+       what a relying party bears is a number of hash computations,
+       which it can already bound directly from committed fields
+       (Section 14.11).  The two do not track each other.  A flat chain
+       over 48 daily periods costs 47 computations, whereas a two-level
+       chain over the longest chain the period field admits costs 511,
+       so a relying party insisting on the hierarchy would reject the
+       cheaper certificate and accept the one ten times dearer.  There
+       is also no way to act on such a policy, since a relying party
+       signals the trust anchors it supports rather than the
+       constructions it accepts (Section 4.5.1.2 of [RFC9846]) and this
+       mechanism adds nothing to the handshake (Section 8.3), so an
+       authenticating party cannot tell which certificate to present.
+       Making the choice selectable would mean issuing each construction
+       under a separate trust anchor, which makes the construction part
+       of trust-anchor identity and doubles relying-party configuration.
+       If any substantial population of relying parties may insist on
+       the hierarchy, every CA seeking universal acceptance must issue
+       it, so the ecosystem pays the additional bytes in every handshake
+       and carries both code paths as well.  A variable-size tick would
+       additionally cost the constant response-length check the
+       distribution interface relies on (Section 10.4) and turn the
+       minimal status_tick amendment into a variable-length one
+       (Section 8.1.1).  Whichever construction is chosen should
+       therefore be chosen once for the ecosystem, as the anchor's home
+       is in question 1. _Preference:_ the flat chain, for its
+       simplicity and its smaller per-handshake cost, but this is the
+       least settled preference in this section.  A working group that
+       treats constrained relying parties as a first-class constituency
+       should prefer the two-level chain.
+
+   8.  *How wide should the tick's period field be?* The field is 16
+       bits, which caps hash_chain_length at 65,535 and so bounds the
+       forward hashing any certificate can impose on a relying party
+       (Section 4).  That bound is the quantity questions 4 and 7 also
+       act on, and the field width is the third lever on it.  Widening
+       the field would permit sub-minute periods on multi-week
+       certificates, at a correspondingly larger worst case for every
+       relying party.  Narrowing it to 8 bits would cap
+       hash_chain_length at 255 and so bound the worst case at 254 hash
+       computations, which is affordable on any verifier, and it would
+       save a byte in every handshake rather than spending 32 as a two-
+       level chain does (Appendix G.6.1).  The price is paid in
+       parameter freedom rather than in bytes.  A 47-day certificate
+       could then use no period shorter than about 4.4 hours, and one-
+       hour periods would be confined to certificates of about ten days
+       or less.  That accommodates the 7-day validity the Chrome policy
+       recommends, which is 168 periods, but forbids the one-hour,
+       47-day combination the same policy permits ([CHROME-MTC]).  An
+       8-bit field would therefore fix in the wire format a limit this
+       document otherwise leaves to root programs, although the 16-bit
+       field is already such a limit at a looser setting, forbidding
+       periods shorter than about 62 seconds on a 47-day certificate.
+       _Preference:_ 16 bits, because the configuration an 8-bit field
+       would forbid is one a root program currently permits, and because
+       the same bound is available from the construction (Appendix G.6)
+       without constraining the CA's parameters at all.  A working group
+       that would rather spend parameter freedom than bytes should
+       prefer 8 bits, and should then not also adopt a hierarchical
+       chain: with hash_chain_length capped at 255 a flat chain's worst
+       case is already 254 computations, so a hierarchy would spend 32
+       bytes to save work that is no longer expensive.
+
+   9.  *Should revocations be recorded in the log?* Revocation here is
+       the absence of a tick, so nothing attests that a revocation
+       occurred (Section 14.8).  The base specification's
+       MTCLogEntryType is extensible, so a revocation entry is
+       constructible, and Section 14.8.1 sketches one.  It would supply
+       a permanent, non-repudiable record, could carry a reason code,
+       and would make a logged revocation contradicted by a later tick
+       provable by anyone offline.  It would not make silent withholding
+       detectable, because absence is not attributable and the remedy
+       Certificate Transparency uses is unavailable to a mechanism whose
+       relying parties fetch nothing.  The cost is that CA cosigners
+       must recognize the new entry type before they can sign any
+       subtree containing one (Section 5.4 of
+       [I-D.ietf-plants-merkle-tree-certs]).  The question is also
+       separable from hash chains, since such a record would serve the
+       base revoked-ranges mechanism equally well. _Preference:_ not in
+       this document, which asks the base specification for one change
+       and has no implementations yet.  A companion document, or the
+       base specification itself, is the better home.  A working group
+       that regards the missing revocation record as the more pressing
+       gap may reasonably decide otherwise.
 
 Appendix E.  Proposed MTCProof Extensibility
 
@@ -4249,7 +4441,11 @@ F.3.  Why One Hour (or One Day) Periods
    the hash chain is short enough that a CA can store each hash chain in
    full and skip the fractal traversal of Section 15.2.1 entirely, since
    hash_chain_length is then on the order of the lifetime in days, e.g.
-   47 for a 47-day certificate.  The once-per-day fetch cadence also
+   47 for a 47-day certificate.  It cuts relying-party verification cost
+   by the same factor, from at most 1,127 hash computations to at most
+   46, which makes it the cheapest accommodation available for
+   constrained verifiers, since it spends no additional bytes
+   (Section 15.6, Appendix G.6).  The once-per-day fetch cadence also
    gives a far more forgiving outage-tolerance budget (Section 15.1),
    and the price is coarser revocation.
 
@@ -4974,20 +5170,37 @@ G.6.  Shortening the Verification Path
 
    This document uses a single flat hash chain, so a relying party
    hashes forward once per elapsed period and verification costs up to
-   hash_chain_length - 1 hash computations (Section 15.6).  That cost is
-   set by the construction rather than by the hash function.  Each step
-   is a single compression block whatever primitive is used, and this
-   mechanism inherits HASH from the issuing CA (Section 4), so
-   substituting a faster hash offers a small constant factor at best.
-   Shortening the verification path is the only change that moves the
-   order of magnitude.  Two constructions do so: a hierarchical hash
-   chain (Appendix G.6.1) and, as the limiting case, a Merkle tree over
-   the certificate's periods (Appendix G.6.2).  Both buy hash
-   computations with bytes, and they differ only in where on that curve
-   they sit.  The columns below give the worst-case forward hash
-   computations for a 1,128-period certificate (47 days at one-hour
-   periods), the worst case for the longest chain the 16-bit period
-   field admits, and the resulting tick size:
+   hash_chain_length - 1 hash computations (Section 15.6).  Two levers
+   reduce that, and they belong to different parties.
+
+   The first is tick_interval, since hash_chain_length is ceil(lifetime
+   / tick_interval) (Section 4).  Moving a 47-day certificate from one-
+   hour to one-day periods takes the worst case from 1,127 hash
+   computations to 46, a larger reduction than the two-level
+   construction below achieves, and it costs no additional bytes.  What
+   it costs is revocation latency, about two days in place of about two
+   hours (Appendix F.3).  That trade is already before the working group
+   as the choice of default interval (Appendix D), and the lever is the
+   issuing CA's rather than the relying party's.
+
+   The second is the construction, and it is the only lever a relying
+   party has.  A relying party validating an arbitrary server's
+   certificate chooses neither that certificate's lifetime nor its
+   tick_interval, so what concerns it is the worst case any certificate
+   can impose, which the 16-bit period field fixes at 65,535 hash
+   computations however the interval is set (Section 4).  Changing the
+   hash function does not move that either, since each step is a single
+   compression block whatever primitive is used, and this mechanism
+   inherits HASH from the issuing CA rather than choosing it.
+   Shortening the verification path is what moves it.  Two constructions
+   do so: a hierarchical hash chain (Appendix G.6.1) and, as the
+   limiting case, a Merkle tree over the certificate's periods
+   (Appendix G.6.2).  Both buy hash computations with bytes, and they
+   differ only in where on that curve they sit.  The columns below give
+   the worst-case forward hash computations for a 1,128-period
+   certificate (47 days at one-hour periods), the worst case for the
+   longest chain the 16-bit period field admits, and the resulting tick
+   size:
 
     +======================+==============+==============+============+
     | Construction         | Steps, 1,128 | Steps, worst | Tick bytes |
@@ -5004,11 +5217,17 @@ G.6.  Shortening the Verification Path
                                   Table 7
 
    This document keeps the flat chain because it is the simplest
-   construction that works, and because the added bytes are charged to
-   every handshake whereas the verification cost is paid only on full
-   handshakes.  The balance between them is a working group judgment
-   rather than an authorial one, and it is recorded as an open question
-   (Appendix D).
+   construction that works, because the added bytes are charged to every
+   handshake whereas the verification cost is paid only on full
+   handshakes, and because the interval lever above already addresses
+   the typical case without spending any bytes at all.  What it leaves
+   unaddressed is the worst case an arbitrary certificate can impose on
+   a relying party that did not choose its parameters.  Narrowing the
+   period field would bound that worst case as well, by restricting the
+   parameters a CA may choose rather than by changing the construction,
+   and is recorded separately (Appendix D).  The balance between them is
+   a working group judgment rather than an authorial one, and it is
+   recorded as an open question (Appendix D).
 
 G.6.1.  Hierarchical Hash Chains
 
@@ -5076,6 +5295,22 @@ G.6.2.  A Merkle Tree over Periods
    Revocation is unchanged in kind, since the CA simply stops publishing
    leaves and withholding remains the whole of the revocation action
    (Section 5.2).
+
+   This tree is per certificate, which distinguishes it from the
+   certificate revocation tree [CRT], with which it is easily confused.
+   A CRT is one tree per CA whose leaves are the revoked serial-number
+   ranges, so a path proves a queried certificate's status by bracketing
+   it between two of them, and the proof grows with the number of
+   certificates the CA has revoked.  The tree considered here has one
+   certificate's periods as its leaves, proves non-revocation by the
+   presence of that period's leaf rather than by bracketing, and is
+   bounded by hash_chain_length instead.  The decisive difference is the
+   root.  A CRT's is signed afresh on each update, which reintroduces
+   the per-period CA signature this mechanism exists to avoid
+   (Appendix G.11), whereas this one is committed at issuance exactly as
+   the anchor it replaces is, and so is signed never.  Its closer
+   relative is therefore the tree-shaped sibling of the hash chain, a
+   per-certificate tree over validity periods as in [QUASIMODO].
 
    It is rejected here on size.  At 11 hashes of path the tick reaches
    386 bytes, about the size of the entire inclusion proof it
@@ -5230,13 +5465,12 @@ G.11.  Per-Certificate Signatures (OCSP-like)
       certificate chain, and protocol.  Hash chains require only a hash
       function.
 
-Acknowledgments
+Acknowledgements
 
    The hash chain revocation concept is based on Silvio Micali's
-   foundational work on efficient certificate revocation [MICALI].  The
-   name "MTCRS" is a nod to Micali's Certificate Revocation System
-   (CRS).  Coincidentally, "RS" also happens to be the initials of the
-   author of this document.
+   Certificate Revocation System (CRS) [MICALI], later known as NOVOMODO
+   [NOVOMODO].  The name "MTCRS" is a nod to it.  Coincidentally, "RS"
+   also happens to be the initials of the author of this document.
 
 Change log
 
