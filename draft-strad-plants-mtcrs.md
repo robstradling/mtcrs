@@ -1041,7 +1041,7 @@ An authenticating party MUST support this interface.
 
 A CA and its authenticating parties MAY additionally agree on any other channel, such as a batch endpoint ({{bulk-retrieval}}) or an entirely different transport ({{alternatives}}).
 Any such agreement is bilateral, and supplements the baseline rather than replacing it, so an authenticating party that implements only this interface can always obtain its ticks from any conforming CA.
-Nothing in this section concerns relying parties, which verify the embedded tick offline and MUST NOT fetch ticks ({{rp-no-fetch}}).
+Nothing in this section concerns relying parties, which verify the embedded tick offline and never fetch ({{rp-no-fetch}}).
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
@@ -1151,7 +1151,7 @@ CA certificate SIA (fallback):
 Keeping the base URL out of the certificate is not a secrecy measure, since the URL is derivable by anyone holding the certificate ({{rp-no-fetch}}).
 It is instead a way to avoid standardizing a per-certificate fetch affordance in a field relying parties routinely parse.
 Only the authenticating party is given the base URL through provisioning, because only it needs to refresh the value it presents.
-Relying parties verify the embedded tick offline ({{verification}}) and MUST NOT fetch ticks ({{rp-no-fetch}}).
+Relying parties verify the embedded tick offline ({{verification}}) and never fetch ({{rp-no-fetch}}).
 The base URL (or, for unguessable tick URLs, the full per-certificate URL) is delivered once at provisioning.
 The authenticating party MUST retain it for as long as it presents the certificate and reuse it to refresh the tick each period ({{distribution}}), rather than rediscovering it per fetch.
 
@@ -1366,7 +1366,7 @@ The Privacy Considerations of the base MTC specification ({{Section 11 of !I-D.i
 This mechanism adds one network interaction, the authenticating party's periodic tick fetch ({{distribution}}), and deliberately adds none on the relying-party side.
 
 No relying-party activity is exposed.
-The current tick is embedded in the certificate presentation and verified offline against the committed anchor, and relying parties MUST NOT fetch ticks ({{rp-no-fetch}}).
+The current tick is embedded in the certificate presentation and verified offline against the committed anchor, and relying parties never fetch ticks ({{rp-no-fetch}}).
 Consequently the CA learns nothing about which certificates a relying party validates or which sites it visits.
 This is the central privacy difference from client-driven OCSP {{?RFC6960}}, whose status fetches revealed relying-party browsing to the CA.
 That failure mode is avoided here by construction rather than by policy.
@@ -2788,7 +2788,7 @@ Immutable once issued:
   Delivering the URL out of band ({{discovery}}) lets the CA migrate its tick infrastructure without certificate reissuance.
 
 Only the authenticating party needs it:
-: Relying parties verify the embedded tick offline against the committed anchor and MUST NOT fetch ticks ({{rp-no-fetch}}).
+: Relying parties verify the embedded tick offline against the committed anchor and never fetch ticks ({{rp-no-fetch}}).
   Putting a per-certificate URL in the certificate would not make fetching infeasible, since the URL is derivable regardless ({{rp-no-fetch}}).
   Placing it in a field relying parties routinely parse would, however, standardize and encourage client-side tick fetching, reintroducing the OCSP-style privacy leak, latency, and soft-fail problems this mechanism avoids.
 
