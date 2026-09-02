@@ -2582,6 +2582,27 @@ A server that cannot refresh within a period becomes unusable until it does.
 This is Must-Staple's failure mode, but a smaller version of it with an escape.
 The refresh is a static unsigned fetch rather than a time-bounded signed response with a responder certificate, and where Must-Staple binds one certificate to one responder with no fallback, a server can hold certificates from several CAs and present one whose tick is current ({{availability-considerations}}).
 
+Adoption is the other half of Must-Staple's failure, and it turns on incentives rather than on fragility.
+Must-Staple asked a site operator to accept an availability risk in exchange for a security property that protects its visitors, and to do so one certificate at a time while coverage was too low for any relying party to enforce anything.
+Almost no operator took that trade, and the reasoning was sound, since the risk was immediate while the benefit was both deferred and largely external.
+Three things differ here.
+
+The decision is not the individual operator's, taken one certificate at a time.
+Whether a certificate carries an anchor is a property of the certificate, chosen by the issuing CA and constrained by root-program policy ({{extension-criticality}}), so the mechanism does not require subscribers to elect into a stricter regime one by one.
+That removes the adoption problem Must-Staple died of, and replaces it with the question of who sets that policy, which is a working group and root-program matter rather than a protocol one.
+
+MTC being greenfield, noted above for enforcement, bears equally on incentives.
+Must-Staple's early adopters carried the whole risk through a long interval in which coverage was too sparse for the benefit to exist at all.
+A mechanism folded into MTC before deployment has no such interval.
+
+And the operator is not purely subsidizing others.
+Revocation protects relying parties, but the party impersonated by a compromised key is the subscriber itself, and without enforceable revocation that impersonation can continue for as long as the certificate remains valid.
+An operator able to have a compromised certificate made unusable within two periods, rather than waiting out its remaining lifetime, is buying something for itself.
+The risk taken in exchange is warned rather than sudden, since a failure to refresh raises an operational alarm while the certificate is still working ({{ap-behavior}}), and it is recoverable by ordinary certificate selection rather than by any new failover machinery ({{availability-considerations}}).
+
+What remains true is that an ecosystem requiring this mechanism makes tick distribution part of its availability floor.
+That is the substance of the trade, and it is why this document treats the availability dependency at length rather than in passing ({{availability-considerations}}).
+
 ### Operational Simplicity and Resilience {#operational-resilience}
 
 Tick distribution is also simpler to operate than an OCSP responder.
