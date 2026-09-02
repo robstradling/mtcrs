@@ -113,6 +113,14 @@ informative:
       - name: Zulfikar Ramzan
     date: 2004
     target: https://doi.org/10.1007/978-3-540-24632-9_27
+  NOVOMODO:
+    title: "NOVOMODO: Scalable Certificate Validation and Simplified PKI Management"
+    author:
+      - name: Silvio Micali
+    date: 2002-04
+    seriesinfo:
+      Proceedings: "1st Annual PKI Research Workshop"
+    target: https://web.archive.org/web/20060908132909/http://www.cs.dartmouth.edu/~pki02/Micali/paper.pdf
   LE-OCSP:
     title: "Intent to End OCSP Service"
     author:
@@ -3065,11 +3073,11 @@ Complexity:
 : OCSP requires its own responder infrastructure, certificate chain, and protocol.
   Hash chains require only a hash function.
 
-# Acknowledgments
+# Acknowledgements
 {:numbered="false"}
 
-The hash chain revocation concept is based on Silvio Micali's foundational work on efficient certificate revocation {{MICALI}}.
-The name "MTCRS" is a nod to Micali's Certificate Revocation System (CRS).
+The hash chain revocation concept is based on Silvio Micali's Certificate Revocation System (CRS) {{MICALI}}, later known as NOVOMODO {{NOVOMODO}}.
+The name "MTCRS" is a nod to it.
 Coincidentally, "RS" also happens to be the initials of the author of this document.
 
 # Change log
