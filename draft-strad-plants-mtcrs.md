@@ -1800,55 +1800,32 @@ Both are CA-side only, and the on-the-wire tick and the relying party's verifica
 
 ### Storing Versus Recomputing Hash Chain Values {#hash-chain-traversal}
 
-Within a single hash chain, a CA does not have to choose between the two naive extremes:
+Neither naive extreme is attractive at scale.
+Storing each hash chain in full costs O(L) per certificate, roughly 35 KiB at L = 1128 (a 47-day lifetime with a one-hour period), or some 36 TB across 10<sup>9</sup> certificates.
+Storing only the seed costs O(1) but recomputes each revealed value from scratch, up to L hash evaluations, which is O(L<sup>2</sup>) hashing over the certificate's lifetime.
 
-Store the entire hash chain:
-: O(L) storage per certificate, but each revealed value is a free lookup.
-  For L = 1128 (a 47-day lifetime with a one-hour period), this is roughly 35 KiB per certificate, or about 36 TB across 1 billion certificates.
-
-Store only the seed:
-: O(1) storage per certificate, but recomputing the value revealed in period t costs up to L hash evaluations (L/2 on average).
-  Over a certificate's lifetime this is O(L<sup>2</sup>) hashing.
-
-A CA MAY instead use **fractal hash chain traversal** {{FRACTAL}} {{ALMOST-OPTIMAL}} to obtain a logarithmic middle ground.
-The hash chain is revealed in reverse of the order in which it is computed (the CA computes `h[1..L]` forward from the secret seed `h[0]`, but reveals `h[L-1], h[L-2], ..., h[1]` over time), which is exactly the setting these algorithms address.
-Instead of the whole hash chain or just the seed, the CA maintains a small set of precomputed helper values ("pebbles") parked at self-similar positions along the hash chain.
-When the value for the current period is needed, a pebble is already there.
-Between periods the CA spends a small fixed budget of hash evaluations advancing the more distant pebbles toward the positions where they will next be needed.
-The scheduling guarantees:
-
-~~~
-storage  ~ log2(L)      hash values per certificate
-work     ~ (1/2) log2(L) hash evaluations per revealed value
-~~~
-
-For L = 1128, this is approximately 10 to 11 stored values (~320 to 350 bytes) per certificate and about 5 hash evaluations per period.
-Across 1 billion certificates that is roughly 340 GB of state.
-If the traversal is advanced once per period and the resulting value served to all requests in that period, the aggregate is on the order of 10<sup>6</sup> hash evaluations per second.
-This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
+A CA MAY instead use fractal hash chain traversal {{FRACTAL}} {{ALMOST-OPTIMAL}}, which addresses exactly this setting: a hash chain computed forward from a secret seed and revealed in reverse ({{revealing-values}}).
+It keeps about log<sub>2</sub>(L) precomputed values per certificate, parked at self-similar positions along the hash chain, and spends about half that many hash evaluations per period advancing the more distant of them toward where they will next be needed.
+At L = 1128 that is some 350 bytes per certificate, about 340 GB across 10<sup>9</sup>, and about 5 hash evaluations per revealed value.
+It dominates a square-root checkpoint scheme, which would need about 1.1 TB and up to 34 hashes per value, on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
 
 The hashing is not what binds at that scale.
 Advancing every certificate's traversal once per period is on the order of 10<sup>5</sup> read-modify-write operations per second against those 340 GB, spread through the interval as certificates reach their own period boundaries ({{construction}}).
-Sizing that state store, rather than the hashing, is the CA-side engineering problem.
-A hierarchical chain would remove it entirely, since any value becomes recomputable from the seed and no per-certificate state is kept ({{shorter-verification}}).
-
-The pebbles are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
+Sizing that state store, rather than the hashing, is the CA-side engineering problem, and a hierarchical chain would remove it entirely, since any value becomes recomputable from the seed and no per-certificate state is kept ({{shorter-verification}}).
+The stored values are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
 
 ### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
 
 The per-certificate seed itself can also be eliminated from storage.
-Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed key-derivation function, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_ca_id || serial_number)`, or the equivalent with HKDF.
-A raw `Hash(ca_seed || ...)` construction MUST NOT be used, as it invites length-extension and MAC-misuse.
-A proper PRF/KDF is required so that derived seeds are computationally indistinguishable from the independent random seeds of {{construction}}.
-Any hash chain is then recomputable on demand from `ca_seed` and the (public) entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
+Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed KDF or PRF, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_ca_id || serial_number)`.
+The keying is what makes derived seeds computationally indistinguishable from the independent random seeds of {{construction}}, which is why a raw `Hash(ca_seed || ...)` is forbidden ({{seed-confidentiality}}).
+Any hash chain is then recomputable on demand from `ca_seed` and the public entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
 
 The cost is concentration.
-Compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it MUST be protected at least as strongly as the CA's issuance signing key ({{seed-confidentiality}}).
-Being a single small key, it is nonetheless better suited to HSM custody than a bulk per-certificate seed store.
-
-To bound the blast radius, a CA SHOULD derive per-log or per-epoch sub-seeds (`log_seed = KDF(ca_seed, log_number)`, then `h[0] = KDF(log_seed, label || index)`), which can be retired as their logs expire.
+Compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it demands the custody of an issuance signing key ({{seed-confidentiality}}).
+Being a single small key, it is nonetheless better suited to that custody than a bulk per-certificate seed store.
+Per-log or per-epoch sub-seeds bound the blast radius and can be retired as their logs expire, and they are the finest granularity available, because a certificate's entire hash chain derives from the seed fixed at its issuance rather than from anything per-period.
 As with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
-Rotation is by issuance epoch, not by tick period: a certificate's entire hash chain derives from the seed fixed at issuance, so per-log or per-epoch sub-seeds are the finest granularity at which a compromise can be bounded.
 
 ## Distributing Tick Requests {#load-distribution}
 
