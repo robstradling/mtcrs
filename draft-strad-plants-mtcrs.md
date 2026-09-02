@@ -1740,6 +1740,11 @@ Across 1 billion certificates that is roughly 340 GB of state.
 If the traversal is advanced once per period and the resulting value served to all requests in that period, the aggregate is on the order of 10<sup>6</sup> hash evaluations per second.
 This dominates a simple square-root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes per value) on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
 
+The hashing is not what binds at that scale.
+Advancing every certificate's traversal once per period is on the order of 10<sup>5</sup> read-modify-write operations per second against those 340 GB, spread through the interval as certificates reach their own period boundaries ({{construction}}).
+Sizing that state store, rather than the hashing, is the CA-side engineering problem.
+A hierarchical chain would remove it entirely, since any value becomes recomputable from the seed and no per-certificate state is kept ({{shorter-verification}}).
+
 The pebbles are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
 
 ### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
