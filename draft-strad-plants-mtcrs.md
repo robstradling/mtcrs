@@ -121,6 +121,13 @@ informative:
     seriesinfo:
       Proceedings: "1st Annual PKI Research Workshop"
     target: https://web.archive.org/web/20060908132909/http://www.cs.dartmouth.edu/~pki02/Micali/paper.pdf
+  REVOCATION-STATUSES:
+    title: "Revocation Statuses on the Internet"
+    author:
+      - name: Nikita Korzhitskii
+      - name: Niklas Carlsson
+    date: 2021
+    target: https://doi.org/10.1007/978-3-030-72582-2_11
   LE-OCSP:
     title: "Intent to End OCSP Service"
     author:
@@ -1511,6 +1518,8 @@ There is deliberately no positive, signed, non-repudiable artifact asserting "th
 This is a genuine difference from CRLs and OCSP, whose signed responses are such artifacts.
 The base MTC revoked-ranges mechanism does not supply one either.
 It is relying-party configuration distributed out of band, not anything committed to the log ({{interaction-with-base-mtc-revocation}}).
+Nor is the absence peculiar to this mechanism.
+The Web PKI has no transparent, immutable record of revocations answering to what Certificate Transparency provides for issuance, and the measurement work that documents that gap argues for one {{REVOCATION-STATUSES}}.
 The transparency here is asymmetric.
 Opting a certificate *into* the mechanism is transparent, because the anchor is an extension committed to the Merkle Tree and so visible to monitors ({{anchor-x509-extension}}).
 The per-period revocation *state*, by contrast, is neither signed nor committed, so a monitor cannot observe it in the log.
@@ -1535,6 +1544,7 @@ Four consequences follow, each bounded:
 - **No status after expiry.**
   Tick publication stops when the certificate expires ({{revealing-values}}), so no status can be obtained for an expired certificate, and because revocation is absence, nothing then distinguishes one that was revoked from one that was not.
   CRLs and OCSP can in principle answer past `notAfter`, which profiles for long-term signature validation depend on.
+  In practice they commonly do not, since a longitudinal study of over a million revoked certificates observed the status still present in the CRL after the certificate had expired in only 26.5 percent of cases, and preserved for more than a week beyond expiry in 2.9 percent {{REVOCATION-STATUSES}}.
   This is out of scope for the TLS use case that motivates this mechanism, where an expired certificate is rejected on validity grounds before any tick is examined.
   A tick retained while the certificate was valid does remain verifiable indefinitely, since verification is offline hashing against the anchor in the certificate ({{verification}}).
   It is therefore durable, self-authenticating evidence of non-revocation as of its own period, in 34 bytes rather than an archived signed response.
