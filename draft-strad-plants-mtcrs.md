@@ -550,7 +550,7 @@ On deciding to revoke an entry, a CA:
 
 1. MUST stop revealing that entry's hash chain values from the start of the next period, and MUST NOT serve them from its own tick distribution service ({{distribution}}) thereafter.
 
-2. MUST omit the entry from every subsequent bundle published to delegated distributors ({{delegated-distribution}}).
+2. MUST stop supplying that entry's values to delegated distributors ({{delegated-distribution}}), whatever the form of the feed, which this document does not standardize ({{bulk-retrieval}}).
    A distributor pre-provisioned with a buffer of future values cannot be revoked through that channel until the buffer is exhausted, which is why the buffer SHOULD be short.
 
 3. MUST, when revoking because of key compromise, also revoke the serial ranges of that key's certificates that carry no anchor, since withholding ticks reaches only the certificates that carry one ({{downgrade}}).
@@ -620,6 +620,9 @@ It matches what both parties hold and removes a split-and-rejoin step in which t
 
 Both parties read `serial_number` directly from the certificate: the relying party when verifying ({{verification}}), and the authenticating party for its pre-installation check ({{distribution}}).
 It cannot be taken from the TBSCertificateLogEntry, which omits `serialNumber` ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}).
+Reading it from the certificate rather than from committed data is nonetheless safe, because the serial is not a free field.
+It encodes the log number and the entry's index, so the base verification procedure derives the inclusion-proof index from it, and a certificate whose serial has been altered reconstructs an entry that does not sit at the index it claims.
+Base verification rejects such a certificate before any tick is examined, so the value this mechanism salts with is bound by the inclusion proof even though it is not committed directly.
 An authenticating party therefore needs its certificate to compute HashChainInput, not only the log entry from which it derives `tbs_cert_entry_hash` and its fetch offset ({{distribution}}, {{load-distribution}}).
 
 The `issuer_ca_id` and `serial_number` fields together identify the log entry and act as a per-entry salt, placing each certificate's hash chain in a distinct hash domain.
