@@ -204,7 +204,6 @@ A resumed TLS session carries no certificate and therefore checks no tick, so th
 The first two are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
 The third is shared with every handshake-time revocation mechanism, and even under it each full handshake re-checks a live non-revocation proof where passive expiry consults only a static `notAfter`.
 
-A further point is better met directly than left to be inferred.
 This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial.
 A CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second ({{distribution}}).
 What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it ({{rp-no-fetch}}), so it lies outside the handshake path entirely.
@@ -712,7 +711,6 @@ Such a certificate cannot advance beyond period 0, so the mechanism would enforc
 Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
 With the default `tick_interval`, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing.
 That is about 50 bytes per entry for SHA-256, of which 36 are the HashChainAnchorInfo itself ({{test-vectors}}) and the rest the X.509 extension's OBJECT IDENTIFIER and wrapper.
-This is not a negligible addition, and it is quantified plainly here because compactness is a principal goal of the base design.
 A domain-validated entry, whose subject is empty and whose public key appears only as a hash, runs to roughly 200 to 250 bytes, so the anchor enlarges it by something like a fifth to a quarter.
 Entries carrying a subject name or many subjectAltName values are larger, and the proportion correspondingly smaller.
 Being a fixed-size hash, it does not grow with post-quantum key or signature sizes, unlike much of what MTC was designed to keep out of the log.
@@ -1377,7 +1375,7 @@ The authenticating party's tick fetch, by contrast, exposes request metadata.
 An on-path observer of a tick fetch, or the CA (or CDN) serving it, sees which `tbs_cert_entry_hash` is being requested, or with unguessable tick URLs which `tick_token` ({{unguessable-urls}}).
 It can thereby learn which certificate the authenticating party holds, and from the source address of the request, where that certificate is deployed.
 The request identifies the authenticating party's own certificate rather than any relying party, so it discloses no relying-party activity.
-It is nonetheless a disclosure this mechanism introduces, and two aspects of it are worth stating.
+It is nonetheless a disclosure this mechanism introduces, in two respects.
 
 A certificate is public, but its deployment need not be.
 Publicly issued certificates are routinely used on hosts that are not reachable or enumerable from the public Internet, among them internal services, management interfaces, and development systems.
@@ -1624,7 +1622,7 @@ Certificates without an anchor are outside this mechanism's scope and are handle
 A CA revoking a compromised key MUST therefore revoke all of that key's certificates, withholding ticks for those that use this mechanism ({{revealing-values}}) and revoking the serial ranges of the rest ({{interaction-with-base-mtc-revocation}}).
 Withholding ticks alone would revoke only the certificates that carry an anchor.
 
-That fallback is weaker than the mechanism it stands in for, and this document does not claim otherwise.
+That fallback is weaker than the mechanism it stands in for.
 Revoked ranges are relying-party configuration distributed out of band, so they reach only the relying parties that receive them ({{interaction-with-base-mtc-revocation}}), which is the same property this document gives as a reason not to depend on external revocation systems ({{external-revocation}}).
 For a key whose certificates do not all carry anchors, the effective guarantee is that of the weakest certificate for that key.
 
@@ -1773,7 +1771,7 @@ Several factors and mitigations limit its impact:
   Its preconditions are that the relying party support the alternate CA's trust anchor, and that the two CAs fail independently, which is not automatic (see below).
   Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
-The last of these mitigations rests on an assumption worth stating.
+The last of these mitigations rests on an assumption.
 Ticks are safe to delegate because they are self-authenticating, so a CA is encouraged to serve them from mirrors, content delivery networks, or other distributors ({{delegated-distribution}}).
 Relatively few operators run distribution infrastructure at that scale, so two CAs may delegate to the same one, and their tick availability is then perfectly correlated.
 Holding certificates from both buys nothing in that case, and the concentration makes the failure large as well as correlated, since a single distributor's outage renders every affected certificate unusable once its runway expires, whichever CA issued it.
@@ -2648,8 +2646,7 @@ Revocation protects relying parties, but the party impersonated by a compromised
 An operator able to have a compromised certificate made unusable within two periods, rather than waiting out its remaining lifetime, is buying something for itself.
 The risk taken in exchange is warned rather than sudden, since a failure to refresh raises an operational alarm while the certificate is still working ({{ap-behavior}}), and it is recoverable by ordinary certificate selection rather than by any new failover machinery ({{availability-considerations}}).
 
-What remains true is that an ecosystem requiring this mechanism makes tick distribution part of its availability floor.
-That is the substance of the trade, and it is why this document treats the availability dependency at length rather than in passing ({{availability-considerations}}).
+What remains true is that an ecosystem requiring this mechanism makes tick distribution part of its availability floor, which is the substance of the trade ({{availability-considerations}}).
 
 ### Operational Simplicity and Resilience {#operational-resilience}
 
@@ -2700,7 +2697,7 @@ It holds a private key, carries a responder certificate, performs cryptography i
 A tick service holds no key, signs nothing, and returns precomputed public values that are immutable within their period ({{operational-resilience}}).
 It can therefore be run as ordinary static content distribution and delegated in whole to parties trusted for availability alone ({{delegated-distribution}}), which is exactly what an online signing service cannot be.
 
-One consequence of the retirement is worth stating plainly, because it cuts the other way.
+One consequence of the retirement cuts the other way.
 CAs retiring OCSP moved to CRLs, which reach browsers through the pushed-list systems described above and reach other relying parties only if those parties fetch and process CRLs for themselves, which few TLS clients do ({{external-revocation}}).
 The retirement removed a mechanism that did not work well.
 It did not supply one that does, and it leaves the majority of TLS clients with no in-band per-certificate revocation status at all.
