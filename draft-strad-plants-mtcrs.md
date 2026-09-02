@@ -819,7 +819,7 @@ struct {
 } MTCProof;
 ~~~
 
-anchor_presence is an AnchorPresence value meaning "the entry carries a hash chain anchor", determined from whichever home the deployment uses: the id-pe-hashChainAnchor X.509 extension of the primary design ({{anchor-x509-extension}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}).
+`anchor_presence` is an AnchorPresence value meaning "the entry carries a hash chain anchor", determined from whichever home the deployment uses: the id-pe-hashChainAnchor X.509 extension of the primary design ({{anchor-x509-extension}}), or the `hash_chain_anchor` entry extension of the alternative ({{anchor-entry-extension}}).
 It is not itself encoded anywhere in the MTCProof.
 No byte of the structure carries it, so the present case adds exactly the HashChainTick and nothing else.
 
@@ -1092,7 +1092,7 @@ The scheme (`http://` or `https://`) is whatever the CA specifies as part of the
 Because each tick is self-authenticating, the tick fetch does not require transport-layer integrity, and because the tick value is public, it does not require transport-layer confidentiality of the response body.
 CAs MAY therefore publish an `http://` base URL, which eliminates TLS handshake overhead and permits caching by any HTTP intermediary.
 The one property plain HTTP does not provide is confidentiality of the request itself.
-An on-path observer can see which {tbs_cert_entry_hash} is being requested.
+An on-path observer can see which `{tbs_cert_entry_hash}` is being requested.
 CAs whose deployments consider this metadata sensitive SHOULD publish an `https://` base URL instead.
 
 For example, if a CA's tick base URL is `http://mtcrs.ca.example`, ticks are served at:
@@ -1105,7 +1105,7 @@ The base URL is an origin (scheme, host, and optional port).
 The `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` path is rooted at that origin.
 A CA MAY point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.
 
-The `v1` segment versions the MTCRS HTTP interface as a whole: the SHA-256 addressing of {tbs_cert_entry_hash} and the response format ({{response-format}}).
+The `v1` segment versions the MTCRS HTTP interface as a whole: the SHA-256 addressing of `{tbs_cert_entry_hash}` and the response format ({{response-format}}).
 It is a migration lever, not a per-request parameter.
 A future revision needing a different addressing hash or wire format would define a `v2` namespace, which a CA MAY serve alongside `v1` during a transition, without affecting the Merkle Tree, the non-revocation proof, or already-issued certificates.
 
@@ -1130,7 +1130,7 @@ Provisioning channel (primary):
   A protocol with no provisioning binding can therefore support only the derivable-URL scheme, and only via the SIA.
 
 CA certificate SIA (fallback):
-: The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose accessLocation is a uniformResourceIdentifier giving the tick base URL.
+: The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose `accessLocation` is a `uniformResourceIdentifier` giving the tick base URL.
   Publishing it is the CA's choice; understanding it is not the authenticating party's, since this is the only carrier available to a CA whose issuance protocol has no provisioning binding.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
   Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}).
@@ -1154,7 +1154,7 @@ A CA that migrates its tick infrastructure can therefore update the base URL it 
 
 ## Unguessable Tick URLs {#unguessable-urls}
 
-The tick fetch path described above is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}`, and {tbs_cert_entry_hash} is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
+The tick fetch path described above is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}`, and `{tbs_cert_entry_hash}` is derivable from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
 Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
 A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, MAY replace the derivable path component with an unguessable per-certificate capability token:
 
@@ -1182,7 +1182,7 @@ The CA MAY generate the token by either of the following methods:
 
   The CA recovers `tbs_cert_entry_hash` by decrypting the token, so no additional per-certificate state is required.
   The token is unguessable without K_ca and is stable for the certificate's lifetime, which preserves caching.
-  The key_id prefix identifies K_ca so that it can be rotated.
+  The `key_id` prefix identifies K_ca so that it can be rotated.
   The CA retains superseded keys for decryption during an overlap window, and because Merkle Tree Certificates are renewed frequently, rotated tokens propagate through renewal, as for base-URL migration ({{discovery}}).
 
 When this hardening is used, discovery is necessarily per-certificate: the CA delivers the complete tick URL (base URL and token together) to the authenticating party through the provisioning channel.
@@ -1460,7 +1460,7 @@ A relying party therefore has no need to contact the CA, and MUST NOT fetch tick
 
 This is a privacy and availability protection, not a secrecy one.
 The tick distribution URL is not secret.
-The fetch path is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` with {tbs_cert_entry_hash} computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
+The fetch path is `.well-known/mtcrs/v1/tick/{tbs_cert_entry_hash}` with `{tbs_cert_entry_hash}` computable by anyone holding the certificate, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
 By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching.
 It declines to standardize or advertise such a fetch as an affordance to relying parties.
 
@@ -1485,7 +1485,7 @@ Deriving an identifier from anything but the TBSCertificate breaks pinning and f
 ## Interaction with Base MTC Revocation {#interaction-with-base-mtc-revocation}
 
 The hash chain mechanism complements rather than replaces the base MTC revoked ranges mechanism.
-Revoked ranges are relying-party configuration: each relying party maintains, per CA, a list of revoked serial-number ranges, seeded from the CA certificate's minSerial and maxSerial and extended from out-of-band sources ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}).
+Revoked ranges are relying-party configuration: each relying party maintains, per CA, a list of revoked serial-number ranges, seeded from the CA certificate's `minSerial` and `maxSerial` and extended from out-of-band sources ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 They are therefore closer in kind to CRLite {{CRLite}} or CRLSets {{CRLSets}} than to a logged or signed artifact: pushed state, distributed out of band, effective only for relying parties that receive it.
 Nothing about a revoked range is committed to the Merkle Tree.
 Revoked ranges provide a fallback for scenarios where the hash chain mechanism is insufficient:
@@ -1657,7 +1657,7 @@ The acceptance window is anchored to the relying party's own clock, so revocatio
 A clock running behind true time shifts the window toward the past, so a genuine but stale tick, one the CA revealed before it stopped revealing, can fall inside the window and be accepted.
 An attacker who moves a relying party's clock backward can thereby keep a revoked certificate acceptable for roughly the induced offset, bounded by the window width and ultimately by `notAfter`, checked against the same clock.
 The forward direction adds no forgery avenue, since a tick for a period the CA has not yet reached cannot be produced without inverting the hash ({{hash-function-requirements}}).
-The exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof, and it is the trusted-time dependency shared by every time-based check: `notAfter`, OCSP thisUpdate and nextUpdate, CRL validity, and the base MTC short-lived-certificate model itself.
+The exposure comes entirely from the clock being wrong, not from accepting a fresher-than-expected proof, and it is the trusted-time dependency shared by every time-based check: `notAfter`, OCSP `thisUpdate` and `nextUpdate`, CRL validity, and the base MTC short-lived-certificate model itself.
 
 Two consequences follow.
 The acceptance window SHOULD be kept as narrow as clock quality allows, since widening it for outage tolerance enlarges this exposure.
@@ -1848,7 +1848,7 @@ offset = UINT32(tbs_cert_entry_hash[0..3])
 
 where `tbs_cert_entry_hash` is the binary hash defined in {{distribution}}, UINT32 interprets its first four bytes as a big-endian unsigned integer, and the division is integer division.
 The authenticating party computes this from its own entry, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by `tbs_cert_entry_hash`.
-The authenticating party fetches the current period's tick at (period_start + offset), where period_start is the start time of that period.
+The authenticating party fetches the current period's tick at `period_start + offset`, where `period_start` is the start time of that period.
 During the first offset seconds of the period it continues to serve the preceding period's tick.
 
 The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}).
@@ -2043,7 +2043,7 @@ IANA is requested to register the following entry in the "SMI Security for PKIX 
 | TBD     | id-ad-mtcrsTicks | This document |
 
 The id-ad-mtcrsTicks access method is used as a Subject Information Access access method ({{!RFC5280}}) in a Merkle Tree CA certificate ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}).
-Its accessLocation is a uniformResourceIdentifier giving the CA's tick base URL ({{discovery}}).
+Its `accessLocation` is a `uniformResourceIdentifier` giving the CA's tick base URL ({{discovery}}).
 
 ~~~asn.1
 id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
@@ -2444,7 +2444,7 @@ Bounded size and count:
 
 Committed admissibility:
 : The strongest control on stuffing is to make the permissible extensions a function of committed data.
-  The base specification SHOULD commit, per entry, an allow-list of permitted (extension_type, length) pairs in the tree-committed entry data ({{anchor-x509-extension}}).
+  The base specification SHOULD commit, per entry, an allow-list of permitted (`extension_type`, length) pairs in the tree-committed entry data ({{anchor-x509-extension}}).
   Relying parties should then be required to reject any proof extension absent from that list or disagreeing with it on length.
   This is enforceable by a relying party that does not implement the specific mechanism, and, being committed and therefore logged, it also makes the presence of each proof-level mechanism transparent to monitors (though not its per-period value).
 
@@ -2491,7 +2491,7 @@ exposure = min(remaining_lifetime,
                detection_time + revocation_latency)
 ~~~
 
-Without revocation, detection_time is irrelevant.
+Without revocation, `detection_time` is irrelevant.
 The certificate remains valid until it expires regardless of what the CA knows.
 With revocation, the CA can act as soon as it detects the problem, and the certificate becomes unusable within the revocation latency.
 
@@ -2678,7 +2678,7 @@ MTC supplies the missing channel, and the enforcement that follows from it is th
 OCSP stapling delivers a CA-signed status response inside the TLS handshake, which makes it the closest existing analogue to this mechanism.
 It has nonetheless failed to become an enforceable revocation channel.
 
-Stapling ({{?RFC6960}}, carried via the TLS status_request extension) is optional and strippable.
+Stapling ({{?RFC6960}}, carried via the TLS `status_request` extension) is optional and strippable.
 The client requests it, and the server, or a network attacker, can omit the stapled response with no signal that one was expected.
 A relying party cannot distinguish a deliberately stripped response from a temporarily unavailable responder, so it must soft-fail, treating missing status as "not revoked", to avoid breaking legitimate connections.
 Soft-fail in turn provides almost no protection against an active attacker, who simply suppresses the response.
@@ -2694,7 +2694,7 @@ Relying parties can therefore hard-fail from the outset, which is the property M
 
 Several further differences lower the deployment barrier.
 There is no responder fleet, responder certificate, or per-check signing operation.
-No status_request negotiation or CertificateStatus handling is needed in TLS implementations beyond MTC support itself ({{tls-use}}).
+No `status_request` negotiation or CertificateStatus handling is needed in TLS implementations beyond MTC support itself ({{tls-use}}).
 The server refreshes a small value once per period with no cryptographic operations, rather than fetching, validating and stapling signed responses that carry their own validity windows.
 And MTC is greenfield, so there is no legacy soft-fail install base: enforcement can be mandatory from day one, or made so by marking the anchor extension critical ({{extension-criticality}}).
 
@@ -2881,7 +2881,7 @@ An alternative is to carry it as an MTCLogEntryExtension, the entry-level extens
 Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating.
 The choice is between two extension mechanisms, not between committed and uncommitted storage.
 
-In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered with the base specification, and its extension_data carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
+In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered with the base specification, and its `extension_data` carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and `tick_interval` from the entry's extensions, which it already reconstructs from the MTCProof's extensions field during base MTC verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
 Obtaining the anchor costs neither party any meaningful extra work.
@@ -2924,9 +2924,9 @@ It has three costs, however:
   The anchor no longer appears in the TBSCertificate, so only MTC-aware software can observe that a certificate uses this mechanism.
 
 - **The log-signing infrastructure must be MTCRS-aware.**
-  {{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}} forbids a CA cosigner from signing a subtree containing an entry with an extension_type it does not recognize.
+  {{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}} forbids a CA cosigner from signing a subtree containing an entry with an `extension_type` it does not recognize.
   A `hash_chain_anchor` entry extension therefore forces the CA's log and cosigner components to recognize it before they can sign any subtree containing an MTCRS certificate.
-  With the X.509 extension, the anchor rides inside the entry's `tbs_cert_entry_data` as ordinary certificate bytes, so that recognition gate never fires, because the gate concerns the entry type and extension_type, not X.509 extensions.
+  With the X.509 extension, the anchor rides inside the entry's `tbs_cert_entry_data` as ordinary certificate bytes, so that recognition gate never fires, because the gate concerns the entry type and `extension_type`, not X.509 extensions.
   The generic log and cosigner infrastructure therefore remain MTCRS-agnostic, and only the issuance front-end and the tick distribution service ({{distribution}}) need be MTCRS-aware.
 
 Because of the last point in particular, this document uses the X.509 extension as the primary design.
@@ -3052,8 +3052,8 @@ And `status_request` specifically carries `OCSPResponse` semantics, a signed res
 
 This document carries the tick in the RECOMMENDED trailing `status_tick` field ({{tick-trailing-field}}).
 Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the `proof_extensions` structure and carry the HashChainTick as one of its entries.
-{{mtcproof-extensibility}} defines that field and the exact hash_chain_tick encoding.
-When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one hash_chain_tick proof extension.
+{{mtcproof-extensibility}} defines that field and the exact `hash_chain_tick` encoding.
+When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one `hash_chain_tick` proof extension.
 
 This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
 Those benefits come at a cost: as a general, unauthenticated, "ignore if unknown" channel it introduces the abuse surface discussed in {{proof-extensions-considerations}}, namely bloat, covert channels, and a strippable soft-fail for any misuse.
