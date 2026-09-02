@@ -2241,6 +2241,8 @@ Nothing in this section is itself a normative requirement.
 7. **Should the hash chain be flat or hierarchical?**
    A flat chain costs a relying party up to `hash_chain_length` - 1 hash computations, about 300 microseconds for a 47-day, one-hour-period certificate on a general-purpose core and tens of milliseconds on a constrained one ({{verification-cost}}).
    A two-level chain reduces that to about 67, and reduces the worst case any certificate can impose from 65,535 hash computations to 511, at the cost of a 66-byte tick in place of a 34-byte one ({{hierarchical-chains}}).
+   This question interacts with question 4.
+   A longer default `tick_interval` reduces the typical cost by more than the two-level chain does and spends no bytes, but it does not touch the 65,535 bound, which is what a relying party validating an arbitrary certificate is exposed to.
    The trade is 32 bytes in every handshake against the verification cost borne by the least capable relying party in the ecosystem.
    It also determines whether a CA needs per-certificate traversal state at all.
    *Preference:* the flat chain, for its simplicity and its smaller per-handshake cost, but this is the least settled preference in this section.
@@ -2476,6 +2478,7 @@ CA storage:
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 At day-scale periods the hash chain is short enough that a CA can store each hash chain in full and skip the fractal traversal of {{hash-chain-traversal}} entirely, since `hash_chain_length` is then on the order of the lifetime in days, e.g. 47 for a 47-day certificate.
+It cuts relying-party verification cost by the same factor, from at most 1,127 hash computations to at most 46, which makes it the cheapest accommodation available for constrained verifiers, since it spends no additional bytes ({{verification-cost}}, {{shorter-verification}}).
 The once-per-day fetch cadence also gives a far more forgiving outage-tolerance budget ({{availability-considerations}}), and the price is coarser revocation.
 
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation, whose worst-case exposure is the full remaining lifetime, rather than against a one-day short-lived certificate.
@@ -2856,9 +2859,17 @@ Committing a Merkle root over a batch of per-entry anchors preserves that indepe
 ## Shortening the Verification Path {#shorter-verification}
 
 This document uses a single flat hash chain, so a relying party hashes forward once per elapsed period and verification costs up to `hash_chain_length` - 1 hash computations ({{verification-cost}}).
-That cost is set by the construction rather than by the hash function.
-Each step is a single compression block whatever primitive is used, and this mechanism inherits HASH from the issuing CA ({{construction}}), so substituting a faster hash offers a small constant factor at best.
-Shortening the verification path is the only change that moves the order of magnitude.
+Two levers reduce that, and they belong to different parties.
+
+The first is `tick_interval`, since `hash_chain_length` is `ceil(lifetime / tick_interval)` ({{construction}}).
+Moving a 47-day certificate from one-hour to one-day periods takes the worst case from 1,127 hash computations to 46, a larger reduction than the two-level construction below achieves, and it costs no additional bytes.
+What it costs is revocation latency, about two days in place of about two hours ({{why-one-hour}}).
+That trade is already before the working group as the choice of default interval ({{open-questions}}), and the lever is the issuing CA's rather than the relying party's.
+
+The second is the construction, and it is the only lever a relying party has.
+A relying party validating an arbitrary server's certificate chooses neither that certificate's lifetime nor its `tick_interval`, so what concerns it is the worst case any certificate can impose, which the 16-bit period field fixes at 65,535 hash computations however the interval is set ({{construction}}).
+Changing the hash function does not move that either, since each step is a single compression block whatever primitive is used, and this mechanism inherits HASH from the issuing CA rather than choosing it.
+Shortening the verification path is what moves it.
 Two constructions do so: a hierarchical hash chain ({{hierarchical-chains}}) and, as the limiting case, a Merkle tree over the certificate's periods ({{merkle-periods}}).
 Both buy hash computations with bytes, and they differ only in where on that curve they sit.
 The columns below give the worst-case forward hash computations for a 1,128-period certificate (47 days at one-hour periods), the worst case for the longest chain the 16-bit period field admits, and the resulting tick size:
@@ -2870,7 +2881,8 @@ The columns below give the worst-case forward hash computations for a 1,128-peri
 | Three levels | 32 | 122 | 98 |
 | Period Merkle tree | 11 | 16 | 386 |
 
-This document keeps the flat chain because it is the simplest construction that works, and because the added bytes are charged to every handshake whereas the verification cost is paid only on full handshakes.
+This document keeps the flat chain because it is the simplest construction that works, because the added bytes are charged to every handshake whereas the verification cost is paid only on full handshakes, and because the interval lever above already addresses the typical case without spending any bytes at all.
+What it leaves unaddressed is the worst case an arbitrary certificate can impose on a relying party that did not choose its parameters.
 The balance between them is a working group judgment rather than an authorial one, and it is recorded as an open question ({{open-questions}}).
 
 ### Hierarchical Hash Chains {#hierarchical-chains}
