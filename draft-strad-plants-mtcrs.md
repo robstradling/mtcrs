@@ -99,6 +99,20 @@ informative:
       - name: Adrian Perrig
     date: 2005
     target: https://doi.org/10.1007/11496137_29
+  CRT:
+    title: "On Certificate Revocation and Validation"
+    author:
+      - name: Paul C. Kocher
+    date: 1998
+    target: https://doi.org/10.1007/BFb0055481
+  QUASIMODO:
+    title: "QuasiModo: Efficient Certificate Validation and Revocation"
+    author:
+      - name: Farid F. Elwailly
+      - name: Craig Gentry
+      - name: Zulfikar Ramzan
+    date: 2004
+    target: https://doi.org/10.1007/978-3-540-24632-9_27
   LE-OCSP:
     title: "Intent to End OCSP Service"
     author:
@@ -2931,6 +2945,13 @@ The limiting case of the same trade replaces the chain with a tree.
 The CA commits a Merkle root in place of the anchor, and reveals for each period the leaf authenticating that period together with its path to the root.
 The relying party verifies that path in about log<sub>2</sub>(`hash_chain_length`) hash computations rather than by walking a chain, so the cost is logarithmic in the worst case as well as the typical one and no longer grows with the certificate's age.
 Revocation is unchanged in kind, since the CA simply stops publishing leaves and withholding remains the whole of the revocation action ({{revoking}}).
+
+This tree is per certificate, which distinguishes it from the certificate revocation tree {{CRT}}, with which it is easily confused.
+A CRT is one tree per CA whose leaves are the revoked serial-number ranges, so a path proves a queried certificate's status by bracketing it between two of them, and the proof grows with the number of certificates the CA has revoked.
+The tree considered here has one certificate's periods as its leaves, proves non-revocation by the presence of that period's leaf rather than by bracketing, and is bounded by `hash_chain_length` instead.
+The decisive difference is the root.
+A CRT's is signed afresh on each update, which reintroduces the per-period CA signature this mechanism exists to avoid ({{per-cert-signatures}}), whereas this one is committed at issuance exactly as the anchor it replaces is, and so is signed never.
+Its closer relative is therefore the tree-shaped sibling of the hash chain, a per-certificate tree over validity periods as in {{QUASIMODO}}.
 
 It is rejected here on size.
 At 11 hashes of path the tick reaches 386 bytes, about the size of the entire inclusion proof it accompanies ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), so it would roughly double the certificate's proof material to save work that two levels already reduce to a few hundred microseconds.
