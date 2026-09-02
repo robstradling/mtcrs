@@ -1201,6 +1201,10 @@ Possession of it grants only the ability to fetch that public value, or to obser
 It does not permit forging ticks, which requires the secret hash chain values ({{seed-confidentiality}}), nor using the certificate, which requires the corresponding private key.
 Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status ({{rp-no-fetch}}).
 
+That benefit has a matching cost, because a monitor is also a third party holding the certificate.
+Unguessable tick URLs therefore trade away the external observability that {{dos-withholding}} offers as a check on a CA withholding ticks, leaving the affected subscriber as the only party positioned to notice.
+A CA adopting them is to that extent asking to be taken on trust, and a deployment that values the check above the unprobeability should keep its tick URLs derivable.
+
 ## Response Format {#response-format}
 
 The response body is the serialized HashChainTick structure: a 2-byte big-endian period followed by HASH_SIZE bytes of value (34 bytes total for SHA-256).
@@ -1441,7 +1445,12 @@ Detectability:
 : The authenticating party knows it did not receive a tick, and can raise an alarm, switch to another CA, or fall back to a traditionally-signed certificate.
 
 Third-party observability:
-: The tick distribution endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), making selective withholding observable.
+: Where tick URLs are derivable ({{distribution}}), the endpoint can be monitored externally (Certificate Transparency-style auditing {{?RFC9162}}), which makes broad withholding observable.
+  Two limits apply.
+  A CA using unguessable tick URLs ({{unguessable-urls}}) cannot be monitored this way at all, a monitor being exactly the third party that scheme prevents from deriving the URL.
+  And nothing obliges the endpoint to answer every requester alike, so a CA willing to discriminate by source address can serve monitors the current tick while withholding it from the subscriber.
+  External observation therefore disciplines broad or careless withholding rather than a determined and targeted one, against which the subscriber's own detection above is the dependable signal.
+  Supplying an artifact a third party could rely on instead is the subject of {{logged-revocation}}.
 
 Substitutability:
 : The interface is mandatory at both ends and addressed identically at every CA ({{distribution}}), so an authenticating party is not tied to one CA's tick service.
