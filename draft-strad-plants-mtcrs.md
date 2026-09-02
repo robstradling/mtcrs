@@ -2840,6 +2840,10 @@ A truncation length would additionally have to be either fixed, creating a secon
 
 A deployment that wants smaller anchors should reduce them by choosing a CA whose tree hash is smaller, since this mechanism inherits HASH from the issuing CA ({{post-quantum}}), rather than by truncating a stronger hash beneath the security level the rest of the ecosystem assumes.
 
+Sharing one anchor across many entries, rather than shortening it, is the other way to reduce the committed cost, and it does not work either.
+Each certificate must be independently revocable, which requires its own withholdable chain, so a genuinely shared value would revoke every certificate using it or none of them.
+Committing a Merkle root over a batch of per-entry anchors preserves that independence, but a verifier still needs the anchor for the certificate in front of it, so the certificate must carry that anchor and an inclusion path to the root, which is strictly more than carrying the anchor alone.
+
 ## Shortening the Verification Path {#shorter-verification}
 
 This document uses a single flat hash chain, so a relying party hashes forward once per elapsed period and verification costs up to `hash_chain_length` - 1 hash computations ({{verification-cost}}).
