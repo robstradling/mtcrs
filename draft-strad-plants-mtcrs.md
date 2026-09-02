@@ -2522,8 +2522,10 @@ It is embedded directly in the MTCProof (the certificate's `signatureValue`) rat
    What it cannot do is remove them and leave a certificate that still verifies.
    Stripping the tick therefore forces a hard failure rather than the silent soft-fail that let a stripped OCSP staple pass ({{ocsp-stapling-comparison}}): the guarantee is that revocation status cannot be dropped undetectably, not that the bytes are physically immovable.
 
-2. **No new protocol machinery:** No TLS CertificateEntry extension or other signaling mechanism is needed.
-   The tick travels inside the existing certificate structure, requiring no changes to TLS implementations beyond MTC support ({{tls-use}}).
+2. **No new protocol machinery:** No TLS CertificateEntry extension, no negotiation, and no other signaling mechanism is needed, so the handshake itself is unchanged ({{tls-use}}).
+   The tick travels inside the existing certificate structure.
+   The authenticating party does need a way to replace the `signatureValue` of a certificate it is currently serving, once per period and without interrupting connections, which is a real implementation requirement and carries the identifier-stability consequences of {{cert-identity}}.
+   What it does not need is what a stapled response requires, namely a second object with its own validity window, a responder certificate to validate, and a per-connection negotiation to carry it.
 
 3. **Safe to update dynamically:** The MTCProof is not committed to the Merkle Tree, and only the TBSCertificateLogEntry is.
    The authenticating party can freely replace the `signatureValue` each period without invalidating the inclusion proof or cosignatures.
