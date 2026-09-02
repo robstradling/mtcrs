@@ -2269,9 +2269,11 @@ The following item is optional, and a base specification MAY adopt it but need n
 Everything else this document defines layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
 That covers the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}).
 
-The MTCProof changes themselves are edits to a structure that the base specification owns: the trailing `status_tick` field ({{tick-trailing-field}}) and, should the working group prefer the general mechanism, the `proof_extensions` field ({{mtcproof-extensibility}}).
-This document specifies them in full so that the required change is concrete and reviewable.
-The intent, however, is to hand them to the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
+The MTCProof changes themselves are edits to a structure that the base specification owns.
+The required one, the trailing `status_tick` field, is specified here in full so that it is concrete and reviewable ({{tick-trailing-field}}).
+The optional general mechanism is not, because this document does not use it, and defining a second MTCProof for a field its own certificates would not carry serves nobody.
+{{mtcproof-extensibility}} instead describes the shape of a `proof_extensions` field and states the constraints one ought to be given ({{proof-extensions-considerations}}), leaving the definition itself to whichever specification adopts it.
+The intent in both cases is to hand the change to the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} to incorporate and maintain, rather than to keep a competing definition of MTCProof here.
 If the base specification adopts the change, the corresponding text in this document becomes a description of base-specification behavior and can be reduced to a reference.
 
 # Open Questions for the Working Group {#open-questions}
@@ -2378,77 +2380,12 @@ This section describes an alternative: a general, reusable proof-level extension
 It is worth adopting only if the base specification wants future mechanisms, beyond hash chain revocation, to attach data to the certificate presentation without a further structural change each time.
 It is not required for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
 
-Like the trailing-field amendment ({{tick-trailing-field}}), this is an edit to a base-specification-owned structure ({{base-spec-amendments}}).
-It is written out here for concreteness but is intended to be handed to the base MTC specification to adopt and maintain, not kept as a separate definition.
-This appendix defines the field and how the tick would be encoded within it.
-The case for and against selecting this encoding over the trailing field is made in {{tick-proof-extension}}, and the constraints a base specification adopting it should impose are collected in {{proof-extensions-considerations}}.
+The structure itself belongs to the base specification, and this appendix deliberately does not define it ({{base-spec-amendments}}).
+Its shape is not in doubt: a trailing, length-prefixed list of type-and-value pairs, not committed to the Merkle Tree and so freely updatable by the authenticating party, which is what lets it carry a per-period tick where the committed `extensions` field cannot.
+Adopting it would also rename that committed field, to `entry_extensions`, so that the two are told apart, and the tick would travel as one extension of type `hash_chain_tick` rather than as a bare trailing field ({{tick-proof-extension}}).
+A relying party predating the change rejects the certificate at the MTCProof parsing stage on the trailing bytes either way, so the transition levers are those of {{deployment-transition}}.
 
-## Motivation
-
-The current MTCProof is a fixed sequence of fields with no extensibility point, and {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} requires relying parties to reject any data trailing it, so no field can be appended without amending the base specification ({{tick-trailing-field}}):
-
-~~~tls-presentation
-struct {
-    MTCLogEntryExtension extensions<0..2^16-1>;
-    uint48 start;
-    uint48 end;
-    HashValue inclusion_proof<0..2^16-1>;
-    SubtreeSignature signatures<0..2^16-1>;
-} MTCProof;
-~~~
-
-The existing `extensions` field carries the log entry's MTCLogEntryExtension values, which are committed to the Merkle Tree and so cannot carry dynamic, per-period data like hash chain ticks, because the inclusion proof would fail.
-
-A proof-level extensions field, not committed to the tree and freely updatable by the authenticating party, would let the MTCProof carry revocation ticks and other future self-authenticating proof-level values without a new version of the base specification for each.
-
-## Proposed Amendment
-
-This document proposes updating {{!I-D.ietf-plants-merkle-tree-certs}} with the following extended MTCProof structure:
-
-~~~tls-presentation
-enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
-
-struct {
-    MTCProofExtensionType extension_type;
-    opaque extension_data<0..2^16-1>;
-} MTCProofExtension;
-
-struct {
-    MTCLogEntryExtension entry_extensions<0..2^16-1>;
-    uint48 start;
-    uint48 end;
-    HashValue inclusion_proof<0..2^16-1>;
-    SubtreeSignature signatures<0..2^16-1>;
-    MTCProofExtension proof_extensions<0..2^16-1>;
-} MTCProof;
-~~~
-
-The `proof_extensions` field is a variable-length list with a 2-byte length prefix.
-When empty, it encodes as two zero bytes (0x0000), adding minimal overhead to certificates that do not use any proof extensions.
-
-The existing `extensions` field is renamed to `entry_extensions` to distinguish it from the new `proof_extensions` field.
-Both are variable-length lists of tag-length-value structures, but they serve different roles: `entry_extensions` carries the log entry's MTCLogEntryExtension values (committed to the Merkle Tree), while `proof_extensions` carries proof-level data that can be freely updated without affecting the inclusion proof.
-
-Relying parties MUST ignore unrecognized proof extension types.
-
-The "extra data" check in {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} would be amended to account for the trailing `proof_extensions` field.
-
-## Hash Chain Tick as a Proof Extension
-
-With this extensibility mechanism, the HashChainTick ({{cert-format}}) is carried as a proof extension rather than as a bare trailing field: as an MTCProofExtension with `extension_type` set to `hash_chain_tick(0)` and `extension_data` containing the serialized tick (2 + HASH_SIZE bytes).
-
-## Backward Compatibility
-
-Because the `proof_extensions` field uses a length-prefixed encoding, an implementation that supports the extended structure but does not recognize a particular extension type can skip over it by consuming the declared length.
-Implementations that predate the amendment will reject the certificate at the MTCProof parsing stage (due to trailing bytes), which is acceptable: such implementations would also not recognize the id-pe-hashChainAnchor extension's semantics, so they cannot verify hash chain revocation regardless.
-
-For the transition period, ecosystems have two options:
-
-Mark the extension critical:
-: Unaware implementations reject at the X.509 extension stage, producing a clear error rather than an opaque parse failure.
-
-Deploy the base spec amendment first:
-: Once the `proof_extensions` field is adopted into the base MTC specification, all conforming implementations will parse it (ignoring unknown types), enabling incremental deployment of hash chain revocation with a non-critical X.509 extension.
+What does need recording, because it does not follow from the shape, is what a base specification adopting the field ought to constrain.
 
 ## Considerations for the proof_extensions Field {#proof-extensions-considerations}
 
@@ -3074,7 +3011,7 @@ And `status_request` specifically carries `OCSPResponse` semantics, a signed res
 
 This document carries the tick in the RECOMMENDED trailing `status_tick` field ({{tick-trailing-field}}).
 Alternatively, if the base MTC specification wants a general, reusable proof-level extensibility point rather than a single appended field, it can adopt the `proof_extensions` structure and carry the HashChainTick as one of its entries.
-{{mtcproof-extensibility}} defines that field and the exact `hash_chain_tick` encoding.
+That field is the base specification's to define, so this document does not, but {{mtcproof-extensibility}} describes its shape and {{proof-extensions-considerations}} states the constraints a base specification adopting it should impose.
 When the id-pe-hashChainAnchor extension is present, the MTCProof MUST contain exactly one `hash_chain_tick` proof extension.
 
 This encoding can also carry future proof-level mechanisms (for example, other self-authenticating freshness values) without a further structural change, and lets a conforming parser skip a tick it does not recognize.
