@@ -1821,8 +1821,10 @@ A CA MAY additionally offer a batch endpoint keyed by a list of `tbs_cert_entry_
 The trade-off is cacheability.
 A batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
 It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
-This document does not standardize a batch wire format.
-Any such mechanism is a bilateral agreement between a CA and its authenticating parties, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends ({{distribution}}).
+This document standardizes neither a batch wire format nor the CA-to-distributor bundle ({{delegated-distribution}}).
+Both are bilateral agreements, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends and is what guarantees interoperability ({{distribution}}).
+An operator large enough to find per-entry fetches unattractive is therefore choosing between a private batch arrangement with each of its CAs and becoming a distributor for each, and neither is interoperable today.
+Specifying the bundle would be the more useful of the two, since a single format would serve delegated distribution and bulk retrieval alike, and this document leaves that to the working group.
 It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
 
 ## Delegated Tick Distribution {#delegated-distribution}
