@@ -2221,8 +2221,8 @@ Nothing in this section is itself a normative requirement.
    *Preference:* one hour with k = 1.
    Neither is a protocol question.
    Both concern recommended defaults and what root programs should require.
-   The one protocol question adjacent to them is the width of the tick's period field, which caps how short a period can be at all: 16 bits, and so 65,535 periods, deliberately bounds the forward hashing a CA can impose on relying parties ({{construction}}).
-   A working group that wanted sub-minute periods for multi-week certificates would have to widen that field and accept the corresponding verification cost.
+   The one protocol question adjacent to them is the width of the tick's period field, which caps how short a period can be at all and bounds the forward hashing a CA can impose on relying parties ({{construction}}).
+   That is question 8.
 
 5. **Should period 0 enforce revocation?**
    The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
@@ -2241,12 +2241,25 @@ Nothing in this section is itself a normative requirement.
 7. **Should the hash chain be flat or hierarchical?**
    A flat chain costs a relying party up to `hash_chain_length` - 1 hash computations, about 300 microseconds for a 47-day, one-hour-period certificate on a general-purpose core and tens of milliseconds on a constrained one ({{verification-cost}}).
    A two-level chain reduces that to about 67, and reduces the worst case any certificate can impose from 65,535 hash computations to 511, at the cost of a 66-byte tick in place of a 34-byte one ({{hierarchical-chains}}).
-   This question interacts with question 4.
+   This question interacts with questions 4 and 8, which act on the same quantity by other means.
    A longer default `tick_interval` reduces the typical cost by more than the two-level chain does and spends no bytes, but it does not touch the 65,535 bound, which is what a relying party validating an arbitrary certificate is exposed to.
+   A narrower period field does touch that bound, which makes question 8 an alternative to this one rather than a complement to it.
    The trade is 32 bytes in every handshake against the verification cost borne by the least capable relying party in the ecosystem.
    It also determines whether a CA needs per-certificate traversal state at all.
    *Preference:* the flat chain, for its simplicity and its smaller per-handshake cost, but this is the least settled preference in this section.
    A working group that treats constrained relying parties as a first-class constituency should prefer the two-level chain.
+
+8. **How wide should the tick's period field be?**
+   The field is 16 bits, which caps `hash_chain_length` at 65,535 and so bounds the forward hashing any certificate can impose on a relying party ({{construction}}).
+   That bound is the quantity questions 4 and 7 also act on, and the field width is the third lever on it.
+   Widening the field would permit sub-minute periods on multi-week certificates, at a correspondingly larger worst case for every relying party.
+   Narrowing it to 8 bits would cap `hash_chain_length` at 255 and so bound the worst case at 254 hash computations, which is affordable on any verifier, and it would save a byte in every handshake rather than spending 32 as a two-level chain does ({{hierarchical-chains}}).
+   The price is paid in parameter freedom rather than in bytes.
+   A 47-day certificate could then use no period shorter than about 4.4 hours, and one-hour periods would be confined to certificates of about ten days or less.
+   That accommodates the 7-day validity the Chrome policy recommends, which is 168 periods, but forbids the one-hour, 47-day combination the same policy permits ({{CHROME-MTC}}).
+   An 8-bit field would therefore fix in the wire format a limit this document otherwise leaves to root programs, although the 16-bit field is already such a limit at a looser setting, forbidding periods shorter than about 62 seconds on a 47-day certificate.
+   *Preference:* 16 bits, because the configuration an 8-bit field would forbid is one a root program currently permits, and because the same bound is available from the construction ({{shorter-verification}}) without constraining the CA's parameters at all.
+   A working group that would rather spend parameter freedom than bytes should prefer 8 bits, and should then not also adopt a hierarchical chain: with `hash_chain_length` capped at 255 a flat chain's worst case is already 254 computations, so a hierarchy would spend 32 bytes to save work that is no longer expensive.
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
@@ -2883,6 +2896,7 @@ The columns below give the worst-case forward hash computations for a 1,128-peri
 
 This document keeps the flat chain because it is the simplest construction that works, because the added bytes are charged to every handshake whereas the verification cost is paid only on full handshakes, and because the interval lever above already addresses the typical case without spending any bytes at all.
 What it leaves unaddressed is the worst case an arbitrary certificate can impose on a relying party that did not choose its parameters.
+Narrowing the period field would bound that worst case as well, by restricting the parameters a CA may choose rather than by changing the construction, and is recorded separately ({{open-questions}}).
 The balance between them is a working group judgment rather than an authorial one, and it is recorded as an open question ({{open-questions}}).
 
 ### Hierarchical Hash Chains {#hierarchical-chains}
