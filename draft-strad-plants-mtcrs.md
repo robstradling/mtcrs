@@ -2387,11 +2387,16 @@ With revocation, the CA can act as soon as it detects the problem, and the certi
 
 This has a counterintuitive consequence.
 A certificate with a long lifetime but active revocation can provide *shorter* exposure than a certificate with a short lifetime but no revocation.
-For example:
+Taking the two configurations the Chrome policy sets out ({{CHROME-MTC}}), and assuming in each case that the CA learns of the compromise within minutes, from a subscriber report, a domain validation re-check, or an external notification:
 
-- A 1-day certificate without revocation: worst-case exposure is ~24 hours (compromise occurs immediately after issuance).
+- A 7-day certificate, which is the recommended validity and the limit on the cosigner key every MTC CA is required to operate, has a worst-case exposure of 7 days without revocation, when the compromise occurs just after issuance.
+  With a one-hour `tick_interval` it is about 2 hours.
 
-- A 47-day certificate with 1-hour hash chain revocation: if the CA learns of the compromise within minutes (subscriber report, domain validation re-check, or external notification), worst-case exposure is ~2 hours.
+- A 47-day certificate, the permitted maximum, has a worst-case exposure of 47 days without revocation.
+  With a one-hour `tick_interval` it is also about 2 hours, because the bound no longer depends on the lifetime.
+
+The second pairing is the more striking and the first is the more representative, since 7 days is what the policy recommends.
+Both show the same structural point, which is that an enforceable bound stops being a function of the certificate's lifetime.
 
 By substituting expensive asymmetric signatures with incredibly cheap symmetric hashing, this mechanism allows CAs to achieve the security benefit of an hourly expiration window without any of the architectural cost that comes with hourly re-issuance {{SHORTLIVED}}.
 Rather than re-signing and re-logging every certificate each hour, the CA reveals a single precomputed hash value per period, and the relying party verifies it with a single hash computation.
@@ -2404,6 +2409,9 @@ Absence of the tick is immediately detectable and enforced by the relying party.
 
 Even with functional revocation, the CA cannot revoke a certificate for a problem it does not know about.
 The frequency of CA re-validation therefore determines the effective security bound for non-self-reported problems (e.g., loss of domain control that the subscriber does not notice or report).
+
+Revocation acts only on the detected share of that risk, and expiry bounds the rest, so the shorter a certificate's lifetime the smaller the reduction revocation can make.
+That is an argument for pairing it with frequent re-validation rather than against having it, since the detected share is the only part on which a CA can act at all.
 
 Without revocation, validation frequency is largely irrelevant: even if the CA discovers a problem mid-lifetime, it cannot shorten the certificate's validity.
 The only recourse is to publish the revocation via an external mechanism (CRLite, CRLSets) that may or may not reach all relying parties.
