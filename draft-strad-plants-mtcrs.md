@@ -1554,6 +1554,40 @@ None of this weakens enforcement, which is what the mechanism exists to provide.
 A revoked certificate stops verifying at every relying party within the two-period bound ({{clock-skew}}) whether or not any auditable artifact exists, because enforcement depends on the *presence* of a fresh tick, not on a monitor observing its absence.
 Auditability, where a deployment needs it, therefore comes from outside both this mechanism and the base revoked-ranges mechanism: from CRLs or OCSP, which apply unchanged ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}), or from a signed revocation feed the CA publishes.
 This document neither defines nor requires such a feed.
+The base specification's own extensibility would, however, admit a record built inside the log rather than beside it, and the following subsection sets out what such a record could and could not establish.
+
+### A Logged Revocation Entry {#logged-revocation}
+
+MTCLogEntryType is an extensible enum, and the base specification states that future documents MAY define new values for it with corresponding semantics ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+A revocation record is therefore constructible within the log.
+This document does not define one.
+The sketch here exists so that the working group can judge whether it wants one, and where it belongs ({{open-questions}}).
+
+The construction is a new MTCLogEntryType whose data identifies the revoked entry by its serial number, gives the first period for which ticks will be withheld, and optionally carries a reason code.
+The CA appends it to its issuance log, so it is covered by the subtree hash and by the cosignatures over that subtree.
+Its evidentiary force comes from a property the base specification already establishes, that a subtree signature is a binding assertion by the CA that it has certified every entry in the subtree, so any signed checkpoint containing the entry together with an inclusion proof suffices to prove the CA made it ({{Section 12.4 of !I-D.ietf-plants-merkle-tree-certs}}).
+That is the signed, non-repudiable artifact this section otherwise lacks, and unlike a CRL entry it does not expire ({{REVOCATION-STATUSES}}).
+Relying parties are unaffected, since an unrecognized entry type differs in its `type` field from the entry a relying party reconstructs, so its proof never matches ({{Section 12.5 of !I-D.ietf-plants-merkle-tree-certs}}).
+The record is for monitors, and enforcement continues to rest on the presence of a fresh tick.
+
+Such a record would bind the logged status to the served status in one direction, and would do so cryptographically.
+A logged revocation naming period t, together with a tick for that entry whose period is t or later, is a contradiction anyone can check offline.
+The log entry cannot be repudiated and the tick cannot be forged without inverting the hash ({{hash-function-requirements}}), so the pair is evidence that the CA both declared a revocation and continued to supply the material that defeats it.
+Neither artifact requires trusting the monitor that presents it.
+One interaction needs care: a CA that has pre-provisioned a distributor with a buffer of future values ({{delegated-distribution}}) can produce that contradiction without acting again, so a deployment doing both would have to reconcile the logged period with the buffer depth.
+
+The converse direction cannot be bought at all, and the reason bounds what any revocation transparency mechanism can promise here.
+Withholding is the absence of a response, and absence is not attributable.
+A distribution outage, a failed distributor, a network partition and a deliberate unlogged revocation are indistinguishable to an observer, which is the same reason a 404 does not mean "revoked" ({{response-format}}).
+Certificate Transparency closes the corresponding gap for issuance by conscripting the relying party, since a certificate lacking evidence of logging is rejected and logging is thereby compelled.
+That remedy is unavailable here, because it requires the relying party to check something it does not receive in the handshake, and this mechanism rests on the relying party fetching nothing ({{rp-no-fetch}}).
+Pushing the log's contents to clients out of band would restore it only for the clients that receive the push, which is the coverage limitation this document declines to depend on ({{external-revocation}}).
+
+Such a mechanism would therefore be sound rather than complete.
+Nothing inconsistent can be logged and served without producing a proof, but a CA can still withhold silently.
+The most a specification can add is an obligation to declare, so that ticks stopping with no corresponding entry becomes a detectable failure to comply rather than an unremarkable event.
+This is the asymmetry that governs enforcement reappearing in the transparency layer.
+Presence is provable and absence is not, whether the thing present is a tick or a log entry.
 
 ## Downgrade to a Non-MTCRS Certificate {#downgrade}
 
@@ -2303,6 +2337,17 @@ Nothing in this section is itself a normative requirement.
    An 8-bit field would therefore fix in the wire format a limit this document otherwise leaves to root programs, although the 16-bit field is already such a limit at a looser setting, forbidding periods shorter than about 62 seconds on a 47-day certificate.
    *Preference:* 16 bits, because the configuration an 8-bit field would forbid is one a root program currently permits, and because the same bound is available from the construction ({{shorter-verification}}) without constraining the CA's parameters at all.
    A working group that would rather spend parameter freedom than bytes should prefer 8 bits, and should then not also adopt a hierarchical chain: with `hash_chain_length` capped at 255 a flat chain's worst case is already 254 computations, so a hierarchy would spend 32 bytes to save work that is no longer expensive.
+
+9. **Should revocations be recorded in the log?**
+   Revocation here is the absence of a tick, so nothing attests that a revocation occurred ({{revocation-transparency}}).
+   The base specification's MTCLogEntryType is extensible, so a revocation entry is constructible, and {{logged-revocation}} sketches one.
+   It would supply a permanent, non-repudiable record, could carry a reason code, and would make a logged revocation contradicted by a later tick provable by anyone offline.
+   It would not make silent withholding detectable, because absence is not attributable and the remedy Certificate Transparency uses is unavailable to a mechanism whose relying parties fetch nothing.
+   The cost is that CA cosigners must recognize the new entry type before they can sign any subtree containing one ({{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}}).
+   The question is also separable from hash chains, since such a record would serve the base revoked-ranges mechanism equally well.
+   *Preference:* not in this document, which asks the base specification for one change and has no implementations yet.
+   A companion document, or the base specification itself, is the better home.
+   A working group that regards the missing revocation record as the more pressing gap may reasonably decide otherwise.
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
