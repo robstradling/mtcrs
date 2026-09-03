@@ -620,7 +620,7 @@ Carrying a salt in the certificate instead would avoid the constraint but enlarg
 Deriving one from the certificate or the entry is circular, since the anchor is committed inside both and any salt must be fixed before the chain that produces it.
 
 What per-entry salting would have bought is small.
-It would frustrate a preimage search mounted against the whole certificate population at once, which at 10<sup>9</sup> certificates costs about 2<sup>226</sup> classically and 2<sup>113</sup> under Grover's algorithm, against 2<sup>256</sup> and 2<sup>128</sup> for an isolated target ({{post-quantum}}).
+It would frustrate a preimage search mounted against a CA's whole certificate population at once, which the per-CA salting permits and which is far out of reach either way ({{post-quantum}}).
 It would also keep two chains apart if a seed-generation fault repeated a seed across entries, which the per-CA salt does not, so that residue rests on the quality of the seed ({{seed-confidentiality}}).
 
 The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -1416,8 +1416,10 @@ With a one-hour `tick_interval` and a 47-day lifetime, the hash chain length is 
 
 This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
 Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up.
-Against SHA-256 that leaves work on the order of 2<sup>128</sup>, an ample margin for all foreseeable certificate lifetimes.
-The non-revocation proof relies on no collision resistance, because a revealed value is bound to a specific hash chain by the committed anchor and the per-entry domain separation of {{encoding}}, not by any collision property.
+Against SHA-256 that leaves work on the order of 2<sup>128</sup> for a single target.
+Because the hash chain is salted per CA rather than per certificate ({{encoding}}), an attacker content to invert any one of a CA's chains can search them together, which at 10<sup>9</sup> certificates costs about 2<sup>226</sup> classically and 2<sup>113</sup> quantumly.
+Both remain ample margins for all foreseeable certificate lifetimes, and they are the figures the rest of this document refers to.
+The non-revocation proof relies on no collision resistance, because a revealed value is bound to a specific hash chain by the committed anchor rather than by any collision property.
 The weaker quantum bounds on collision finding therefore do not apply (`tbs_cert_entry_hash`, the sole hash used for uniqueness rather than as part of the proof, is discussed under {{distribution}}).
 It also inherits whatever hash the CA's issuance log uses ({{construction}}), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.
 
@@ -2859,7 +2861,8 @@ The non-revocation guarantee rests on preimage resistance ({{hash-function-requi
 An n-bit hash offers 2<sup>n</sup> preimage resistance classically but only about 2<sup>n/2</sup> against Grover's algorithm ({{post-quantum}}).
 At the full 256 bits that leaves about 2<sup>128</sup>, an ample quantum margin.
 Truncated to 128 bits it leaves about 2<sup>64</sup>, which is not a margin at all for a mechanism whose entire premise is post-quantum readiness.
-Multi-target attacks make it worse rather than better, since a CA publishes on the order of 10<sup>9</sup> anchors and an attacker needs only one forgery to keep one revoked certificate alive.
+Multi-target search makes it worse still.
+An attacker needs only one forgery to keep one revoked certificate alive, and searching a CA's 10<sup>9</sup> anchors together brings the quantum cost of a truncated anchor to about 2<sup>49</sup> ({{post-quantum}}).
 
 The economics are also poor even setting security aside.
 The 16 bytes come off a TBSCertificateLogEntry of a few hundred bytes, so the entry shrinks by a few percent, and off a handshake already carrying an inclusion proof and cosignatures, where the tick is not the dominant term ({{anchor-x509-extension}}).
