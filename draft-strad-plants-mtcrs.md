@@ -409,7 +409,7 @@ Deployments SHOULD stay well within it rather than treating it as a target, sinc
 `tick_interval` need not evenly divide the lifetime.
 If it does not, the final period is shorter than `tick_interval`, ending when the certificate expires.
 This is harmless.
-The verifier computes the period from `not_before` ({{construction}}) and the base MTC validity check bounds the certificate at `notAfter`, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
+The verifier computes the period from `not_before` and the base MTC validity check bounds the certificate at `notAfter`, so the truncated final period needs no special handling, and its shorter span only means revocation during it takes effect faster.
 
 The certificate's validity period MUST be longer than `tick_interval`.
 A certificate whose validity period is not longer than `tick_interval` would have `hash_chain_length = 1`: its only tick is the public period-0 anchor, which enforces nothing, because revocation is only enforceable from period 1 onwards ({{period-zero-rationale}}).
