@@ -1087,7 +1087,8 @@ where `tbs_cert_entry_hash` is the SHA-256 hash of the entry's `tbs_cert_entry_d
 The final path segment is its lowercase hexadecimal encoding (64 characters for SHA-256), so that the CA and the authenticating party derive an identical URL.
 Throughout this document `tbs_cert_entry_hash` denotes that binary hash value (32 bytes for SHA-256).
 Only the URL path segment carries it hex-encoded.
-The authenticating party computes it from the TBSCertificateLogEntry it already possesses.
+The authenticating party does not receive a log entry, only a certificate, so it derives the TBSCertificateLogEntry from that certificate by the same construction a relying party performs during base verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), and hashes the result.
+That construction needs the CA's HASH for the entry's `subjectPublicKeyInfoHash` field ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
 No additional per-request metadata from the CA is required.
 
 **Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value, not a proof.
