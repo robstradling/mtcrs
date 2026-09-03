@@ -906,10 +906,9 @@ Table of Contents
    salt must be fixed before the chain that produces it.
 
    What per-entry salting would have bought is small.  It would
-   frustrate a preimage search mounted against the whole certificate
-   population at once, which at 10^9 certificates costs about 2^226
-   classically and 2^113 under Grover's algorithm, against 2^256 and
-   2^128 for an isolated target (Section 14.2).  It would also keep two
+   frustrate a preimage search mounted against a CA's whole certificate
+   population at once, which the per-CA salting permits and which is far
+   out of reach either way (Section 14.2).  It would also keep two
    chains apart if a seed-generation fault repeated a seed across
    entries, which the per-CA salt does not, so that residue rests on the
    quality of the seed (Section 14.3).
@@ -1972,10 +1971,19 @@ Table of Contents
       overload.  The authenticating party retries according to the
       Retry-After header (Section 15.3).
 
+   An authenticating party follows redirects, which is what lets a CA
+   migrate its tick infrastructure by redirecting from the old origin
+   while renewals propagate the new base URL (Section 10.2).  It SHOULD
+   bound the number it follows for a single fetch.  Following one is
+   safe even to an untrusted target, since whatever is returned is
+   verified against the anchor committed in the authenticating party's
+   own certificate before it is installed (Section 12), so a redirect to
+   a hostile origin can deny service but cannot forge a tick.
+
    Any other status code carries its ordinary HTTP semantics
-   ([RFC9110]).  An authenticating party treats any non-200 response as
-   "no fresh tick obtained on this attempt" and falls back to its most
-   recent still-valid tick.
+   ([RFC9110]).  An authenticating party treats any response that is
+   neither a 200 nor a redirect it follows as "no fresh tick obtained on
+   this attempt", and falls back to its most recent still-valid tick.
 
    Requiring the period 0 tick to be served, rather than permitting it,
    would not make a 404 mean "revoked".  Revocation is only one of
@@ -2058,25 +2066,33 @@ Table of Contents
        revealed values are adjacent in the hash chain, since period t
        reveals h[hash_chain_length - t] (Section 5.1), so the ordinary
        case of a single elapsed period costs one hash computation rather
-       than tick.period of them.  This is transitively a verification
-       against the anchor, because the held tick was itself verified
-       against the anchor, so it is neither weaker nor an approximation.
-       Only the first tick an authenticating party installs for a
-       certificate requires the full walk.  A tick that fails this check
-       MUST NOT be installed or presented.  The authenticating party
-       discards it and continues to serve its most recent still-valid
-       tick, retrying as under Section 10.4.  This catches a corrupted,
-       truncated, or misrouted (wrong-entry) response before it is ever
-       presented in a handshake, where it would otherwise cause relying
-       parties to reject the certificate.  The authenticating party
-       SHOULD additionally check that tick.period is the period it
-       currently expects, so that an unexpectedly stale or future-dated
-       response is also rejected.  Because a stale-but-genuine tick
-       still hashes to the anchor, only this freshness check detects it.
-       This part is a SHOULD rather than a MUST because clock skew
-       between the authenticating party and the CA can legitimately
-       shift the served period by one (Section 14.10).  A deployment MAY
-       narrow it to strict equality where both clocks are trusted.
+       than tick.period of them.  This shortcut applies only when the
+       fetched period is greater than the one it holds.  A response
+       carrying a lower period is stale or misrouted, and an
+       authenticating party MUST NOT compute the difference in unsigned
+       arithmetic, which would underflow into an enormous iteration
+       count driven by a response it has not yet authenticated (the same
+       hazard the verifier faces in Section 9).  It falls back to the
+       full walk to the anchor, or discards the response.  This is
+       transitively a verification against the anchor, because the held
+       tick was itself verified against the anchor, so it is neither
+       weaker nor an approximation.  Only the first tick an
+       authenticating party installs for a certificate requires the full
+       walk.  A tick that fails this check MUST NOT be installed or
+       presented.  The authenticating party discards it and continues to
+       serve its most recent still-valid tick, retrying as under
+       Section 10.4.  This catches a corrupted, truncated, or misrouted
+       (wrong-entry) response before it is ever presented in a
+       handshake, where it would otherwise cause relying parties to
+       reject the certificate.  The authenticating party SHOULD
+       additionally check that tick.period is the period it currently
+       expects, so that an unexpectedly stale or future-dated response
+       is also rejected.  Because a stale-but-genuine tick still hashes
+       to the anchor, only this freshness check detects it.  This part
+       is a SHOULD rather than a MUST because clock skew between the
+       authenticating party and the CA can legitimately shift the served
+       period by one (Section 14.10).  A deployment MAY narrow it to
+       strict equality where both clocks are trusted.
 
    3.  The authenticating party updates the HashChainTick carried in its
        certificate's MTCProof (signatureValue) with the newly fetched
@@ -2281,17 +2297,21 @@ Table of Contents
    migration to a new primitive.  Its security rests solely on the
    preimage resistance of the hash function, for which the best known
    quantum attack is Grover's algorithm, a quadratic speed-up.  Against
-   SHA-256 that leaves work on the order of 2^128, an ample margin for
-   all foreseeable certificate lifetimes.  The non-revocation proof
-   relies on no collision resistance, because a revealed value is bound
-   to a specific hash chain by the committed anchor and the per-entry
-   domain separation of Section 6, not by any collision property.  The
-   weaker quantum bounds on collision finding therefore do not apply
-   (tbs_cert_entry_hash, the sole hash used for uniqueness rather than
-   as part of the proof, is discussed under Section 10).  It also
-   inherits whatever hash the CA's issuance log uses (Section 4), so a
-   CA that moves to a larger or post-quantum-oriented hash carries this
-   mechanism along with no change here.
+   SHA-256 that leaves work on the order of 2^128 for a single target.
+   Because the hash chain is salted per CA rather than per certificate
+   (Section 6), an attacker content to invert any one of a CA's chains
+   can search them together, which at 10^9 certificates costs about
+   2^226 classically and 2^113 quantumly.  Both remain ample margins for
+   all foreseeable certificate lifetimes, and they are the figures the
+   rest of this document refers to.  The non-revocation proof relies on
+   no collision resistance, because a revealed value is bound to a
+   specific hash chain by the committed anchor rather than by any
+   collision property.  The weaker quantum bounds on collision finding
+   therefore do not apply (tbs_cert_entry_hash, the sole hash used for
+   uniqueness rather than as part of the proof, is discussed under
+   Section 10).  It also inherits whatever hash the CA's issuance log
+   uses (Section 4), so a CA that moves to a larger or post-quantum-
+   oriented hash carries this mechanism along with no change here.
 
    Just as importantly, this mechanism keeps post-quantum signatures off
    the per-period revocation path.  A signed-status approach, using
@@ -5031,10 +5051,11 @@ G.5.  Truncating the Anchor and Tick
    against Grover's algorithm (Section 14.2).  At the full 256 bits that
    leaves about 2^128, an ample quantum margin.  Truncated to 128 bits
    it leaves about 2^64, which is not a margin at all for a mechanism
-   whose entire premise is post-quantum readiness.  Multi-target attacks
-   make it worse rather than better, since a CA publishes on the order
-   of 10^9 anchors and an attacker needs only one forgery to keep one
-   revoked certificate alive.
+   whose entire premise is post-quantum readiness.  Multi-target search
+   makes it worse still.  An attacker needs only one forgery to keep one
+   revoked certificate alive, and searching a CA's 10^9 anchors together
+   brings the quantum cost of a truncated anchor to about 2^49
+   (Section 14.2).
 
    The economics are also poor even setting security aside.  The 16
    bytes come off a TBSCertificateLogEntry of a few hundred bytes, so

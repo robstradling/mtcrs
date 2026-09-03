@@ -2417,7 +2417,7 @@ That is satisfiable where a CA's issuance front end and log sequencer are one co
 Carrying a salt in the certificate instead would avoid the constraint but enlarge every committed entry, and a value drawn from the same generator as the seed would repeat exactly when the seed did.
 Deriving one from the certificate or the entry is circular, since the anchor is committed inside both and any salt must be fixed before the chain that produces it.<a href="#section-6-7" class="pilcrow">¶</a></p>
 <p id="section-6-8">What per-entry salting would have bought is small.
-It would frustrate a preimage search mounted against the whole certificate population at once, which at 10<sup>9</sup> certificates costs about 2<sup>226</sup> classically and 2<sup>113</sup> under Grover's algorithm, against 2<sup>256</sup> and 2<sup>128</sup> for an isolated target (<a href="#post-quantum" class="auto internal xref">Section 14.2</a>).
+It would frustrate a preimage search mounted against a CA's whole certificate population at once, which the per-CA salting permits and which is far out of reach either way (<a href="#post-quantum" class="auto internal xref">Section 14.2</a>).
 It would also keep two chains apart if a seed-generation fault repeated a seed across entries, which the per-CA salt does not, so that residue rests on the quality of the seed (<a href="#seed-confidentiality" class="auto internal xref">Section 14.3</a>).<a href="#section-6-8" class="pilcrow">¶</a></p>
 <p id="section-6-9">The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5" class="relref">Section 5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).<a href="#section-6-9" class="pilcrow">¶</a></p>
 </section>
@@ -3231,17 +3231,20 @@ The authenticating party retries according to the Retry-After header (<a href="#
 </dd>
         <dd class="break"></dd>
 </dl>
-<p id="section-10.4-4">Any other status code carries its ordinary HTTP semantics (<span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>).
-An authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.<a href="#section-10.4-4" class="pilcrow">¶</a></p>
-<p id="section-10.4-5">Requiring the period 0 tick to be served, rather than permitting it, would not make a 404 mean "revoked".
+<p id="section-10.4-4">An authenticating party follows redirects, which is what lets a CA migrate its tick infrastructure by redirecting from the old origin while renewals propagate the new base URL (<a href="#discovery" class="auto internal xref">Section 10.2</a>).
+It <span class="bcp14">SHOULD</span> bound the number it follows for a single fetch.
+Following one is safe even to an untrusted target, since whatever is returned is verified against the anchor committed in the authenticating party's own certificate before it is installed (<a href="#ap-behavior" class="auto internal xref">Section 12</a>), so a redirect to a hostile origin can deny service but cannot forge a tick.<a href="#section-10.4-4" class="pilcrow">¶</a></p>
+<p id="section-10.4-5">Any other status code carries its ordinary HTTP semantics (<span>[<a href="#RFC9110" class="cite xref">RFC9110</a>]</span>).
+An authenticating party treats any response that is neither a 200 nor a redirect it follows as "no fresh tick obtained on this attempt", and falls back to its most recent still-valid tick.<a href="#section-10.4-5" class="pilcrow">¶</a></p>
+<p id="section-10.4-6">Requiring the period 0 tick to be served, rather than permitting it, would not make a 404 mean "revoked".
 Revocation is only one of several causes of a missing tick, alongside an origin outage, a cache miss, and a distributor that has not yet received the current bundle (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>), and those arise in every period.
-The ambiguity is therefore neither introduced nor removed by the period 0 case, and enforcement rests throughout on the presence of a fresh tick rather than the absence of one (<a href="#revocation-transparency" class="auto internal xref">Section 14.8</a>).<a href="#section-10.4-5" class="pilcrow">¶</a></p>
-<p id="section-10.4-6">The CA <span class="bcp14">SHOULD</span> set HTTP cache headers with a max-age no longer than <code>tick_interval</code> seconds.
-For example:<a href="#section-10.4-6" class="pilcrow">¶</a></p>
-<div class="lang-http-message sourcecode" id="section-10.4-7">
+The ambiguity is therefore neither introduced nor removed by the period 0 case, and enforcement rests throughout on the presence of a fresh tick rather than the absence of one (<a href="#revocation-transparency" class="auto internal xref">Section 14.8</a>).<a href="#section-10.4-6" class="pilcrow">¶</a></p>
+<p id="section-10.4-7">The CA <span class="bcp14">SHOULD</span> set HTTP cache headers with a max-age no longer than <code>tick_interval</code> seconds.
+For example:<a href="#section-10.4-7" class="pilcrow">¶</a></p>
+<div class="lang-http-message sourcecode" id="section-10.4-8">
 <pre>
 Cache-Control: public, max-age=3600
-</pre><a href="#section-10.4-7" class="pilcrow">¶</a>
+</pre><a href="#section-10.4-8" class="pilcrow">¶</a>
 </div>
 </section>
 </div>
@@ -3292,6 +3295,9 @@ It is the counterpart to <a href="#verification" class="auto internal xref">Sect
           <p id="section-12-3.2.1">Before installing a fetched tick, the authenticating party <span class="bcp14">MUST</span> verify it against the anchor committed in its own certificate: that hashing <code>tick.value</code> forward <code>tick.period</code> times yields the anchor (<a href="#verification" class="auto internal xref">Section 9</a>).
 It <span class="bcp14">MAY</span> instead verify the tick against one it has already verified for an earlier period, by hashing the new value forward the difference between the two periods and comparing the result with the value it holds.
 Consecutive revealed values are adjacent in the hash chain, since period t reveals <code>h[hash_chain_length - t]</code> (<a href="#revealing-values" class="auto internal xref">Section 5.1</a>), so the ordinary case of a single elapsed period costs one hash computation rather than <code>tick.period</code> of them.
+This shortcut applies only when the fetched period is greater than the one it holds.
+A response carrying a lower period is stale or misrouted, and an authenticating party <span class="bcp14">MUST NOT</span> compute the difference in unsigned arithmetic, which would underflow into an enormous iteration count driven by a response it has not yet authenticated (the same hazard the verifier faces in <a href="#verification" class="auto internal xref">Section 9</a>).
+It falls back to the full walk to the anchor, or discards the response.
 This is transitively a verification against the anchor, because the held tick was itself verified against the anchor, so it is neither weaker nor an approximation.
 Only the first tick an authenticating party installs for a certificate requires the full walk.
 A tick that fails this check <span class="bcp14">MUST NOT</span> be installed or presented.
@@ -3419,8 +3425,10 @@ With a one-hour <code>tick_interval</code> and a 47-day lifetime, the hash chain
         </h3>
 <p id="section-14.2-1">This mechanism is post-quantum robust as specified and needs no migration to a new primitive.
 Its security rests solely on the preimage resistance of the hash function, for which the best known quantum attack is Grover's algorithm, a quadratic speed-up.
-Against SHA-256 that leaves work on the order of 2<sup>128</sup>, an ample margin for all foreseeable certificate lifetimes.
-The non-revocation proof relies on no collision resistance, because a revealed value is bound to a specific hash chain by the committed anchor and the per-entry domain separation of <a href="#encoding" class="auto internal xref">Section 6</a>, not by any collision property.
+Against SHA-256 that leaves work on the order of 2<sup>128</sup> for a single target.
+Because the hash chain is salted per CA rather than per certificate (<a href="#encoding" class="auto internal xref">Section 6</a>), an attacker content to invert any one of a CA's chains can search them together, which at 10<sup>9</sup> certificates costs about 2<sup>226</sup> classically and 2<sup>113</sup> quantumly.
+Both remain ample margins for all foreseeable certificate lifetimes, and they are the figures the rest of this document refers to.
+The non-revocation proof relies on no collision resistance, because a revealed value is bound to a specific hash chain by the committed anchor rather than by any collision property.
 The weaker quantum bounds on collision finding therefore do not apply (<code>tbs_cert_entry_hash</code>, the sole hash used for uniqueness rather than as part of the proof, is discussed under <a href="#distribution" class="auto internal xref">Section 10</a>).
 It also inherits whatever hash the CA's issuance log uses (<a href="#construction" class="auto internal xref">Section 4</a>), so a CA that moves to a larger or post-quantum-oriented hash carries this mechanism along with no change here.<a href="#section-14.2-1" class="pilcrow">¶</a></p>
 <p id="section-14.2-2">Just as importantly, this mechanism keeps post-quantum signatures off the per-period revocation path.
@@ -5385,7 +5393,8 @@ The non-revocation guarantee rests on preimage resistance (<a href="#hash-functi
 An n-bit hash offers 2<sup>n</sup> preimage resistance classically but only about 2<sup>n/2</sup> against Grover's algorithm (<a href="#post-quantum" class="auto internal xref">Section 14.2</a>).
 At the full 256 bits that leaves about 2<sup>128</sup>, an ample quantum margin.
 Truncated to 128 bits it leaves about 2<sup>64</sup>, which is not a margin at all for a mechanism whose entire premise is post-quantum readiness.
-Multi-target attacks make it worse rather than better, since a CA publishes on the order of 10<sup>9</sup> anchors and an attacker needs only one forgery to keep one revoked certificate alive.<a href="#appendix-G.5-2" class="pilcrow">¶</a></p>
+Multi-target search makes it worse still.
+An attacker needs only one forgery to keep one revoked certificate alive, and searching a CA's 10<sup>9</sup> anchors together brings the quantum cost of a truncated anchor to about 2<sup>49</sup> (<a href="#post-quantum" class="auto internal xref">Section 14.2</a>).<a href="#appendix-G.5-2" class="pilcrow">¶</a></p>
 <p id="appendix-G.5-3">The economics are also poor even setting security aside.
 The 16 bytes come off a TBSCertificateLogEntry of a few hundred bytes, so the entry shrinks by a few percent, and off a handshake already carrying an inclusion proof and cosignatures, where the tick is not the dominant term (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
 A truncation length would additionally have to be either fixed, creating a second notion of hash size alongside the CA's HASH, or carried per certificate as a further parameter, adding a knob and a negotiation surface to a structure whose simplicity is the point (<a href="#construction" class="auto internal xref">Section 4</a>).<a href="#appendix-G.5-3" class="pilcrow">¶</a></p>
