@@ -425,6 +425,16 @@ The point is only that each verifier takes the value from the certificate, not f
 
 ## Chain Generation
 
+The entry's serial number must be fixed before any hash chain value can be computed.
+HashChainInput is salted with `serial_number` ({{encoding}}), and the base specification constructs that serial from the entry's zero-based index in the issuance log ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}), so a CA MUST determine that index before performing step 2 below.
+The dependency runs in one direction only.
+The index fixes the serial, the serial permits the hash chain, the hash chain yields the anchor, and the anchor is committed in the very entry that occupies that index.
+
+This constrains the order of a CA's own operations rather than its relationships with anyone else.
+An issuance log has no public submission interface and contains only the entries its operator, which is the CA itself, chose to add ({{Section 5.2 of !I-D.ietf-plants-merkle-tree-certs}}), so allocating an index ahead of constructing the entry is an internal matter.
+A CA whose pipeline would otherwise assign indices only when entries are sequenced into a subtree therefore allocates earlier instead.
+Because indices are consecutive and the log admits no gaps, a CA that reserves an index and then does not issue MAY fill it with a `null_entry`, which the base specification permits at any index ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}) and whose certification is a no-op ({{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}}).
+
 At certificate issuance time, for each log entry, the CA generates a hash chain as follows:
 
 1. Generate a seed of HASH_SIZE bytes (32 bytes for SHA-256) using a cryptographically secure random number generator ({{?RFC4086}}) or an approved deterministic random bit generator.
@@ -635,6 +645,11 @@ The second is cost.
 HashChainInput is hashed once per forward step, up to `hash_chain_length` - 1 times per verification ({{verification}}).
 Substituting a 32-byte hash for the 8-byte serial number would push a typical structure past the 55 bytes SHA-256 accommodates in a single compression block, roughly doubling that work.
 The serial number avoids both, and its uniqueness across a CA's entries follows from its construction rather than from any collision property.
+
+That last property is also why the serial is preferred to a random per-entry salt committed beside the anchor, which would avoid the issuance ordering constraint the serial imposes ({{construction}}).
+Such a salt would add bytes to every committed entry and to every hashed input, and its uniqueness would rest on the same random number generator that produced the seed.
+The serial's does not.
+It is unique by construction, which is what makes it effective against the seed-repetition fault the salt is there to cover, since a generator that repeated a seed would be likely to repeat a random salt alongside it.
 
 The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
 
