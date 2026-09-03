@@ -1238,7 +1238,7 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   The authenticating party retries according to the Retry-After header ({{load-distribution}}).
 
 An authenticating party follows redirects, which is what lets a CA migrate its tick infrastructure by redirecting from the old origin while renewals propagate the new base URL ({{discovery}}).
-It SHOULD bound the number it follows for a single fetch.
+It SHOULD bound the number it follows for a single fetch, for which five is ample.
 Following one is safe even to an untrusted target, since whatever is returned is verified against the anchor committed in the authenticating party's own certificate before it is installed ({{ap-behavior}}), so a redirect to a hostile origin can deny service but cannot forge a tick.
 
 Any other status code carries its ordinary HTTP semantics ({{!RFC9110}}).
@@ -1310,6 +1310,7 @@ For each certificate it serves, the authenticating party periodically fetches th
    A deployment MAY narrow it to strict equality where both clocks are trusted.
 
 3. The authenticating party updates the HashChainTick carried in its certificate's MTCProof (`signatureValue`) with the newly fetched value.
+   Under the RECOMMENDED encoding that is an overwrite of the trailing 2 + HASH_SIZE bytes, since `status_tick` is the last field of the structure and is fixed-size ({{tick-trailing-field}}).
    The inclusion proof and cosignatures remain unchanged.
 
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
