@@ -3348,9 +3348,16 @@ Table of Contents
    verifying the current tick by hashing it forward only the difference
    between the two periods, for the same reason and with the same
    security as the authenticating party's incremental check
-   (Section 12).  On a battery-powered sensor or wearable one
-   verification costs a fraction of a millijoule, comparable to the
-   asymmetric operations the same handshake performs.
+   (Section 12).  As there, the shortcut applies only when the presented
+   period exceeds the retained one, and a relying party MUST NOT compute
+   the difference in unsigned arithmetic.  The opposite case arises
+   without an attacker, since the acceptance window admits
+   expected_period - 1 while the relying party may hold a tick for
+   expected_period itself, so a presented period below the retained one
+   is ordinary and the relying party verifies from the anchor instead.
+   On a battery-powered sensor or wearable one verification costs a
+   fraction of a millijoule, comparable to the asymmetric operations the
+   same handshake performs.
 
    Selecting a different hash function does not materially change any of
    this.  The cost is one compression block per elapsed period whatever
@@ -4333,8 +4340,12 @@ F.3.  Why One Hour (or One Day) Periods
 
    A one-hour tick_interval provides a good balance:
 
-   Revocation latency:  A compromised key is unusable within at most two
-      hours (current period + grace period).
+   Revocation latency:  A certificate stops being usable within at most
+      two hours of the CA's decision to revoke it, the current period
+      plus the one preceding period the acceptance window admits
+      (Section 14.10).  That bound is per certificate, so retiring a
+      compromised key means revoking every unexpired certificate for it
+      (Section 14.9).
 
    Operational feasibility:  Authenticating parties must fetch a new
       tick once per hour.  This is a trivial HTTP request for a small
@@ -4626,13 +4637,13 @@ F.6.2.  Why OCSP Stapling Is Not Enforceable, and This Is
    protects relying parties, but the party impersonated by a compromised
    key is the subscriber itself, and without enforceable revocation that
    impersonation can continue for as long as the certificate remains
-   valid.  An operator able to have a compromised certificate made
-   unusable within two periods, rather than waiting out its remaining
-   lifetime, is buying something for itself.  The risk taken in exchange
-   is warned rather than sudden, since a failure to refresh raises an
-   operational alarm while the certificate is still working
-   (Section 12), and it is recoverable by ordinary certificate selection
-   rather than by any new failover machinery (Section 15.1).
+   valid.  An operator able to have that certificate made unusable
+   within two periods, rather than waiting out its remaining lifetime,
+   is buying something for itself.  The risk taken in exchange is warned
+   rather than sudden, since a failure to refresh raises an operational
+   alarm while the certificate is still working (Section 12), and it is
+   recoverable by ordinary certificate selection rather than by any new
+   failover machinery (Section 15.1).
 
    What remains true is that an ecosystem requiring this mechanism makes
    tick distribution part of its availability floor, which is the

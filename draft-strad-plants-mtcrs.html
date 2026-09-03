@@ -4080,6 +4080,8 @@ A resumed session carries no Certificate message and verifies no tick (<a href="
 The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
 A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, <span class="bcp14">MAY</span> cache the verified result and skip the forward hashing on repeat.
 One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).
+As there, the shortcut applies only when the presented period exceeds the retained one, and a relying party <span class="bcp14">MUST NOT</span> compute the difference in unsigned arithmetic.
+The opposite case arises without an attacker, since the acceptance window admits <code>expected_period</code> - 1 while the relying party may hold a tick for <code>expected_period</code> itself, so a presented period below the retained one is ordinary and the relying party verifies from the anchor instead.
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.<a href="#section-15.6-6" class="pilcrow">¶</a></p>
 <p id="section-15.6-7">Selecting a different hash function does not materially change any of this.
 The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA (<a href="#construction" class="auto internal xref">Section 4</a>) rather than choosing it, which is what lets it avoid carrying an algorithm identifier of its own.
@@ -4933,7 +4935,8 @@ It is this simultaneity, not any single property, that distinguishes hash chains
 <span class="break"></span><dl class="dlParallel" id="appendix-F.3-2">
           <dt id="appendix-F.3-2.1">Revocation latency:</dt>
           <dd style="margin-left: 1.5em" id="appendix-F.3-2.2">
-            <p id="appendix-F.3-2.2.1">A compromised key is unusable within at most two hours (current period + grace period).<a href="#appendix-F.3-2.2.1" class="pilcrow">¶</a></p>
+            <p id="appendix-F.3-2.2.1">A certificate stops being usable within at most two hours of the CA's decision to revoke it, the current period plus the one preceding period the acceptance window admits (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>).
+That bound is per certificate, so retiring a compromised key means revoking every unexpired certificate for it (<a href="#downgrade" class="auto internal xref">Section 14.9</a>).<a href="#appendix-F.3-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="appendix-F.3-2.3">Operational feasibility:</dt>
@@ -5121,7 +5124,7 @@ Must-Staple's early adopters carried the whole risk through a long interval in w
 A mechanism folded into MTC before deployment has no such interval.<a href="#appendix-F.6.2-8" class="pilcrow">¶</a></p>
 <p id="appendix-F.6.2-9">And the operator is not purely subsidizing others.
 Revocation protects relying parties, but the party impersonated by a compromised key is the subscriber itself, and without enforceable revocation that impersonation can continue for as long as the certificate remains valid.
-An operator able to have a compromised certificate made unusable within two periods, rather than waiting out its remaining lifetime, is buying something for itself.
+An operator able to have that certificate made unusable within two periods, rather than waiting out its remaining lifetime, is buying something for itself.
 The risk taken in exchange is warned rather than sudden, since a failure to refresh raises an operational alarm while the certificate is still working (<a href="#ap-behavior" class="auto internal xref">Section 12</a>), and it is recoverable by ordinary certificate selection rather than by any new failover machinery (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).<a href="#appendix-F.6.2-9" class="pilcrow">¶</a></p>
 <p id="appendix-F.6.2-10">What remains true is that an ecosystem requiring this mechanism makes tick distribution part of its availability floor, which is the substance of the trade (<a href="#availability-considerations" class="auto internal xref">Section 15.1</a>).<a href="#appendix-F.6.2-10" class="pilcrow">¶</a></p>
 </section>
