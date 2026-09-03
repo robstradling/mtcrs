@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                           2 September 2026
-Expires: 6 March 2027
+Intended status: Experimental                           3 September 2026
+Expires: 7 March 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 6 March 2027.
+   This Internet-Draft will expire on 7 March 2027.
 
 Copyright Notice
 
@@ -152,11 +152,7 @@ Table of Contents
    Appendix C.  Amendments Requested of the Base Specification
    Appendix D.  Open Questions for the Working Group
    Appendix E.  Proposed MTCProof Extensibility
-     E.1.  Motivation
-     E.2.  Proposed Amendment
-     E.3.  Hash Chain Tick as a Proof Extension
-     E.4.  Backward Compatibility
-     E.5.  Considerations for the proof_extensions Field
+     E.1.  Considerations for the proof_extensions Field
    Appendix F.  Design Rationale
      F.1.  Why Functional Revocation Is Superior to Passive Expiry
        F.1.1.  The Role of CA Validation Frequency
@@ -282,7 +278,6 @@ Table of Contents
    it each full handshake re-checks a live non-revocation proof where
    passive expiry consults only a static notAfter.
 
-   A further point is better met directly than left to be inferred.
    This mechanism adds a per-certificate, per-period distribution
    service to a design that deliberately avoids per-certificate online
    infrastructure, and at scale that service is substantial.  A CA
@@ -1036,9 +1031,7 @@ Table of Contents
    only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and
    extension framing.  That is about 50 bytes per entry for SHA-256, of
    which 36 are the HashChainAnchorInfo itself (Appendix B) and the rest
-   the X.509 extension's OBJECT IDENTIFIER and wrapper.  This is not a
-   negligible addition, and it is quantified plainly here because
-   compactness is a principal goal of the base design.  A domain-
+   the X.509 extension's OBJECT IDENTIFIER and wrapper.  A domain-
    validated entry, whose subject is empty and whose public key appears
    only as a hash, runs to roughly 200 to 250 bytes, so the anchor
    enlarges it by something like a fifth to a quarter.  Entries carrying
@@ -1055,13 +1048,14 @@ Table of Contents
    signatures (Appendix G.11) this mechanism avoids.  The second is the
    certificate presentation, where the same anchor bytes travel in each
    handshake as ordinary TBSCertificate content.  The inclusion proof is
-   unaffected.  Its size depends on tree depth, not entry size, so the
-   anchor adds no hashes to the proof path.  That proof is also the
-   right yardstick for the per-handshake cost, since the anchor and the
-   tick travel beside it.  The base specification estimates it at 384
-   bytes for a standalone certificate and 736 bytes for a landmark-
-   relative one (Section 6.5 of [I-D.ietf-plants-merkle-tree-certs]).
-   Against that, the 34-byte tick (Section 8) is some 5 to 9 percent.
+   unaffected, since its size depends on tree depth rather than entry
+   size, so the anchor adds no hashes to the proof path.  That proof is
+   also the right yardstick for the per-handshake cost, since the anchor
+   and the tick travel beside it.  The base specification estimates it
+   at 384 bytes for a standalone certificate and 736 bytes for a
+   landmark-relative one (Section 6.5 of
+   [I-D.ietf-plants-merkle-tree-certs]).  Against that, the 34-byte tick
+   (Section 8) is some 5 to 9 percent.
 
    This committed cost is the unavoidable price of self-authentication.
    Unlike the tick base URL, which is deliberately kept out of the
@@ -1188,7 +1182,7 @@ Table of Contents
    encoding (Appendix G.8) is an alternative for a base specification
    that additionally wants a general, reusable proof-level extensibility
    point (Appendix E).  As a general "ignore if unknown" channel it
-   carries the abuse surface discussed in Appendix E.5, which for a
+   carries the abuse surface discussed in Appendix E.1, which for a
    single tick is not otherwise justified.
 
 8.1.1.  Preferred Encoding: Trailing status_tick Field
@@ -1277,7 +1271,7 @@ Table of Contents
    fully verified against the committed anchor (Section 9), it adds no
    variable-length "ignore if unknown" region and hence no general
    stuffing or covert-channel surface (contrast Appendix G.8 and
-   Appendix E.5).  Its only cost is that carrying a second proof-level
+   Appendix E.1).  Its only cost is that carrying a second proof-level
    mechanism in future would require a further base-specification
    change.
 
@@ -1623,7 +1617,7 @@ Table of Contents
    authenticating party that implements only this interface can always
    obtain its ticks from any conforming CA.  Nothing in this section
    concerns relying parties, which verify the embedded tick offline and
-   MUST NOT fetch ticks (Section 14.5).
+   never fetch (Section 14.5).
 
    At large deployment scale, tick distribution is dominated by
    aggregate request volume rather than per-request cost.  A CA serving
@@ -1826,9 +1820,9 @@ Table of Contents
    certificate fetch affordance in a field relying parties routinely
    parse.  Only the authenticating party is given the base URL through
    provisioning, because only it needs to refresh the value it presents.
-   Relying parties verify the embedded tick offline (Section 9) and MUST
-   NOT fetch ticks (Section 14.5).  The base URL (or, for unguessable
-   tick URLs, the full per-certificate URL) is delivered once at
+   Relying parties verify the embedded tick offline (Section 9) and
+   never fetch (Section 14.5).  The base URL (or, for unguessable tick
+   URLs, the full per-certificate URL) is delivered once at
    provisioning.  The authenticating party MUST retain it for as long as
    it presents the certificate and reuse it to refresh the tick each
    period (Section 10), rather than rediscovering it per fetch.
@@ -2200,7 +2194,7 @@ Table of Contents
 
    No relying-party activity is exposed.  The current tick is embedded
    in the certificate presentation and verified offline against the
-   committed anchor, and relying parties MUST NOT fetch ticks
+   committed anchor, and relying parties never fetch ticks
    (Section 14.5).  Consequently the CA learns nothing about which
    certificates a relying party validates or which sites it visits.
    This is the central privacy difference from client-driven OCSP
@@ -2217,7 +2211,7 @@ Table of Contents
    deployed.  The request identifies the authenticating party's own
    certificate rather than any relying party, so it discloses no
    relying-party activity.  It is nonetheless a disclosure this
-   mechanism introduces, and two aspects of it are worth stating.
+   mechanism introduces, in two respects.
 
    A certificate is public, but its deployment need not be.  Publicly
    issued certificates are routinely used on hosts that are not
@@ -2439,7 +2433,7 @@ Table of Contents
    signature: it is mutable and can carry data that relying parties
    ignore.  Hash chain revocation does not rely on its authenticity,
    because the tick is self-authenticating and its presence is mandated
-   by the committed id-pe-hashChainAnchor extension.  Appendix E.5
+   by the committed id-pe-hashChainAnchor extension.  Appendix E.1
    discusses the general risks of this field (bloat, covert channels,
    and a strippable soft-fail for other mechanisms) and the constraints
    recommended for the base specification.
@@ -2679,14 +2673,13 @@ Table of Contents
    (Section 14.7).  Withholding ticks alone would revoke only the
    certificates that carry an anchor.
 
-   That fallback is weaker than the mechanism it stands in for, and this
-   document does not claim otherwise.  Revoked ranges are relying-party
-   configuration distributed out of band, so they reach only the relying
-   parties that receive them (Section 14.7), which is the same property
-   this document gives as a reason not to depend on external revocation
-   systems (Appendix G.10).  For a key whose certificates do not all
-   carry anchors, the effective guarantee is that of the weakest
-   certificate for that key.
+   That fallback is weaker than the mechanism it stands in for.  Revoked
+   ranges are relying-party configuration distributed out of band, so
+   they reach only the relying parties that receive them (Section 14.7),
+   which is the same property this document gives as a reason not to
+   depend on external revocation systems (Appendix G.10).  For a key
+   whose certificates do not all carry anchors, the effective guarantee
+   is that of the weakest certificate for that key.
 
    Unanchored certificates for a key are most likely to exist during a
    transition.  A deployment presenting a Merkle Tree Certificate to
@@ -2849,7 +2842,7 @@ Table of Contents
    If the base specification adopts the general proof_extensions field
    (Appendix E), further relying-party handling applies: size-budget
    enforcement, committed admissibility, and unknown-type handling
-   (Appendix E.5).
+   (Appendix E.1).
 
    The resilience levers that involve holding certificates from multiple
    CAs, operating redundant tick distribution, and choosing
@@ -2941,14 +2934,14 @@ Table of Contents
       holding certificates from two or three CAs is modest relative to
       the resilience gained.
 
-   The last of these mitigations rests on an assumption worth stating.
-   Ticks are safe to delegate because they are self-authenticating, so a
-   CA is encouraged to serve them from mirrors, content delivery
-   networks, or other distributors (Section 15.5).  Relatively few
-   operators run distribution infrastructure at that scale, so two CAs
-   may delegate to the same one, and their tick availability is then
-   perfectly correlated.  Holding certificates from both buys nothing in
-   that case, and the concentration makes the failure large as well as
+   The last of these mitigations rests on an assumption.  Ticks are safe
+   to delegate because they are self-authenticating, so a CA is
+   encouraged to serve them from mirrors, content delivery networks, or
+   other distributors (Section 15.5).  Relatively few operators run
+   distribution infrastructure at that scale, so two CAs may delegate to
+   the same one, and their tick availability is then perfectly
+   correlated.  Holding certificates from both buys nothing in that
+   case, and the concentration makes the failure large as well as
    correlated, since a single distributor's outage renders every
    affected certificate unusable once its runway expires, whichever CA
    issued it.  A deployment relying on multi-CA failover SHOULD
@@ -2994,89 +2987,63 @@ Table of Contents
 
 15.2.1.  Storing Versus Recomputing Hash Chain Values
 
-   Within a single hash chain, a CA does not have to choose between the
-   two naive extremes:
+   Neither naive extreme is attractive at scale.  Storing each hash
+   chain in full costs O(L) per certificate, roughly 35 KiB at L = 1128
+   (a 47-day lifetime with a one-hour period), or some 36 TB across 10^9
+   certificates.  Storing only the seed costs O(1) but recomputes each
+   revealed value from scratch, up to L hash evaluations, which is
+   O(L^2) hashing over the certificate's lifetime.
 
-   Store the entire hash chain:  O(L) storage per certificate, but each
-      revealed value is a free lookup.  For L = 1128 (a 47-day lifetime
-      with a one-hour period), this is roughly 35 KiB per certificate,
-      or about 36 TB across 1 billion certificates.
-
-   Store only the seed:  O(1) storage per certificate, but recomputing
-      the value revealed in period t costs up to L hash evaluations (L/2
-      on average).  Over a certificate's lifetime this is O(L^2)
-      hashing.
-
-   A CA MAY instead use *fractal hash chain traversal* [FRACTAL]
-   [ALMOST-OPTIMAL] to obtain a logarithmic middle ground.  The hash
-   chain is revealed in reverse of the order in which it is computed
-   (the CA computes h[1..L] forward from the secret seed h[0], but
-   reveals h[L-1], h[L-2], ..., h[1] over time), which is exactly the
-   setting these algorithms address.  Instead of the whole hash chain or
-   just the seed, the CA maintains a small set of precomputed helper
-   values ("pebbles") parked at self-similar positions along the hash
-   chain.  When the value for the current period is needed, a pebble is
-   already there.  Between periods the CA spends a small fixed budget of
-   hash evaluations advancing the more distant pebbles toward the
-   positions where they will next be needed.  The scheduling guarantees:
-
-   storage  ~ log2(L)      hash values per certificate
-   work     ~ (1/2) log2(L) hash evaluations per revealed value
-
-   For L = 1128, this is approximately 10 to 11 stored values (~320 to
-   350 bytes) per certificate and about 5 hash evaluations per period.
-   Across 1 billion certificates that is roughly 340 GB of state.  If
-   the traversal is advanced once per period and the resulting value
-   served to all requests in that period, the aggregate is on the order
-   of 10^6 hash evaluations per second.  This dominates a simple square-
-   root checkpoint scheme (which would need ~1.1 TB and up to ~34 hashes
-   per value) on both axes, and turns the seed-only extreme's O(L^2)
-   lifetime cost into O(L log L).
+   A CA MAY instead use fractal hash chain traversal [FRACTAL]
+   [ALMOST-OPTIMAL], which addresses exactly this setting: a hash chain
+   computed forward from a secret seed and revealed in reverse
+   (Section 5.1).  It keeps about log_2(L) precomputed values per
+   certificate, parked at self-similar positions along the hash chain,
+   and spends about half that many hash evaluations per period advancing
+   the more distant of them toward where they will next be needed.  At L
+   = 1128 that is some 350 bytes per certificate, about 340 GB across
+   10^9, and about 5 hash evaluations per revealed value.  It dominates
+   a square-root checkpoint scheme, which would need about 1.1 TB and up
+   to 34 hashes per value, on both axes, and turns the seed-only
+   extreme's O(L^2) lifetime cost into O(L log L).
 
    The hashing is not what binds at that scale.  Advancing every
    certificate's traversal once per period is on the order of 10^5 read-
    modify-write operations per second against those 340 GB, spread
    through the interval as certificates reach their own period
    boundaries (Section 4).  Sizing that state store, rather than the
-   hashing, is the CA-side engineering problem.  A hierarchical chain
+   hashing, is the CA-side engineering problem, and a hierarchical chain
    would remove it entirely, since any value becomes recomputable from
-   the seed and no per-certificate state is kept (Appendix G.6).
-
-   The pebbles are unrevealed hash chain values and therefore carry the
-   same confidentiality requirement as the seed (Section 14.3).
+   the seed and no per-certificate state is kept (Appendix G.6).  The
+   stored values are unrevealed hash chain values and therefore carry
+   the same confidentiality requirement as the seed (Section 14.3).
 
 15.2.2.  Deriving Seeds from a Long-Term CA Secret
 
    The per-certificate seed itself can also be eliminated from storage.
    Instead of generating and storing an independent random seed per
    certificate, a CA MAY derive each seed from a single long-term CA
-   secret with a keyed key-derivation function, for example h[0] = HMAC-
-   SHA256(ca_seed, label || issuer_ca_id || serial_number), or the
-   equivalent with HKDF.  A raw Hash(ca_seed || ...) construction MUST
-   NOT be used, as it invites length-extension and MAC-misuse.  A proper
-   PRF/KDF is required so that derived seeds are computationally
-   indistinguishable from the independent random seeds of Section 4.
-   Any hash chain is then recomputable on demand from ca_seed and the
-   (public) entry identity, giving O(1) secret storage for the entire CA
-   and stateless, reconstructible issuance, with no change visible to
-   verifiers.
+   secret with a keyed KDF or PRF, for example h[0] = HMAC-
+   SHA256(ca_seed, label || issuer_ca_id || serial_number).  The keying
+   is what makes derived seeds computationally indistinguishable from
+   the independent random seeds of Section 4, which is why a raw
+   Hash(ca_seed || ...) is forbidden (Section 14.3).  Any hash chain is
+   then recomputable on demand from ca_seed and the public entry
+   identity, giving O(1) secret storage for the entire CA and stateless,
+   reconstructible issuance, with no change visible to verifiers.
 
    The cost is concentration.  Compromise of ca_seed exposes every
-   certificate's hash chain, past, present, and future, so it MUST be
-   protected at least as strongly as the CA's issuance signing key
-   (Section 14.3).  Being a single small key, it is nonetheless better
-   suited to HSM custody than a bulk per-certificate seed store.
-
-   To bound the blast radius, a CA SHOULD derive per-log or per-epoch
-   sub-seeds (log_seed = KDF(ca_seed, log_number), then h[0] =
-   KDF(log_seed, label || index)), which can be retired as their logs
-   expire.  As with any seed compromise, rotation protects only
-   certificates issued afterward, and already-committed anchors still
-   require the revoked-ranges fallback (Section 14.3).  Rotation is by
-   issuance epoch, not by tick period: a certificate's entire hash chain
-   derives from the seed fixed at issuance, so per-log or per-epoch sub-
-   seeds are the finest granularity at which a compromise can be
-   bounded.
+   certificate's hash chain, past, present, and future, so it demands
+   the custody of an issuance signing key (Section 14.3).  Being a
+   single small key, it is nonetheless better suited to that custody
+   than a bulk per-certificate seed store.  Per-log or per-epoch sub-
+   seeds bound the blast radius and can be retired as their logs expire,
+   and they are the finest granularity available, because a
+   certificate's entire hash chain derives from the seed fixed at its
+   issuance rather than from anything per-period.  As with any seed
+   compromise, rotation protects only certificates issued afterward, and
+   already-committed anchors still require the revoked-ranges fallback
+   (Section 14.3).
 
 15.3.  Distributing Tick Requests
 
@@ -3573,7 +3540,7 @@ Table of Contents
    [I-D.ietf-plants-merkle-tree-certs] adopts the proof_extensions
    mechanism, it, and not this document, is expected to establish the
    corresponding IANA registry, following the allocation policy
-   recommended in Appendix E.5.  This document requests that, in that
+   recommended in Appendix E.1.  This document requests that, in that
    event, the value hash_chain_tick be allocated in that registry with a
    reference to this document.  When the RECOMMENDED trailing
    status_tick encoding (Section 8.1.1) is used instead, no such
@@ -3909,11 +3876,15 @@ Appendix C.  Amendments Requested of the Base Specification
    verification (Section 9), and tick distribution (Section 10).
 
    The MTCProof changes themselves are edits to a structure that the
-   base specification owns: the trailing status_tick field
-   (Section 8.1.1) and, should the working group prefer the general
-   mechanism, the proof_extensions field (Appendix E).  This document
-   specifies them in full so that the required change is concrete and
-   reviewable.  The intent, however, is to hand them to the base MTC
+   base specification owns.  The required one, the trailing status_tick
+   field, is specified here in full so that it is concrete and
+   reviewable (Section 8.1.1).  The optional general mechanism is not,
+   because this document does not use it, and defining a second MTCProof
+   for a field its own certificates would not carry serves nobody.
+   Appendix E instead describes the shape of a proof_extensions field
+   and states the constraints one ought to be given (Appendix E.1),
+   leaving the definition itself to whichever specification adopts it.
+   The intent in both cases is to hand the change to the base MTC
    specification [I-D.ietf-plants-merkle-tree-certs] to incorporate and
    maintain, rather than to keep a competing definition of MTCProof
    here.  If the base specification adopts the change, the corresponding
@@ -3957,7 +3928,7 @@ Appendix D.  Open Questions for the Working Group
        level mechanisms.  If it is adopted, the tick should use it
        rather than a bare trailing field. _Preference:_ not needed for
        hash chain revocation alone, and it carries the abuse surface
-       discussed in Appendix E.5.
+       discussed in Appendix E.1.
 
    4.  *What should the default tick_interval and acceptance window be?*
        The two jointly set revocation latency: a withheld tick stops
@@ -3979,7 +3950,7 @@ Appendix D.  Open Questions for the Working Group
        programs should require.  The one protocol question adjacent to
        them is the width of the tick's period field, which caps how
        short a period can be at all and bounds the forward hashing a CA
-       can impose on relying parties (Section 4).  That is question 8.
+       can impose on relying parties (Section 4).  That is question 7.
 
    5.  *Should period 0 enforce revocation?* The period 0 tick is the
        public anchor, which gives the CA a one-period grace before it
@@ -4009,96 +3980,55 @@ Appendix D.  Open Questions for the Working Group
        carry as the primary name and is used as the gloss at first
        mention instead.
 
-   7.  *Should the hash chain be flat or hierarchical?* A flat chain
-       costs a relying party up to hash_chain_length - 1 hash
-       computations, about 300 microseconds for a 47-day, one-hour-
-       period certificate on a general-purpose core and tens of
-       milliseconds on a constrained one (Section 15.6).  A two-level
-       chain reduces that to about 67, and reduces the worst case any
-       certificate can impose from 65,535 hash computations to 511, at
-       the cost of a 66-byte tick in place of a 34-byte one
-       (Appendix G.6.1).  This question interacts with questions 4 and
-       8, which act on the same quantity by other means.  A longer
-       default tick_interval reduces the typical cost by more than the
-       two-level chain does and spends no bytes, but it does not touch
-       the 65,535 bound, which is what a relying party validating an
-       arbitrary certificate is exposed to.  A narrower period field
-       does touch that bound, which makes question 8 an alternative to
-       this one rather than a complement to it.  The trade is 32 bytes
-       in every handshake against the verification cost borne by the
-       least capable relying party in the ecosystem.  It also determines
-       whether a CA needs per-certificate traversal state at all.  The
-       question is which construction to choose, not whether to permit
-       both.  Recording the choice as a committed field of the
-       HashChainAnchorInfo, DEFAULT-encoded so that the flat case costs
-       no bytes (Section 7), is how a second construction would be
-       carried if one were ever added.  Making it a per-certificate
-       freedom that relying-party policy may insist on is a different
-       proposal, and this document does not recommend it.  The
-       construction is the wrong variable for such a policy, because
-       what a relying party bears is a number of hash computations,
-       which it can already bound directly from committed fields
-       (Section 14.11).  The two do not track each other.  A flat chain
-       over 48 daily periods costs 47 computations, whereas a two-level
-       chain over the longest chain the period field admits costs 511,
-       so a relying party insisting on the hierarchy would reject the
-       cheaper certificate and accept the one ten times dearer.  There
-       is also no way to act on such a policy, since a relying party
-       signals the trust anchors it supports rather than the
-       constructions it accepts (Section 4.5.1.2 of [RFC9846]) and this
-       mechanism adds nothing to the handshake (Section 8.3), so an
-       authenticating party cannot tell which certificate to present.
-       Making the choice selectable would mean issuing each construction
-       under a separate trust anchor, which makes the construction part
-       of trust-anchor identity and doubles relying-party configuration.
-       If any substantial population of relying parties may insist on
-       the hierarchy, every CA seeking universal acceptance must issue
-       it, so the ecosystem pays the additional bytes in every handshake
-       and carries both code paths as well.  A variable-size tick would
-       additionally cost the constant response-length check the
-       distribution interface relies on (Section 10.4) and turn the
-       minimal status_tick amendment into a variable-length one
-       (Section 8.1.1).  Whichever construction is chosen should
-       therefore be chosen once for the ecosystem, as the anchor's home
-       is in question 1. _Preference:_ the flat chain, for its
-       simplicity and its smaller per-handshake cost, but this is the
+   7.  *How should the worst-case verification cost be bounded, and by
+       which lever?* Verification hashes forward once per elapsed
+       period, so a relying party validating an arbitrary certificate is
+       exposed not to the typical cost but to the worst case the wire
+       format permits, which the 16-bit period field fixes at 65,535
+       hash computations however the issuing CA sets its parameters
+       (Section 4, Section 15.6).  Two levers reduce that bound, and
+       they are alternatives rather than complements, since either makes
+       the other unnecessary.  The first is a hierarchical construction.
+       A flat chain costs up to hash_chain_length - 1 hash computations,
+       about 300 microseconds for a 47-day, one-hour-period certificate
+       on a general-purpose core and tens of milliseconds on a
+       constrained one.  A two-level chain reduces that to about 67 and
+       the worst case to 511, at the cost of a 66-byte tick in place of
+       a 34-byte one, and it removes the CA's per-certificate traversal
+       state (Appendix G.6.1, Section 15.2.1).  The trade is 32 bytes in
+       every handshake against the cost borne by the least capable
+       relying party in the ecosystem.  The second is a narrower period
+       field.  An 8-bit field would cap hash_chain_length at 255 and so
+       bound the worst case at 254 hash computations, which is
+       affordable on any verifier, and it would save a byte in every
+       handshake rather than spending 32.  Its price is paid in
+       parameter freedom rather than in bytes, since a 47-day
+       certificate could then use no period shorter than about 4.4
+       hours, with one-hour periods confined to certificates of about
+       ten days or less.  That accommodates the 7-day validity the
+       Chrome policy recommends, which is 168 periods, but forbids the
+       one-hour, 47-day combination the same policy permits
+       ([CHROME-MTC]).  Widening the field instead would permit sub-
+       minute periods on multi-week certificates, at a correspondingly
+       larger worst case for every relying party.  A longer default
+       tick_interval reduces the typical cost by more than a two-level
+       chain does and spends no bytes, but it does not touch this bound
+       at all, and it is question 4 rather than a third lever here
+       because what it trades against is revocation latency.  Whichever
+       lever is chosen, the choice is made once for the ecosystem rather
+       than per certificate (Appendix G.6), as the anchor's home is in
+       question 1. _Preference:_ neither, keeping the flat chain for its
+       simplicity and smaller per-handshake cost, and the 16-bit field
+       because the configuration an 8-bit one would forbid is a
+       configuration a root program currently permits.  This is the
        least settled preference in this section.  A working group that
        treats constrained relying parties as a first-class constituency
-       should prefer the two-level chain.
-
-   8.  *How wide should the tick's period field be?* The field is 16
-       bits, which caps hash_chain_length at 65,535 and so bounds the
-       forward hashing any certificate can impose on a relying party
-       (Section 4).  That bound is the quantity questions 4 and 7 also
-       act on, and the field width is the third lever on it.  Widening
-       the field would permit sub-minute periods on multi-week
-       certificates, at a correspondingly larger worst case for every
-       relying party.  Narrowing it to 8 bits would cap
-       hash_chain_length at 255 and so bound the worst case at 254 hash
-       computations, which is affordable on any verifier, and it would
-       save a byte in every handshake rather than spending 32 as a two-
-       level chain does (Appendix G.6.1).  The price is paid in
-       parameter freedom rather than in bytes.  A 47-day certificate
-       could then use no period shorter than about 4.4 hours, and one-
-       hour periods would be confined to certificates of about ten days
-       or less.  That accommodates the 7-day validity the Chrome policy
-       recommends, which is 168 periods, but forbids the one-hour,
-       47-day combination the same policy permits ([CHROME-MTC]).  An
-       8-bit field would therefore fix in the wire format a limit this
-       document otherwise leaves to root programs, although the 16-bit
-       field is already such a limit at a looser setting, forbidding
-       periods shorter than about 62 seconds on a 47-day certificate.
-       _Preference:_ 16 bits, because the configuration an 8-bit field
-       would forbid is one a root program currently permits, and because
-       the same bound is available from the construction (Appendix G.6)
-       without constraining the CA's parameters at all.  A working group
-       that would rather spend parameter freedom than bytes should
-       prefer 8 bits, and should then not also adopt a hierarchical
-       chain: with hash_chain_length capped at 255 a flat chain's worst
-       case is already 254 computations, so a hierarchy would spend 32
+       should adopt one of the two levers, and should not adopt both,
+       since with hash_chain_length capped at 255 a flat chain's worst
+       case is already affordable and a hierarchy would then spend 32
        bytes to save work that is no longer expensive.
 
-   9.  *Should revocations be recorded in the log?* Revocation here is
+   8.  *Should revocations be recorded in the log?* Revocation here is
        the absence of a tick, so nothing attests that a revocation
        occurred (Section 14.8).  The base specification's
        MTCLogEntryType is extensible, so a revocation entry is
@@ -4131,116 +4061,25 @@ Appendix E.  Proposed MTCProof Extensibility
    mechanisms, beyond hash chain revocation, to attach data to the
    certificate presentation without a further structural change each
    time.  It is not required for hash chain revocation alone, and it
-   carries the abuse surface discussed in Appendix E.5.
+   carries the abuse surface discussed in Appendix E.1.
 
-   Like the trailing-field amendment (Section 8.1.1), this is an edit to
-   a base-specification-owned structure (Appendix C).  It is written out
-   here for concreteness but is intended to be handed to the base MTC
-   specification to adopt and maintain, not kept as a separate
-   definition.  This appendix defines the field and how the tick would
-   be encoded within it.  The case for and against selecting this
-   encoding over the trailing field is made in Appendix G.8, and the
-   constraints a base specification adopting it should impose are
-   collected in Appendix E.5.
+   The structure itself belongs to the base specification, and this
+   appendix deliberately does not define it (Appendix C).  Its shape is
+   not in doubt: a trailing, length-prefixed list of type-and-value
+   pairs, not committed to the Merkle Tree and so freely updatable by
+   the authenticating party, which is what lets it carry a per-period
+   tick where the committed extensions field cannot.  Adopting it would
+   also rename that committed field, to entry_extensions, so that the
+   two are told apart, and the tick would travel as one extension of
+   type hash_chain_tick rather than as a bare trailing field
+   (Appendix G.8).  A relying party predating the change rejects the
+   certificate at the MTCProof parsing stage on the trailing bytes
+   either way, so the transition levers are those of Appendix F.7.
 
-E.1.  Motivation
+   What does need recording, because it does not follow from the shape,
+   is what a base specification adopting the field ought to constrain.
 
-   The current MTCProof is a fixed sequence of fields with no
-   extensibility point, and Section 7.2 of
-   [I-D.ietf-plants-merkle-tree-certs] requires relying parties to
-   reject any data trailing it, so no field can be appended without
-   amending the base specification (Section 8.1.1):
-
-   struct {
-       MTCLogEntryExtension extensions<0..2^16-1>;
-       uint48 start;
-       uint48 end;
-       HashValue inclusion_proof<0..2^16-1>;
-       SubtreeSignature signatures<0..2^16-1>;
-   } MTCProof;
-
-   The existing extensions field carries the log entry's
-   MTCLogEntryExtension values, which are committed to the Merkle Tree
-   and so cannot carry dynamic, per-period data like hash chain ticks,
-   because the inclusion proof would fail.
-
-   A proof-level extensions field, not committed to the tree and freely
-   updatable by the authenticating party, would let the MTCProof carry
-   revocation ticks and other future self-authenticating proof-level
-   values without a new version of the base specification for each.
-
-E.2.  Proposed Amendment
-
-   This document proposes updating [I-D.ietf-plants-merkle-tree-certs]
-   with the following extended MTCProof structure:
-
-   enum { hash_chain_tick(0), (2^16-1) } MTCProofExtensionType;
-
-   struct {
-       MTCProofExtensionType extension_type;
-       opaque extension_data<0..2^16-1>;
-   } MTCProofExtension;
-
-   struct {
-       MTCLogEntryExtension entry_extensions<0..2^16-1>;
-       uint48 start;
-       uint48 end;
-       HashValue inclusion_proof<0..2^16-1>;
-       SubtreeSignature signatures<0..2^16-1>;
-       MTCProofExtension proof_extensions<0..2^16-1>;
-   } MTCProof;
-
-   The proof_extensions field is a variable-length list with a 2-byte
-   length prefix.  When empty, it encodes as two zero bytes (0x0000),
-   adding minimal overhead to certificates that do not use any proof
-   extensions.
-
-   The existing extensions field is renamed to entry_extensions to
-   distinguish it from the new proof_extensions field.  Both are
-   variable-length lists of tag-length-value structures, but they serve
-   different roles: entry_extensions carries the log entry's
-   MTCLogEntryExtension values (committed to the Merkle Tree), while
-   proof_extensions carries proof-level data that can be freely updated
-   without affecting the inclusion proof.
-
-   Relying parties MUST ignore unrecognized proof extension types.
-
-   The "extra data" check in Section 7.2 of
-   [I-D.ietf-plants-merkle-tree-certs] would be amended to account for
-   the trailing proof_extensions field.
-
-E.3.  Hash Chain Tick as a Proof Extension
-
-   With this extensibility mechanism, the HashChainTick (Section 8) is
-   carried as a proof extension rather than as a bare trailing field: as
-   an MTCProofExtension with extension_type set to hash_chain_tick(0)
-   and extension_data containing the serialized tick (2 + HASH_SIZE
-   bytes).
-
-E.4.  Backward Compatibility
-
-   Because the proof_extensions field uses a length-prefixed encoding,
-   an implementation that supports the extended structure but does not
-   recognize a particular extension type can skip over it by consuming
-   the declared length.  Implementations that predate the amendment will
-   reject the certificate at the MTCProof parsing stage (due to trailing
-   bytes), which is acceptable: such implementations would also not
-   recognize the id-pe-hashChainAnchor extension's semantics, so they
-   cannot verify hash chain revocation regardless.
-
-   For the transition period, ecosystems have two options:
-
-   Mark the extension critical:  Unaware implementations reject at the
-      X.509 extension stage, producing a clear error rather than an
-      opaque parse failure.
-
-   Deploy the base spec amendment first:  Once the proof_extensions
-      field is adopted into the base MTC specification, all conforming
-      implementations will parse it (ignoring unknown types), enabling
-      incremental deployment of hash chain revocation with a non-
-      critical X.509 extension.
-
-E.5.  Considerations for the proof_extensions Field
+E.1.  Considerations for the proof_extensions Field
 
    The proof_extensions field is, by design, unauthenticated and freely
    mutable.  It is not committed to the Merkle Tree, no cosignature
@@ -4777,10 +4616,8 @@ F.6.2.  Why OCSP Stapling Is Not Enforceable, and This Is
    rather than by any new failover machinery (Section 15.1).
 
    What remains true is that an ecosystem requiring this mechanism makes
-   tick distribution part of its availability floor.  That is the
-   substance of the trade, and it is why this document treats the
-   availability dependency at length rather than in passing
-   (Section 15.1).
+   tick distribution part of its availability floor, which is the
+   substance of the trade (Section 15.1).
 
 F.6.3.  Operational Simplicity and Resilience
 
@@ -4876,14 +4713,14 @@ F.6.5.  Why CAs Are Retiring OCSP
    availability alone (Section 15.5), which is exactly what an online
    signing service cannot be.
 
-   One consequence of the retirement is worth stating plainly, because
-   it cuts the other way.  CAs retiring OCSP moved to CRLs, which reach
-   browsers through the pushed-list systems described above and reach
-   other relying parties only if those parties fetch and process CRLs
-   for themselves, which few TLS clients do (Appendix G.10).  The
-   retirement removed a mechanism that did not work well.  It did not
-   supply one that does, and it leaves the majority of TLS clients with
-   no in-band per-certificate revocation status at all.
+   One consequence of the retirement cuts the other way.  CAs retiring
+   OCSP moved to CRLs, which reach browsers through the pushed-list
+   systems described above and reach other relying parties only if those
+   parties fetch and process CRLs for themselves, which few TLS clients
+   do (Appendix G.10).  The retirement removed a mechanism that did not
+   work well.  It did not supply one that does, and it leaves the
+   majority of TLS clients with no in-band per-certificate revocation
+   status at all.
 
 F.7.  Incremental Deployment and Transition
 
@@ -5040,8 +4877,8 @@ G.3.  AIA-Based Tick URL Discovery
       migrate its tick infrastructure without certificate reissuance.
 
    Only the authenticating party needs it:  Relying parties verify the
-      embedded tick offline against the committed anchor and MUST NOT
-      fetch ticks (Section 14.5).  Putting a per-certificate URL in the
+      embedded tick offline against the committed anchor and never fetch
+      ticks (Section 14.5).  Putting a per-certificate URL in the
       certificate would not make fetching infeasible, since the URL is
       derivable regardless (Section 14.5).  Placing it in a field
       relying parties routinely parse would, however, standardize and
@@ -5286,9 +5123,38 @@ G.6.  Shortening the Verification Path
    a relying party that did not choose its parameters.  Narrowing the
    period field would bound that worst case as well, by restricting the
    parameters a CA may choose rather than by changing the construction,
-   and is recorded separately (Appendix D).  The balance between them is
-   a working group judgment rather than an authorial one, and it is
-   recorded as an open question (Appendix D).
+   and the two are alternatives rather than complements (Appendix D).
+   The balance between them is a working group judgment rather than an
+   authorial one.
+
+   Whichever construction is chosen is chosen once for the ecosystem
+   rather than per certificate.  Were a second one ever added, it would
+   be recorded as a committed field of the HashChainAnchorInfo, DEFAULT-
+   encoded so that the flat case costs no bytes (Section 7).  Making it
+   instead a per-certificate freedom that relying-party policy may
+   insist on is a different proposal, and the construction is the wrong
+   variable for such a policy.  What a relying party bears is a number
+   of hash computations, which it can already bound directly from
+   committed fields (Section 14.11), and the two do not track each
+   other.  A flat chain over 48 daily periods costs 47 computations,
+   whereas a two-level chain over the longest chain the period field
+   admits costs 511, so a relying party insisting on the hierarchy would
+   reject the cheaper certificate and accept the one ten times dearer.
+   There is also no way to act on such a policy, since a relying party
+   signals the trust anchors it supports rather than the constructions
+   it accepts (Section 4.5.1.2 of [RFC9846]) and this mechanism adds
+   nothing to the handshake (Section 8.3), so an authenticating party
+   cannot tell which certificate to present.  Making it selectable would
+   therefore mean issuing each construction under a separate trust
+   anchor, which makes the construction part of trust-anchor identity
+   and doubles relying-party configuration.  If any substantial
+   population of relying parties may insist on the hierarchy, every CA
+   seeking universal acceptance must issue it, so the ecosystem pays the
+   additional bytes in every handshake and carries both code paths as
+   well.  A variable-size tick would additionally cost the constant
+   response-length check the distribution interface relies on
+   (Section 10.4) and turn the minimal status_tick amendment into a
+   variable-length one (Section 8.1.1).
 
 G.6.1.  Hierarchical Hash Chains
 
@@ -5418,16 +5284,19 @@ G.8.  Proof-Extension Encoding for the Tick
    specification wants a general, reusable proof-level extensibility
    point rather than a single appended field, it can adopt the
    proof_extensions structure and carry the HashChainTick as one of its
-   entries.  Appendix E defines that field and the exact hash_chain_tick
-   encoding.  When the id-pe-hashChainAnchor extension is present, the
-   MTCProof MUST contain exactly one hash_chain_tick proof extension.
+   entries.  That field is the base specification's to define, so this
+   document does not, but Appendix E describes its shape and
+   Appendix E.1 states the constraints a base specification adopting it
+   should impose.  When the id-pe-hashChainAnchor extension is present,
+   the MTCProof MUST contain exactly one hash_chain_tick proof
+   extension.
 
    This encoding can also carry future proof-level mechanisms (for
    example, other self-authenticating freshness values) without a
    further structural change, and lets a conforming parser skip a tick
    it does not recognize.  Those benefits come at a cost: as a general,
    unauthenticated, "ignore if unknown" channel it introduces the abuse
-   surface discussed in Appendix E.5, namely bloat, covert channels, and
+   surface discussed in Appendix E.1, namely bloat, covert channels, and
    a strippable soft-fail for any misuse.  This document treats that
    surface as unjustified for a single tick, and therefore recommends
    the trailing field (Section 8.1.1) unless a concrete need for general
