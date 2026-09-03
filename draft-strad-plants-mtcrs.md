@@ -806,6 +806,12 @@ It SHOULD present the current period's tick once it holds one, but is not requir
 The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
 The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification}}.
 
+A certificate carrying an anchor holds a well-formed HashChainTick from the moment it is issued, since the parse rules admit no other form ({{tick-trailing-field}}).
+The CA MUST therefore populate `status_tick` with the tick for the period current at issuance.
+For a certificate whose `notBefore` is not backdated by a full `tick_interval` that period is 0, and its tick is the committed anchor, which the authenticating party could equally construct for itself ({{revealing-values}}).
+For one backdated further it is the tick for the period the certificate is already in, which the CA must in any case be serving by then ({{construction}}).
+An authenticating party MAY present the certificate as delivered for as long as that tick remains within the default acceptance window, and refreshes it thereafter ({{ap-behavior}}).
+
 This document describes two possible ways to carry the HashChainTick inside the MTCProof, of which the base MTC specification fixes exactly one for the whole ecosystem.
 Both are amendments to the base MTCProof structure and differ in generality.
 The trailing-field encoding ({{tick-trailing-field}}) is RECOMMENDED.
