@@ -2481,7 +2481,8 @@ It is this simultaneity, not any single property, that distinguishes hash chains
 A one-hour `tick_interval` provides a good balance:
 
 Revocation latency:
-: A compromised key is unusable within at most two hours (current period + grace period).
+: A certificate stops being usable within at most two hours of the CA's decision to revoke it, the current period plus the one preceding period the acceptance window admits ({{clock-skew}}).
+  That bound is per certificate, so retiring a compromised key means revoking every unexpired certificate for it ({{downgrade}}).
 
 Operational feasibility:
 : Authenticating parties must fetch a new tick once per hour.
@@ -2637,7 +2638,7 @@ A mechanism folded into MTC before deployment has no such interval.
 
 And the operator is not purely subsidizing others.
 Revocation protects relying parties, but the party impersonated by a compromised key is the subscriber itself, and without enforceable revocation that impersonation can continue for as long as the certificate remains valid.
-An operator able to have a compromised certificate made unusable within two periods, rather than waiting out its remaining lifetime, is buying something for itself.
+An operator able to have that certificate made unusable within two periods, rather than waiting out its remaining lifetime, is buying something for itself.
 The risk taken in exchange is warned rather than sudden, since a failure to refresh raises an operational alarm while the certificate is still working ({{ap-behavior}}), and it is recoverable by ordinary certificate selection rather than by any new failover machinery ({{availability-considerations}}).
 
 What remains true is that an ecosystem requiring this mechanism makes tick distribution part of its availability floor, which is the substance of the trade ({{availability-considerations}}).
