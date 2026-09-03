@@ -720,8 +720,7 @@ The first is monitor bandwidth.
 Monitors download every entry, so the ecosystem-wide cost is those bytes times the number of participating entries: on the order of tens of gigabytes at 10<sup>9</sup> entries.
 It is incurred once per entry rather than per period, and is far below the per-certificate signatures ({{per-cert-signatures}}) this mechanism avoids.
 The second is the certificate presentation, where the same anchor bytes travel in each handshake as ordinary TBSCertificate content.
-The inclusion proof is unaffected.
-Its size depends on tree depth, not entry size, so the anchor adds no hashes to the proof path.
+The inclusion proof is unaffected, since its size depends on tree depth rather than entry size, so the anchor adds no hashes to the proof path.
 That proof is also the right yardstick for the per-handshake cost, since the anchor and the tick travel beside it.
 The base specification estimates it at 384 bytes for a standalone certificate and 736 bytes for a landmark-relative one ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 Against that, the 34-byte tick ({{cert-format}}) is some 5 to 9 percent.
@@ -2287,7 +2286,7 @@ Nothing in this section is itself a normative requirement.
    Neither is a protocol question.
    Both concern recommended defaults and what root programs should require.
    The one protocol question adjacent to them is the width of the tick's period field, which caps how short a period can be at all and bounds the forward hashing a CA can impose on relying parties ({{construction}}).
-   That is question 8.
+   That is question 7.
 
 5. **Should period 0 enforce revocation?**
    The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
@@ -2303,32 +2302,25 @@ Nothing in this section is itself a normative requirement.
    *Preference:* keep "tick".
    The accurate alternative, "non-revocation proof", is too long to carry as the primary name and is used as the gloss at first mention instead.
 
-7. **Should the hash chain be flat or hierarchical?**
-   A flat chain costs a relying party up to `hash_chain_length` - 1 hash computations, about 300 microseconds for a 47-day, one-hour-period certificate on a general-purpose core and tens of milliseconds on a constrained one ({{verification-cost}}).
-   A two-level chain reduces that to about 67, and reduces the worst case any certificate can impose from 65,535 hash computations to 511, at the cost of a 66-byte tick in place of a 34-byte one ({{hierarchical-chains}}).
-   The trade is 32 bytes in every handshake against the verification cost borne by the least capable relying party in the ecosystem.
-   It also determines whether a CA needs per-certificate traversal state at all ({{hash-chain-traversal}}).
-   This question interacts with questions 4 and 8, which act on the same quantity by other means.
-   A longer default `tick_interval` reduces the typical cost by more than the two-level chain does and spends no bytes, but it does not touch the 65,535 bound, which is what a relying party validating an arbitrary certificate is exposed to.
-   A narrower period field does touch that bound, which makes question 8 an alternative to this one rather than a complement to it.
-   The question is which construction to choose, not whether to permit both.
-   A per-certificate choice that relying-party policy could insist on is unworkable, for the reasons given in {{shorter-verification}}, so whichever construction is chosen should be chosen once for the ecosystem, as the anchor's home is in question 1.
-   *Preference:* the flat chain, for its simplicity and its smaller per-handshake cost, but this is the least settled preference in this section.
-   A working group that treats constrained relying parties as a first-class constituency should prefer the two-level chain.
-
-8. **How wide should the tick's period field be?**
-   The field is 16 bits, which caps `hash_chain_length` at 65,535 and so bounds the forward hashing any certificate can impose on a relying party ({{construction}}).
-   That bound is the quantity questions 4 and 7 also act on, and the field width is the third lever on it.
-   Widening the field would permit sub-minute periods on multi-week certificates, at a correspondingly larger worst case for every relying party.
-   Narrowing it to 8 bits would cap `hash_chain_length` at 255 and so bound the worst case at 254 hash computations, which is affordable on any verifier, and it would save a byte in every handshake rather than spending 32 as a two-level chain does ({{hierarchical-chains}}).
-   The price is paid in parameter freedom rather than in bytes.
-   A 47-day certificate could then use no period shorter than about 4.4 hours, and one-hour periods would be confined to certificates of about ten days or less.
+7. **How should the worst-case verification cost be bounded, and by which lever?**
+   Verification hashes forward once per elapsed period, so a relying party validating an arbitrary certificate is exposed not to the typical cost but to the worst case the wire format permits, which the 16-bit period field fixes at 65,535 hash computations however the issuing CA sets its parameters ({{construction}}, {{verification-cost}}).
+   Two levers reduce that bound, and they are alternatives rather than complements, since either makes the other unnecessary.
+   The first is a hierarchical construction.
+   A flat chain costs up to `hash_chain_length` - 1 hash computations, about 300 microseconds for a 47-day, one-hour-period certificate on a general-purpose core and tens of milliseconds on a constrained one.
+   A two-level chain reduces that to about 67 and the worst case to 511, at the cost of a 66-byte tick in place of a 34-byte one, and it removes the CA's per-certificate traversal state ({{hierarchical-chains}}, {{hash-chain-traversal}}).
+   The trade is 32 bytes in every handshake against the cost borne by the least capable relying party in the ecosystem.
+   The second is a narrower period field.
+   An 8-bit field would cap `hash_chain_length` at 255 and so bound the worst case at 254 hash computations, which is affordable on any verifier, and it would save a byte in every handshake rather than spending 32.
+   Its price is paid in parameter freedom rather than in bytes, since a 47-day certificate could then use no period shorter than about 4.4 hours, with one-hour periods confined to certificates of about ten days or less.
    That accommodates the 7-day validity the Chrome policy recommends, which is 168 periods, but forbids the one-hour, 47-day combination the same policy permits ({{CHROME-MTC}}).
-   An 8-bit field would therefore fix in the wire format a limit this document otherwise leaves to root programs, although the 16-bit field is already such a limit at a looser setting, forbidding periods shorter than about 62 seconds on a 47-day certificate.
-   *Preference:* 16 bits, because the configuration an 8-bit field would forbid is one a root program currently permits, and because the same bound is available from the construction ({{shorter-verification}}) without constraining the CA's parameters at all.
-   A working group that would rather spend parameter freedom than bytes should prefer 8 bits, and should then not also adopt a hierarchical chain: with `hash_chain_length` capped at 255 a flat chain's worst case is already 254 computations, so a hierarchy would spend 32 bytes to save work that is no longer expensive.
+   Widening the field instead would permit sub-minute periods on multi-week certificates, at a correspondingly larger worst case for every relying party.
+   A longer default `tick_interval` reduces the typical cost by more than a two-level chain does and spends no bytes, but it does not touch this bound at all, and it is question 4 rather than a third lever here because what it trades against is revocation latency.
+   Whichever lever is chosen, the choice is made once for the ecosystem rather than per certificate ({{shorter-verification}}), as the anchor's home is in question 1.
+   *Preference:* neither, keeping the flat chain for its simplicity and smaller per-handshake cost, and the 16-bit field because the configuration an 8-bit one would forbid is a configuration a root program currently permits.
+   This is the least settled preference in this section.
+   A working group that treats constrained relying parties as a first-class constituency should adopt one of the two levers, and should not adopt both, since with `hash_chain_length` capped at 255 a flat chain's worst case is already affordable and a hierarchy would then spend 32 bytes to save work that is no longer expensive.
 
-9. **Should revocations be recorded in the log?**
+8. **Should revocations be recorded in the log?**
    Revocation here is the absence of a tick, so nothing attests that a revocation occurred ({{revocation-transparency}}).
    The base specification's MTCLogEntryType is extensible, so a revocation entry is constructible, and {{logged-revocation}} sketches one.
    It would supply a permanent, non-repudiable record, could carry a reason code, and would make a logged revocation contradicted by a later tick provable by anyone offline.
@@ -2908,7 +2900,7 @@ The columns below give the worst-case forward hash computations for a 1,128-peri
 
 This document keeps the flat chain because it is the simplest construction that works, because the added bytes are charged to every handshake whereas the verification cost is paid only on full handshakes, and because the interval lever above already addresses the typical case without spending any bytes at all.
 What it leaves unaddressed is the worst case an arbitrary certificate can impose on a relying party that did not choose its parameters.
-Narrowing the period field would bound that worst case as well, by restricting the parameters a CA may choose rather than by changing the construction, and is recorded as a separate open question ({{open-questions}}).
+Narrowing the period field would bound that worst case as well, by restricting the parameters a CA may choose rather than by changing the construction, and the two are alternatives rather than complements ({{open-questions}}).
 The balance between them is a working group judgment rather than an authorial one.
 
 Whichever construction is chosen is chosen once for the ecosystem rather than per certificate.
