@@ -1296,6 +1296,9 @@ For each certificate it serves, the authenticating party periodically fetches th
 2. Before installing a fetched tick, the authenticating party MUST verify it against the anchor committed in its own certificate: that hashing `tick.value` forward `tick.period` times yields the anchor ({{verification}}).
    It MAY instead verify the tick against one it has already verified for an earlier period, by hashing the new value forward the difference between the two periods and comparing the result with the value it holds.
    Consecutive revealed values are adjacent in the hash chain, since period t reveals `h[hash_chain_length - t]` ({{revealing-values}}), so the ordinary case of a single elapsed period costs one hash computation rather than `tick.period` of them.
+   This shortcut applies only when the fetched period is greater than the one it holds.
+   A response carrying a lower period is stale or misrouted, and an authenticating party MUST NOT compute the difference in unsigned arithmetic, which would underflow into an enormous iteration count driven by a response it has not yet authenticated (the same hazard the verifier faces in {{verification}}).
+   It falls back to the full walk to the anchor, or discards the response.
    This is transitively a verification against the anchor, because the held tick was itself verified against the anchor, so it is neither weaker nor an approximation.
    Only the first tick an authenticating party installs for a certificate requires the full walk.
    A tick that fails this check MUST NOT be installed or presented.
