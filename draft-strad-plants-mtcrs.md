@@ -1237,8 +1237,12 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
 : Transient overload.
   The authenticating party retries according to the Retry-After header ({{load-distribution}}).
 
+An authenticating party follows redirects, which is what lets a CA migrate its tick infrastructure by redirecting from the old origin while renewals propagate the new base URL ({{discovery}}).
+It SHOULD bound the number it follows for a single fetch.
+Following one is safe even to an untrusted target, since whatever is returned is verified against the anchor committed in the authenticating party's own certificate before it is installed ({{ap-behavior}}), so a redirect to a hostile origin can deny service but cannot forge a tick.
+
 Any other status code carries its ordinary HTTP semantics ({{!RFC9110}}).
-An authenticating party treats any non-200 response as "no fresh tick obtained on this attempt" and falls back to its most recent still-valid tick.
+An authenticating party treats any response that is neither a 200 nor a redirect it follows as "no fresh tick obtained on this attempt", and falls back to its most recent still-valid tick.
 
 Requiring the period 0 tick to be served, rather than permitting it, would not make a 404 mean "revoked".
 Revocation is only one of several causes of a missing tick, alongside an origin outage, a cache miss, and a distributor that has not yet received the current bundle ({{delegated-distribution}}), and those arise in every period.
