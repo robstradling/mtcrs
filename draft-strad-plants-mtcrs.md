@@ -1544,10 +1544,10 @@ The per-period revocation *state*, by contrast, is neither signed nor committed,
 
 Four consequences follow, each bounded:
 
-- **Revocation is observable but not provable.**
-  A monitor watching a certificate's tick endpoint can detect that ticks have stopped, but cannot by that alone prove the CA revoked it rather than suffered a distribution outage, because a 404 does not distinguish the two ({{response-format}}).
-  The mechanism therefore provides detection of withheld ticks ({{dos-withholding}}), not a non-repudiable revocation record.
-  That is enough to discipline selective or covert withholding, which is externally observable and bounded by the same forces that discipline any CA, but it is not an audit trail of revocation decisions.
+- **Revocation is not provable, and not always observable.**
+  Where tick URLs are derivable, a monitor watching a certificate's tick endpoint can detect that ticks have stopped, but cannot by that alone prove the CA revoked it rather than suffered a distribution outage, because a 404 does not distinguish the two ({{response-format}}).
+  Even that much is unavailable under unguessable tick URLs, and a CA willing to answer monitors and subscribers differently can evade it ({{dos-withholding}}).
+  The dependable signal is therefore the subscriber's own, and what is missing is an artifact on which a third party could rely ({{logged-revocation}}).
 
 - **No revocation-event transparency in the log.**
   Because revealed ticks are not committed to the tree, the fact and time of a revocation are not recorded there.
