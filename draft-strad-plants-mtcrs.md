@@ -1968,6 +1968,8 @@ A resumed session carries no Certificate message and verifies no tick ({{enforce
 The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
 A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
 One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check ({{ap-behavior}}).
+As there, the shortcut applies only when the presented period exceeds the retained one, and a relying party MUST NOT compute the difference in unsigned arithmetic.
+The opposite case arises without an attacker, since the acceptance window admits `expected_period` - 1 while the relying party may hold a tick for `expected_period` itself, so a presented period below the retained one is ordinary and the relying party verifies from the anchor instead.
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
 
 Selecting a different hash function does not materially change any of this.
