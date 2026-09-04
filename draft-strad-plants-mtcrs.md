@@ -929,7 +929,7 @@ Under the entry-extension alternative ({{anchor-entry-extension}}) the relying p
 {: #fig-verification title="The two checks that bind a tick to the certificate, corresponding to steps 4 through 6 below. The window shown is the default one, which a relying party MAY widen"}
 
 The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to the period computation ({{construction}}).
-All of them are obtained from the certificate and the trust anchor being validated against.
+All of them are read from the certificate itself, and the verifier additionally needs HASH, which it holds as part of its base MTC configuration for the issuing CA ({{conventions-and-definitions}}).
 No data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
 
 `issuer_ca_id`:
