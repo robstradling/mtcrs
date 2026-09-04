@@ -232,9 +232,11 @@ This document uses the hash function HASH and its output length in bytes HASH_SI
 For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
-Every party already holds it.
+Both parties that compute with it read it from the CA certificate, so it needs no distribution channel of its own.
 A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA.
 It takes the algorithm from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+An authenticating party has no equivalent configuration, so it reads `logHash` from that same extension of the CA certificate, which {{discovery}} requires every CA to make its subscribers able to obtain.
+It needs HASH to derive its tick fetch URL ({{distribution}}), to check the length of a response ({{response-format}}), and to verify a fetched tick before presenting it ({{ap-behavior}}).
 
 <!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-06 is published, since the renamed structures will then be in the published reference. -->
 
@@ -623,7 +625,7 @@ What per-entry salting would have bought is small.
 It would frustrate a preimage search mounted against a CA's whole certificate population at once, which the per-CA salting permits and which is far out of reach either way ({{post-quantum}}).
 It would also keep two chains apart if a seed-generation fault repeated a seed across entries, which the per-CA salt does not, so that residue rests on the quality of the seed ({{seed-confidentiality}}).
 
-The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs and which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
+The Hash function is HASH, the hash function of the issuing CA, which is uniform across that CA's issuance logs ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}) and which both computing parties read from the CA certificate ({{conventions-and-definitions}}).
 
 # Integration with MTC Log Entries {#anchor-x509-extension}
 
@@ -1057,7 +1059,7 @@ The final path segment is its lowercase hexadecimal encoding (64 characters for 
 Throughout this document `tbs_cert_entry_hash` denotes that binary hash value (32 bytes for SHA-256).
 Only the URL path segment carries it hex-encoded.
 The authenticating party does not receive a log entry, only a certificate, so it derives the TBSCertificateLogEntry from that certificate by the same construction a relying party performs during base verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), and hashes the result.
-That construction needs the CA's HASH for the entry's `subjectPublicKeyInfoHash` field ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which every party already holds ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
+That construction needs the CA's HASH for the entry's `subjectPublicKeyInfoHash` field ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}), which the authenticating party reads from the CA certificate ({{conventions-and-definitions}}).
 No additional per-request metadata from the CA is required.
 
 **Note:** `tbs_cert_entry_hash` is a distribution-layer addressing value, not a proof.
@@ -1115,7 +1117,10 @@ A CA and an authenticating party could then each conform and still fail to inter
 
 The base specification defines the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) but not how a party comes to hold it, and an authenticating party, unlike a relying party, has no trust anchor configuration for it to arrive in ({{encoding}}).
 In practice it comes from the channel that issued the certificate, where that protocol returns one, or from local configuration.
-A CA relying on the SIA as its only discovery route MUST therefore ensure its subscribers can obtain its CA certificate, since otherwise the fallback is unavailable to exactly the deployments it exists to serve.
+A CA MUST ensure its subscribers can obtain its CA certificate, whichever of the mechanisms below it uses to publish the base URL.
+Two things depend on that, and only one of them is discovery.
+Without the certificate the SIA fallback is unavailable to exactly the deployments it exists to serve.
+And an authenticating party takes HASH from the certificate's `logHash` field ({{conventions-and-definitions}}), without which it can neither derive its tick URL nor verify a tick it fetches.
 
 Provisioning channel (primary):
 : The base URL is delivered when the certificate is provisioned.
