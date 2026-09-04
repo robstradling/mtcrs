@@ -233,11 +233,11 @@ This document uses the hash function HASH and its output length in bytes HASH_SI
 For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
-Both parties that compute with it read it from the CA certificate, so it needs no distribution channel of its own.
-A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA.
-It takes the algorithm from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
-An authenticating party has no equivalent configuration, so it reads `logHash` from that same extension of the CA certificate, which {{discovery}} requires every CA to make its subscribers able to obtain.
-It needs HASH to verify a fetched tick against the anchor committed in its own certificate before presenting it ({{ap-behavior}}), and takes HASH_SIZE from the length of that anchor ({{anchor-x509-extension}}).
+The two parties that compute with it obtain it differently, and neither needs a carrier that does not already exist.
+A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA, taking it from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+An authenticating party has no such configuration, and reads the algorithm from the final segment of the tick base URL it is given ({{distribution}}).
+That URL is the one value a CA must convey to it in any case, so the algorithm travels with the locator rather than needing a channel of its own.
+It needs HASH only to verify a fetched tick against the anchor committed in its own certificate before presenting it ({{ap-behavior}}), and takes HASH_SIZE from the length of that anchor ({{anchor-x509-extension}}).
 
 <!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-06 is published, since the renamed structures will then be in the published reference. -->
 
@@ -1069,13 +1069,27 @@ The CA (or a mirror) serves ticks over HTTP.
 Given a tick base URL for the CA (see {{discovery}}), the tick for a particular certificate is fetched from:
 
 ~~~http-message
-GET {tick_base_url}/.well-known/mtcrs/v1/tick/{serial_number}
+GET {tick_base_url}/tick/{serial_number}
 ~~~
 
-where `serial_number` is the certificate's `serialNumber`, which the base specification constructs from the entry's log number and its zero-based index within that log as `(log_number << 48) | index` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
-The final path segment is that value in big-endian order as exactly 16 lowercase hexadecimal digits, zero-padded, so that the CA and the authenticating party derive an identical URL and every request has the same shape.
+The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{origin}/.well-known/mtcrs/v1/{hash_name}`.
 
-Both parties read the value straight from the certificate.
+`origin`:
+: A scheme, host, and optional port.
+  A CA MAY point that hostname at a CDN or mirror through ordinary DNS or HTTP routing.
+
+`hash_name`:
+: The name of the CA's log hash algorithm, taken from the "Named Information Hash Algorithm Registry" {{!RFC6920}}, which gives lowercase names such as `sha-256` that need no percent-encoding in a path segment.
+  It MUST name the algorithm the CA's `logHash` field identifies ({{conventions-and-definitions}}).
+  Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it ({{discovery}}).
+  An authenticating party MUST NOT fetch from a base URL naming an algorithm it does not implement, and MUST NOT guess one.
+  Where it also holds the CA certificate, the `logHash` field there is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
+
+`serial_number`:
+: The certificate's `serialNumber`, which the base specification constructs from the entry's log number and its zero-based index within that log as `(log_number << 48) | index` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
+  It is encoded in big-endian order as exactly 16 lowercase hexadecimal digits, zero-padded, so that the CA and the authenticating party derive an identical URL and every request has the same shape.
+
+Both parties read the serial straight from the certificate.
 The authenticating party in particular does not reconstruct the log entry, so deriving its own tick URL costs it no cryptography and needs no per-request metadata from the CA.
 
 The serial is the base specification's own identifier for an entry, used to locate it in the log during verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}) and to name it in the revocation record sketched in {{logged-revocation}}, so keying ticks on it keeps one identifier for one entry throughout.
@@ -1100,19 +1114,15 @@ The one property plain HTTP does not provide is confidentiality of the request i
 An on-path observer can see which `{serial_number}` is being requested.
 CAs whose deployments consider this metadata sensitive SHOULD publish an `https://` base URL instead.
 
-For example, if a CA's tick base URL is `http://mtcrs.ca.example`, ticks are served at:
+For example, if a CA using SHA-256 publishes the tick base URL `http://mtcrs.example/.well-known/mtcrs/v1/sha-256`, ticks are served at:
 
 ~~~
-http://mtcrs.ca.example/.well-known/mtcrs/v1/tick/a1b2c3...f0
+http://mtcrs.example/.well-known/mtcrs/v1/sha-256/tick/a1b2c3...f0
 ~~~
 
-The base URL is an origin (scheme, host, and optional port).
-The `.well-known/mtcrs/v1/tick/{serial_number}` path is rooted at that origin.
-A CA MAY point that origin's hostname at a CDN or mirror through ordinary DNS or HTTP routing, so no path prefix is needed.
-
-The `v1` segment versions the MTCRS HTTP interface as a whole, both the addressing of `{serial_number}` and the response format ({{response-format}}).
+The `v1` segment versions the MTCRS HTTP interface as a whole: the placement of `{hash_name}`, the addressing of `{serial_number}`, and the response format ({{response-format}}).
 It is a migration lever, not a per-request parameter.
-A future revision needing a different addressing hash or wire format would define a `v2` namespace, which a CA MAY serve alongside `v1` during a transition, without affecting the Merkle Tree, the non-revocation proof, or already-issued certificates.
+A future revision needing a different addressing scheme or wire format would define a `v2` namespace, which a CA MAY serve alongside `v1` during a transition, without affecting the Merkle Tree, the non-revocation proof, or already-issued certificates.
 
 ## Discovering the Tick Base URL {#discovery}
 
@@ -1128,10 +1138,8 @@ A CA and an authenticating party could then each conform and still fail to inter
 
 The base specification defines the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) but not how a party comes to hold it, and an authenticating party, unlike a relying party, has no trust anchor configuration for it to arrive in ({{encoding}}).
 In practice it comes from the channel that issued the certificate, where that protocol returns one, or from local configuration.
-A CA MUST ensure its subscribers can obtain its CA certificate, whichever of the mechanisms below it uses to publish the base URL.
-Two things depend on that, and only one of them is discovery.
-Without the certificate the SIA fallback is unavailable to exactly the deployments it exists to serve.
-And an authenticating party takes HASH from the certificate's `logHash` field ({{conventions-and-definitions}}), without which it cannot verify a tick it fetches.
+A CA relying on the SIA as its only discovery route MUST therefore ensure its subscribers can obtain its CA certificate, since otherwise the fallback is unavailable to exactly the deployments it exists to serve.
+Nothing else obliges an authenticating party to hold that certificate, because the base URL names the log hash algorithm in its final segment ({{distribution}}), so a party holding the URL holds everything this mechanism asks of it.
 
 Provisioning channel (primary):
 : The base URL is delivered when the certificate is provisioned.
@@ -1143,6 +1151,7 @@ Provisioning channel (primary):
 
 CA certificate SIA (fallback):
 : The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose `accessLocation` is a `uniformResourceIdentifier` giving the tick base URL.
+  Its final segment names the same algorithm as that certificate's own `logHash` field, so a CA publishing both states the algorithm twice and MUST state it consistently ({{distribution}}).
   Publishing it is the CA's choice; understanding it is not the authenticating party's, since this is the only carrier available to a CA whose issuance protocol has no provisioning binding.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
   Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}).
@@ -1166,12 +1175,12 @@ A CA that migrates its tick infrastructure can therefore update the base URL it 
 
 ## Unguessable Tick URLs {#unguessable-urls}
 
-The tick fetch path described above is `.well-known/mtcrs/v1/tick/{serial_number}`, and `{serial_number}` is read directly from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
+The tick fetch path described above is `.well-known/mtcrs/v1/{hash_name}/tick/{serial_number}`, and `{serial_number}` is read directly from the certificate by anyone who holds it, including a relying party ({{rp-no-fetch}}).
 Keeping the base URL out of the certificate therefore does not make the tick URL unguessable.
 A CA that wishes to make relying-party fetching infeasible by construction, rather than only forbidding it normatively, MAY replace the derivable path component with an unguessable per-certificate capability token:
 
 ~~~
-{tick_base_url}/.well-known/mtcrs/v1/tick/{tick_token}
+{tick_base_url}/tick/{tick_token}
 ~~~
 
 `tick_token`:
@@ -1276,10 +1285,12 @@ Cache-Control: public, max-age=3600
 When the CA issues certificates via ACME, it SHOULD convey the tick base URL in the `meta` object of its ACME directory ({{Section 7.1.1 of !RFC8555}}) as a new field:
 
 ~~~json
-"tickBaseURL": "https://mtcrs.cdn.ca.example"
+"tickBaseURL":
+  "https://mtcrs.example/.well-known/mtcrs/v1/sha-256"
 ~~~
 
-The `tickBaseURL` field contains the base URL (an origin) from which the authenticating party derives its tick fetch URL, by appending `/.well-known/mtcrs/v1/tick/{serial_number}` ({{distribution}}).
+The `tickBaseURL` field contains the tick base URL from which the authenticating party derives its tick fetch URL, by appending `/tick/{serial_number}` ({{distribution}}).
+Its final segment names the CA's log hash algorithm, so an ACME client that has this field has both the locator and the algorithm, and needs nothing further ({{conventions-and-definitions}}).
 
 The directory is the right home for it because the value is per-CA, not per-certificate: a single base URL covers every certificate that CA issues ({{discovery}}).
 Carrying it there means an ACME client fetches it once, from an object it already retrieves and can cache, rather than receiving the same constant on every order.
@@ -1292,7 +1303,7 @@ It instead returns the complete per-certificate URL in a `tickURL` field of the 
 
 ~~~json
 "tickURL":
-  "https://mtcrs.cdn.ca.example/.well-known/mtcrs/v1/tick/9f86d0..."
+  "https://mtcrs.example/.well-known/mtcrs/v1/sha-256/tick/9f8..."
 ~~~
 
 The two fields therefore live in different objects and cannot collide: `tickBaseURL` is a property of the CA and `tickURL` a property of one issuance.
@@ -1495,7 +1506,7 @@ A relying party therefore has no need to contact the CA, and MUST NOT fetch tick
 
 This is a privacy and availability protection, not a secrecy one.
 The tick distribution URL is not secret.
-The fetch path is `.well-known/mtcrs/v1/tick/{serial_number}` with `{serial_number}` read straight from the certificate by anyone holding it, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
+The fetch path is `.well-known/mtcrs/v1/{hash_name}/tick/{serial_number}` with `{serial_number}` read straight from the certificate by anyone holding it, and the origin is low-entropy and, when the CA certificate SIA ({{discovery}}) is used, available to relying parties as well.
 By default the design does not, and cannot, technically prevent a relying party from constructing the URL and fetching.
 It declines to standardize or advertise such a fetch as an affordance to relying parties.
 
@@ -2083,7 +2094,7 @@ IANA is requested to register the following entry in the "Well-Known URIs" regis
 | Change Controller | IETF |
 | Reference | This document |
 | Status | provisional |
-| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/tick/{serial_number}` ({{distribution}}) |
+| Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/{hash_name}/tick/{serial_number}` ({{distribution}}) |
 
 The status is provisional because {{Section 3.1 of !RFC8615}} reserves permanent registration for values defined by Standards Track RFCs and other open standards, or for values the experts find to be in use.
 This document is Experimental and has no known implementations ({{implementation-status}}).
