@@ -1761,6 +1761,12 @@ Several factors and mitigations limit its impact:
   It is far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
   Because the authenticating party keeps serving through the runway above, brief outages are invisible to relying parties.
 
+- **The fetch need not leave the deployment.**
+  The dependency is on reaching some distributor, not on reaching the CA.
+  This matters where servers have no outbound connectivity at all, since under base MTC such a server can be handed a certificate by an out-of-band process and reach nothing for the rest of that certificate's life, whereas this mechanism needs a tick each period.
+  An operator in that position runs a distributor itself ({{delegated-distribution}}), or has one connected node fetch and push ticks to the others exactly as it already pushes certificates ({{ap-behavior}}).
+  Either restores the original property, because a tick verifies against the committed anchor wherever it was obtained ({{verification}}).
+
 - **The acceptance window can be widened, deliberately.**
   A relying party MAY accept ticks from further preceding periods, converting a tick-distribution outage longer than one period into bounded additional revocation latency rather than a hard failure ({{clock-skew}}).
   This is a relying-party (or root-program) policy, not something a server can switch on, and it applies to every certificate that relying party validates, so it loosens revocation freshness ecosystem-wide.
