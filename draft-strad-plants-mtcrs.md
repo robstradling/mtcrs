@@ -800,8 +800,8 @@ The deterministic fetch offset means the preceding period's tick is normally pre
 The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification}}.
 
 A certificate carrying an anchor holds a well-formed HashChainTick from the moment it is issued, since the parse rules admit no other form ({{tick-trailing-field}}).
-The CA MUST therefore populate `status_tick` with the tick for the period current at issuance.
-For a certificate whose `notBefore` is not backdated by a full `tick_interval` that period is 0, and its tick is the committed anchor, which the authenticating party could equally construct for itself ({{revealing-values}}).
+The CA MUST therefore populate `status_tick` with the tick for the period the certificate is in at issuance, or with the period 0 tick if it has not yet entered period 0.
+For a certificate whose `notBefore` is not backdated by a full `tick_interval`, which includes one dated in the future, that tick is the committed anchor, which the authenticating party could equally construct for itself ({{revealing-values}}).
 For one backdated further it is the tick for the period the certificate is already in, which the CA must in any case be serving by then ({{construction}}).
 An authenticating party MAY present the certificate as delivered for as long as that tick remains within the default acceptance window, and refreshes it thereafter ({{ap-behavior}}).
 
@@ -1897,7 +1897,6 @@ To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values 
 Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
 
 The deterministic per-entry offset above and edge caching together flatten period-boundary load.
-The offset spreads fetches uniformly across the period whatever the entry, and caching absorbs the repeated fetches of entries that have more than one fetcher.
 Neither reduces the number of distinct entries an origin must answer for in a period, which is what delegating the serving path addresses ({{delegated-distribution}}).
 This document specifies both as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
 A specific load-shaping or availability target is left to root-program or CA operational policy.
@@ -2267,9 +2266,10 @@ Each is specified in full in the section cited.
 
 Exactly one change to the base specification is required:
 
-- **Amend the "extra data" check of {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` may carry the HashChainTick, and otherwise remains byte-identical to a base MTCProof.
+- **Admit the HashChainTick into the MTCProof** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` carries the tick, and otherwise remains byte-identical to a base MTCProof.
+  This touches two adjacent places: the structure itself ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}) and the "extra data" check that parses it ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
   The RECOMMENDED realization appends a trailing `status_tick` field ({{tick-trailing-field}}).
-  A base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends that check accordingly.
+  A base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends both accordingly.
 
 The following item is optional, and a base specification MAY adopt it but need not:
 
@@ -2848,8 +2848,8 @@ Either way `tbs_cert_entry_hash` remains well-defined and identical for a given 
 Excluding the anchor does, however, remove the uniqueness the tick URL relies on.
 `serialNumber` is omitted from the TBSCertificateLogEntry, its value being authenticated instead by the inclusion proof index ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}).
 `tbs_cert_entry_data` therefore carries nothing that distinguishes two entries certifying the same subject, public key, validity, and extensions, which a CA that rounds `notBefore` readily produces for a repeated issuance request.
-In the primary design the anchor separates such entries, each carrying an independent random value.
-In this alternative it does not.
+In the primary design the anchor is part of `tbs_cert_entry_data`, so two such entries either differ in their anchors, and so in their URLs, or are byte-identical and share one chain that serves both ({{derived-seeds}}).
+In this alternative the anchors can differ while the URL does not.
 Both would then resolve to a single tick URL while holding different hash chains, and the authenticating party for whichever entry the CA does not serve there would reject every tick it fetched ({{verification}}).
 
 A base specification adopting the entry-extension encoding MUST therefore address ticks by a value that covers the anchor, in place of `tbs_cert_entry_hash`.
