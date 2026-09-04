@@ -1992,6 +1992,8 @@ Session resumption:
 : A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked.
   A client may therefore resume without re-checking revocation for as long as its session tickets remain usable.
   TLS 1.3 caps a ticket's lifetime at seven days ({{Section 4.7.1 of !RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
+  This covers 0-RTT early data ({{Section 2.3 of !RFC9846}}), which travels on a pre-shared key established by an earlier full handshake and so presents no certificate either.
+  A client sends it before the resumed handshake completes, so it is the case in which application data moves furthest ahead of the last tick that was checked.
 
 Renegotiation:
 : TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick.
