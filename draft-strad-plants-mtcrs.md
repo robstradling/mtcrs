@@ -725,7 +725,9 @@ Whichever the base specification selects becomes the single anchor home for the 
 
 ## Criticality and Incremental Deployment {#extension-criticality}
 
-The id-pe-hashChainAnchor extension SHOULD be marked non-critical, so that relying parties that do not implement this mechanism can still process the certificate.
+The id-pe-hashChainAnchor extension SHOULD be marked non-critical, so that relying parties that implement the amended MTCProof parse ({{tick-trailing-field}}) but not this mechanism can still process the certificate.
+The qualification matters, because a relying party predating that amendment rejects the certificate whatever the criticality, finding unexpected trailing bytes before it ever reaches the extension ({{deployment-transition}}).
+Non-criticality therefore buys incremental deployment within an amended ecosystem rather than ahead of one, which is a further reason to fold the amendment into the base specification now ({{base-spec-amendments}}).
 However, relying parties that do implement this mechanism MUST enforce hash chain verification as described in {{verification}} when the extension is present.
 An MTC ecosystem in which all relying parties are expected to support hash chain revocation MAY mark the extension critical, causing implementations that do not recognize it to reject the certificate.
 Marking the extension critical is the transition lever that forces relying parties unaware of this mechanism to hard-fail rather than silently ignore it.
