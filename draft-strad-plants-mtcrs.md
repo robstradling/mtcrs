@@ -194,6 +194,7 @@ Self-authenticating:
 Minimal overhead:
 : A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
   The committed anchor adds about 50 bytes to each log entry ({{anchor-x509-extension}}).
+  {{cost-summary}} collects the full cost to each party.
 
 These properties come with three deliberate trade-offs, treated in full later but noted here so they are visible from the outset.
 First, enforcement introduces an availability dependency: because an authenticating party must refresh its tick each period, a tick-distribution outage that outlasts the certificate's buffer renders it unusable ({{availability-considerations}}).
@@ -289,7 +290,7 @@ Self-authenticating:
 
 # Overview {#overview}
 
-This section is a non-normative walk-through of the mechanism's lifecycle.
+This section is a non-normative walk-through of the mechanism's lifecycle, followed by a summary of what it costs each party.
 The normative details follow in {{construction}} through {{distribution}}.
 It reuses the small example of {{test-vectors}}: a hash chain of length `hash_chain_length = 5` (a real certificate uses a much longer one, for example 1,128 for a 47-day lifetime with a one-hour period).
 {{fig-actors}} shows how the parties interact, and {{fig-hash-chain}} depicts the hash chain lifecycle that the five steps below trace.
@@ -379,6 +380,22 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
    To revoke a certificate, the CA simply stops revealing its hash chain values ({{revealing-values}}).
    Once the last revealed tick's period ends, no party can produce a valid tick, because doing so would require inverting the hash.
    The certificate therefore becomes unusable within at most two periods.
+
+## What It Costs {#cost-summary}
+
+Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
+They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.
+
+| Party or object | What this mechanism costs |
+| --- | --- |
+| Relying party | About 300 microseconds of hashing per full handshake, and no network request at any point ({{verification-cost}}, {{rp-no-fetch}}). |
+| Authenticating party | One plain HTTP GET per certificate per period, and a 34-byte overwrite in the certificate it presents ({{distribution}}, {{ap-behavior}}). |
+| Certification authority | No signatures at all. About 70 GB per period published to distributors, and either about 340 GB of traversal state or none ({{delegated-distribution}}, {{storage-tradeoff}}). |
+| Monitor | The entry bytes below, downloaded once per entry rather than per period ({{anchor-x509-extension}}). |
+| Log entry | About 50 bytes for the committed anchor, a fifth to a quarter of a domain-validated entry ({{anchor-x509-extension}}). |
+| Handshake | 34 bytes for the tick, 5 to 9 percent of the inclusion proof it travels beside ({{cert-format}}). |
+
+The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period ({{verification-cost}}), which is why the worst case that hashing can reach is referred to the working group ({{open-questions}}).
 
 # Hash Chain Construction {#construction}
 
