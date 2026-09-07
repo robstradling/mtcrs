@@ -2743,11 +2743,40 @@ Deploying the mechanism thus requires one of:
    This is the approach this document proposes ({{base-spec-amendments}}).
 2. **Mark the anchor extension critical**, so unaware implementations reject at the X.509 stage rather than on an opaque parse failure, at the cost of incremental deployment.
 3. **Deploy concurrently**, adopting the extended MTCProof from the start while MTC is still greenfield.
+4. **Negotiate the extended parse**, so that the tick is included only for a relying party that has signalled it can read one.
+   The base specification already makes trust anchor IDs its RECOMMENDED certificate-selection signal ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and support for this mechanism is a property of the relying party's software rather than of its relationship with any CA, so a single identifier meaning "this relying party can read a tick" would serve every CA it negotiates with at once.
 
 The required amendment is narrow and backward-compatible.
 The trailing `status_tick` occupies zero bytes when the anchor extension is absent, so a certificate not using this mechanism is byte-identical to a base MTCProof, and base MTC verification, the tree, the cosigner, and the log are unchanged ({{tick-trailing-field}}, {{anchor-entry-extension}}).
 Folding it into the base specification now, while MTC is greenfield, avoids any lasting split between aware and unaware parsers.
 Retrofitting it after wide deployment would be far harder.
+
+Negotiation is a compatibility guard rather than a fourth independent route.
+The trailing bytes still have to be defined by whoever owns the MTCProof, so what it removes is the need for every relying party to implement that definition before issuance can begin, not the need for the definition.
+It costs no second certificate, because the tick is not committed to the tree and the anchor extension is non-critical.
+One certificate serves both populations, since omitting the tick leaves an MTCProof byte-identical to a base one, which an unaware relying party parses and accepts while ignoring the anchor it does not recognize.
+It is therefore gentler than marking the extension critical, which makes that same party fail the handshake instead.
+
+One identifier for the whole ecosystem is what makes the trust anchor extension a tempting carrier, and also what makes the fit imperfect.
+Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer ({{Section 9.1 of ?I-D.ietf-tls-trust-anchor-ids}}).
+Against that, a trust anchor ID is defined to represent a trust anchor or a group of them ({{Section 3 of ?I-D.ietf-tls-trust-anchor-ids}}), and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions ({{Section 4.2 of ?I-D.ietf-tls-trust-anchor-ids}}).
+A capability marker is neither, so it matches nothing and is inert to a server that does not implement this mechanism, which is harmless but is not what that extension says it carries.
+The alternative carrier is a TLS extension of this document's own, against which the objection of {{tls-extension-alternative}} does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.
+Reusing the existing extension buys instead that no new code point is needed, and that the signal arrives where certificate selection already reads.
+
+The cost falls on the discriminant rather than on issuance.
+`anchor_presence` ({{tick-trailing-field}}) would stop being derivable from the certificate alone and become a negotiated selector, of the kind that section already cites as precedent in the `certificate_type` of {{Section 4.5.1 of !RFC9846}}.
+Enforcement then rests on a single invariant.
+A relying party keys its requirement to the committed anchor and never to the negotiation, so one that sees an anchor requires a tick whatever it advertised.
+Stripping the advertisement therefore gains an attacker nothing, because the certificate fails at exactly the party the mechanism relies on to enforce.
+What remains is that a relying party implementing this mechanism must advertise it or be denied certificates it would otherwise accept, and that an authenticating party receiving no signal at all should include the tick, which is how it behaves without negotiation.
+
+A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, is a natural companion and is the more interesting of the two.
+It would let a relying party state the {{downgrade}} mitigation for itself, rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
+Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally.
+What they buy is letting the authenticating party choose a certificate that will be accepted, rather than fail a handshake avoidably.
+The second earns its place only where anchoring varies within a CA, as during a rollout or where subscribers elect into it.
+Where it is a per-CA property, which is how {{ocsp-stapling-comparison}} describes it, an ordinary trust anchor list already expresses the same preference, and that is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements ({{Section 8.6 of ?I-D.ietf-tls-trust-anchor-ids}}).
 
 # Alternatives Considered {#alternatives}
 
@@ -2927,8 +2956,10 @@ Were a second one ever added, it would be recorded as a committed field of the H
 Making it instead a per-certificate freedom that relying-party policy may insist on is a different proposal, and the construction is the wrong variable for such a policy.
 What a relying party bears is a number of hash computations, which it can already bound directly from committed fields ({{rp-policy}}), and the two do not track each other.
 A flat chain over 48 daily periods costs 47 computations, whereas a two-level chain over the longest chain the period field admits costs 511, so a relying party insisting on the hierarchy would reject the cheaper certificate and accept the one ten times dearer.
-There is also no way to act on such a policy, since a relying party signals the trust anchors it supports rather than the constructions it accepts ({{Section 4.5.1.2 of !RFC9846}}) and this mechanism adds nothing to the handshake ({{tls-use}}), so an authenticating party cannot tell which certificate to present.
-Making it selectable would therefore mean issuing each construction under a separate trust anchor, which makes the construction part of trust-anchor identity and doubles relying-party configuration.
+Acting on such a policy would mean expressing the construction as a trust anchor the relying party advertises, since the trust anchors it supports are the only thing it signals about a certificate it has not yet received ({{Section 4.5.1.2 of !RFC9846}}), and this mechanism adds nothing to the handshake ({{tls-use}}).
+That much is expressible, since the base specification reserves the OID arc beneath each CA ID and already uses sub-arcs of it to advertise landmark state ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+What makes it the wrong instrument here is that landmark state ages out whereas a construction would not, so it would sit in trust-anchor identity for as long as both constructions existed and double relying-party configuration.
+The certificate states its construction in a committed field, but a relying party must choose what to advertise before it sees one.
 If any substantial population of relying parties may insist on the hierarchy, every CA seeking universal acceptance must issue it, so the ecosystem pays the additional bytes in every handshake and carries both code paths as well.
 A variable-size tick would additionally cost the constant response-length check the distribution interface relies on ({{response-format}}) and turn the minimal `status_tick` amendment into a variable-length one ({{tick-trailing-field}}).
 
@@ -2994,7 +3025,7 @@ This document keeps 16 bits, because the configuration an 8-bit field would forb
 Like the choice of construction, the width is referred to the working group ({{open-questions}}), and the two are substitutes rather than complements.
 With `hash_chain_length` capped at 255 a flat chain's worst case is already affordable, so a hierarchy adopted alongside an 8-bit field would spend 32 bytes to save work that is no longer expensive.
 
-## TLS Extension or status_request Reuse
+## TLS Extension or status_request Reuse {#tls-extension-alternative}
 
 Another option is to carry the tick in TLS rather than in the MTCProof.
 That means either a new TLS or CertificateEntry extension, or the existing `status_request` extension (defined for OCSP stapling), whose `CertificateStatusType` enum is extensible beyond OCSP.
