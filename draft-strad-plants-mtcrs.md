@@ -3004,6 +3004,8 @@ The limiting case of the same trade replaces the chain with a tree.
 The CA commits a Merkle root in place of the anchor, and reveals for each period the leaf authenticating that period together with its path to the root.
 The relying party verifies that path in about log<sub>2</sub>(`hash_chain_length`) hash computations rather than by walking a chain, so the cost is logarithmic in the worst case as well as the typical one and no longer grows with the certificate's age.
 Revocation is unchanged in kind, since the CA simply stops publishing leaves and withholding remains the whole of the revocation action ({{revoking}}).
+A plain balanced tree suffices, because the leaves are exactly the certificate's `hash_chain_length` periods and that count is fixed at issuance.
+The append-only accumulators built for logs that grow without a known bound, such as a Merkle mountain range, would add structure without shortening any path.
 
 This tree is per certificate, which distinguishes it from the certificate revocation tree {{CRT}}, with which it is easily confused.
 A CRT is one tree per CA whose leaves are the revoked serial-number ranges, so a path proves a queried certificate's status by bracketing it between two of them, and the proof grows with the number of certificates the CA has revoked.
