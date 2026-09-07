@@ -2281,6 +2281,13 @@ The following item is optional, and a base specification MAY adopt it but need n
 Everything else this document defines layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
 That covers the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}).
 
+The change is not avoidable within this document's design goal.
+Embedding the tick in the certificate's own proof of validity is what makes it impossible to remove the tick and leave a certificate that still verifies ({{why-embed}}), and the base MTCProof offers no extensibility point through which anything could be added ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
+The one route that would leave the MTCProof untouched is to carry the tick in TLS instead, either as a new extension or by reusing `status_request`.
+That is rejected because a TLS-carried status can be stripped with no signal that one was expected, which forces the soft-fail this mechanism exists to avoid ({{tls-extension-alternative}}).
+The author considers that choice settled rather than open, which is why it does not appear in {{open-questions}}.
+The questions left open there concern how the tick is carried within the MTCProof, not whether it belongs there.
+
 The MTCProof changes themselves are edits to a structure that the base specification owns.
 The required one, the trailing `status_tick` field, is specified here in full so that it is concrete and reviewable ({{tick-trailing-field}}).
 The optional general mechanism is not, because this document does not use it, and defining a second MTCProof for a field its own certificates would not carry serves nobody.
@@ -2742,6 +2749,8 @@ Deploying the mechanism thus requires one of:
 1. **Amend the base MTC specification** so conforming parsers accept the tick, using either the RECOMMENDED trailing `status_tick` field ({{tick-trailing-field}}) or the general `proof_extensions` field ({{mtcproof-extensibility}}).
    This is the approach this document proposes ({{base-spec-amendments}}).
 2. **Mark the anchor extension critical**, so unaware implementations reject at the X.509 stage rather than on an opaque parse failure, at the cost of incremental deployment.
+   This is the only one of the four that does not presuppose the amendment, but what it avoids is the blessing rather than the parse.
+   A relying party supporting this mechanism must read the tick either way, so the extended parse still exists, as a private variant rather than a base-specification one.
 3. **Deploy concurrently**, adopting the extended MTCProof from the start while MTC is still greenfield.
 4. **Negotiate the extended parse**, so that the tick is included only for a relying party that has signalled it can read one.
    The base specification already makes trust anchor IDs its RECOMMENDED certificate-selection signal ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and support for this mechanism is a property of the relying party's software rather than of its relationship with any CA, so a single identifier meaning "this relying party can read a tick" would serve every CA it negotiates with at once.
