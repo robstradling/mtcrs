@@ -1751,6 +1751,13 @@ Resumption and long-lived connections:
 : The tick is checked only at full-handshake certificate validation.
   A relying party that wants revocation to take effect within about one `tick_interval` SHOULD cap session-ticket reuse and force periodic full handshakes, so that a fresh tick is re-checked ({{enforcement-latency}}).
 
+Requiring the mechanism on longer-lived certificates:
+: A relying party MAY refuse a certificate that carries no hash chain anchor once its validity period exceeds a configured threshold, since without an anchor its exposure to a detected compromise is bounded only by that period ({{revocation-vs-expiry}}).
+  The threshold is at once the lifetime above which the relying party demands revocation and the worst-case exposure it accepts where revocation is absent, so a certificate that escapes the requirement is by construction one short enough for expiry to bound.
+  It also narrows the downgrade of {{downgrade}}, since an unanchored certificate for the same key is then usable against that relying party only if its own validity period is within the threshold.
+  The check reads `notBefore`, `notAfter`, and the presence of the extension, so it costs neither hashing nor network access.
+  As with the acceptance window it applies to every certificate that relying party validates, and a threshold below what its CAs issue unanchored rejects those certificates outright.
+
 Enforcement and criticality:
 : A relying party that implements this mechanism MUST enforce hash chain verification whenever the id-pe-hashChainAnchor extension is present.
   An ecosystem MAY additionally mark the extension critical for hard enforcement ({{extension-criticality}}).
