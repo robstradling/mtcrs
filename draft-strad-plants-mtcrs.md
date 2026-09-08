@@ -789,14 +789,14 @@ That check has no acceptance window to search and no way to detect staleness wit
 The MTCProof is not committed to the Merkle Tree (only the TBSCertificateLogEntry is hashed into the tree), so the tick can be updated each period without affecting the inclusion proof or cosignatures.
 The authenticating party reconstructs or replaces the `signatureValue` with a fresh tick while reusing the same inclusion proof and signatures.
 
-The authenticating party MUST include a HashChainTick whose period falls within the *default* acceptance window (step 4 of {{verification}}), computed against its own clock.
+The authenticating party MUST include a HashChainTick whose period falls within the *default* acceptance window (step 4 of {{verification-procedure}}), computed against its own clock.
 It is bound to the default, and to its own clock, because neither the window a given relying party applies nor that party's clock is observable to it.
 The window's tolerance of one period in each direction is what absorbs the difference between the two clocks ({{clock-skew}}).
 The default suffices, since a relying party may only widen the window and therefore accepts a superset of what the default admits.
 In practice this is the most recent tick it has fetched and verified ({{distribution}}).
 It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary.
 The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
-The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification}}.
+The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification-procedure}}.
 
 A certificate carrying an anchor holds a well-formed HashChainTick from the moment it is issued, since the parse rules admit no other form ({{tick-trailing-field}}).
 The CA MUST therefore populate `status_tick` with the tick for the period the certificate is in at issuance, or with the period 0 tick if it has not yet entered period 0.
@@ -944,6 +944,8 @@ Under the entry-extension alternative ({{anchor-entry-extension}}) the relying p
 ~~~
 {: #fig-verification title="The two checks that bind a tick to the certificate, corresponding to steps 4 through 6 below. The window shown is the default one, which a relying party MAY widen"}
 
+## Verification Inputs
+
 The verifier first assembles the inputs to HashChainInput ({{encoding}}) and to the period computation ({{construction}}).
 All of them are read from the certificate itself, and the verifier additionally needs HASH, which it holds as part of its base MTC configuration for the issuing CA ({{conventions-and-definitions}}).
 No data from the CA's tick distribution service ({{distribution}}) is needed, and the verifier MUST NOT fetch anything ({{rp-no-fetch}}):
@@ -959,6 +961,8 @@ No data from the CA's tick distribution service ({{distribution}}) is needed, an
 
 `not_before`:
 : The `notBefore` time of the certificate's validity period ({{construction}}), which is the same value the CA used to number periods.
+
+## Verification Procedure {#verification-procedure}
 
 Using these inputs, the verifier performs the following steps:
 
@@ -1032,6 +1036,8 @@ Using these inputs, the verifier performs the following steps:
    If they do not match, reject the certificate with a bad_certificate error.
 
 If all steps succeed, the hash chain verification passes, confirming that the CA has not revoked this certificate as of the indicated period.
+
+## Binding of the Tick to the Certificate
 
 The MTCProof is not committed to the Merkle Tree and can be modified in transit, but the tick is nonetheless self-authenticating.
 Steps 5 and 6 bind both `tick.value` and `tick.period` to the committed anchor, because a given value reaches the anchor only after the exact number of forward hashes that its true period implies.
@@ -1316,6 +1322,8 @@ CAs using issuance protocols other than ACME SHOULD provide an equivalent mechan
 This section defines what an authenticating party does with the interface of {{distribution}}: how it refreshes a tick, what it checks before installing one, and when it may and may not present the certificate.
 It is the counterpart to {{verification}}, which defines the relying party's procedure.
 
+## Refreshing the Tick
+
 For each certificate it serves, the authenticating party periodically fetches that certificate's current tick from the CA:
 
 1. At least once per `tick_interval`, the authenticating party fetches an updated HashChainTick for the certificate.
@@ -1342,6 +1350,8 @@ For each certificate it serves, the authenticating party periodically fetches th
 
 4. During TLS handshakes, the authenticating party presents the certificate with the current tick.
 
+## Presenting the Certificate
+
 An authenticating party MUST NOT present a certificate carrying a hash chain anchor unless it holds a tick for that certificate whose period falls within the default acceptance window, computed against its own clock ({{cert-format}}).
 Every relying party implementing this mechanism rejects such a certificate, so presenting one converts a tick-distribution problem into a failed handshake for no benefit.
 Such a certificate is therefore ineligible for selection, dropping out of the candidate set exactly as one whose trust anchor the relying party does not support does ({{Section 4.5.1.2 of !RFC9846}}, {{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -1359,6 +1369,8 @@ A CA already provisioned for the entry may equally return that tick with a 200 (
 This does not apply to a certificate whose `notBefore` was backdated by one `tick_interval` or more, which is already past period 0 when it is issued.
 Its first fetch must succeed before it can be served ({{construction}}).
 
+## Responding to Fetch Failures
+
 Repeated failure to obtain a fresh tick after period 0 is different.
 It is the observable signature of either revocation ({{revoking}}) or a distribution failure, and a 404 does not tell the authenticating party which ({{response-format}}).
 An authenticating party SHOULD therefore raise an operational alarm once it has failed to obtain a fresh tick for a full `tick_interval`, rather than waiting until the certificate stops working.
@@ -1370,7 +1382,14 @@ Because the signal is unauthenticated, it MUST NOT cause the authenticating part
 Treating a forged 410 as grounds to withdraw a healthy certificate would hand anyone able to inject a response a remote kill switch, which is a worse position than simply continuing to serve the valid tick it already holds.
 
 An authenticating party that holds a certificate from another CA SHOULD fail over to it before its newest tick leaves the default acceptance window ({{availability-considerations}}), which restores service whichever of the two causes applies.
-Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification}}).
+Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification-procedure}}).
+
+The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
+It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification-procedure}}), which gives it between one and two periods of runway from its last successful fetch ({{availability-considerations}}).
+Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
+{{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
+
+## Serving from Multiple Nodes
 
 A deployment that terminates TLS on many nodes must get each fresh tick to every node that presents the certificate.
 This document does not prescribe how.
@@ -1379,11 +1398,6 @@ The tick is a public, immutable, 34-byte value with no validity window of its ow
 A node still holding the preceding period's tick keeps serving correctly while it catches up.
 This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale ({{ocsp-stapling-comparison}}).
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
-
-The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
-It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification}}), which gives it between one and two periods of runway from its last successful fetch ({{availability-considerations}}).
-Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
-{{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
 # Privacy Considerations
 
@@ -1730,7 +1744,7 @@ Acceptance window:
 : The default accepts a tick for the current, immediately preceding, or immediately following period.
   A relying party MAY widen the preceding side to tolerate a tick-distribution outage, at the cost of correspondingly delayed revocation, or the following side to tolerate a clock that runs behind, at no revocation cost.
   Widening applies to every certificate the relying party validates ({{clock-skew}}, {{availability-considerations}}).
-  Widening is the only direction available: a relying party MUST NOT narrow the window, since authenticating parties target the default and cannot observe a narrower one (step 4 of {{verification}}).
+  Widening is the only direction available: a relying party MUST NOT narrow the window, since authenticating parties target the default and cannot observe a narrower one (step 4 of {{verification-procedure}}).
 
 Trusted time:
 : The acceptance window is anchored to the relying party's clock, so revocation timeliness is bounded by clock integrity.
@@ -1738,7 +1752,7 @@ Trusted time:
 
 Maximum verification cost:
 : Verification hashes forward up to `tick.period` times, which the 16-bit period field caps at 65,535 for any certificate from any CA ({{construction}}).
-  A relying party MAY set a lower local ceiling on a certificate's implied maximum period and reject anything above it before hashing, and a constrained implementation SHOULD do so (step 5 of {{verification}}, {{verification-cost}}).
+  A relying party MAY set a lower local ceiling on a certificate's implied maximum period and reject anything above it before hashing, and a constrained implementation SHOULD do so (step 5 of {{verification-procedure}}, {{verification-cost}}).
   This lever differs from the acceptance window in kind, not just in degree.
   A window that is too narrow rejects a certificate until its next tick refresh, whereas a ceiling below what the deployment's CAs actually issue rejects those certificates for their whole lifetime.
   It is therefore set against the `tick_interval` values a relying party expects to encounter, not against its own preferences alone.
@@ -1779,7 +1793,7 @@ The subsections run in the order the work does, from the CA that generates hash 
 ## Availability Considerations {#availability-considerations}
 
 An authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}).
-A tick fetched for period t remains acceptable until the end of period t+1, because a relying party also accepts the immediately preceding period's tick (step 4 of {{verification}}).
+A tick fetched for period t remains acceptable until the end of period t+1, because a relying party also accepts the immediately preceding period's tick (step 4 of {{verification-procedure}}).
 A single successful fetch therefore provides between one and two periods of runway, depending on how far into period t it landed.
 An outage that outlasts that runway renders the affected certificate unusable until a fresh tick is obtained.
 This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
@@ -2005,11 +2019,11 @@ It is also worst at the end of a certificate's life and near zero just after iss
 Constrained relying parties are where this cost is significant.
 A software SHA-256 on a 32-bit microcontroller without a hash accelerator costs on the order of a thousand cycles per block, which puts 1,127 steps in the tens of milliseconds at typical clock rates.
 A hardware SHA engine lowers the per-block cost but not the per-call overhead, which dominates for single-block messages.
-Such a verifier can compute `hash_chain_length` from the certificate and reject before hashing anything if it exceeds a configured ceiling (step 5 of {{verification}}, {{rp-policy}}), and a deployment that controls its own CA can choose parameters that suit it.
+Such a verifier can compute `hash_chain_length` from the certificate and reject before hashing anything if it exceeds a configured ceiling (step 5 of {{verification-procedure}}, {{rp-policy}}), and a deployment that controls its own CA can choose parameters that suit it.
 Neither remedy helps a constrained client validating an arbitrary server's certificate, where the issuing CA chooses both the lifetime and `tick_interval` and the client can only bear the cost or reject the certificate.
 
 The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}).
-That measures approximately 18 milliseconds on the general-purpose core above and is of the order of a second on a constrained one, which is why a relying party that cannot afford it rejects such a certificate before hashing (step 5 of {{verification}}).
+That measures approximately 18 milliseconds on the general-purpose core above and is of the order of a second on a constrained one, which is why a relying party that cannot afford it rejects such a certificate before hashing (step 5 of {{verification-procedure}}).
 
 Across the many connections a page load opens, the total stays bounded.
 Most connections pay nothing.
