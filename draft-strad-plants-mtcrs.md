@@ -1658,7 +1658,16 @@ A deployment presenting a Merkle Tree Certificate to relying parties that suppor
 A deployment that wants key-level revocation SHOULD therefore not share a key between certificates that carry an anchor and certificates that do not.
 Keeping them on separate keys confines each certificate this mechanism does not cover to a key that is not also used with one it does, so that withholding a certificate's ticks is sufficient to retire it.
 
-This is the general property that revocation targets certificates rather than keys, and it is not specific to this mechanism.
+A domain name holder can also narrow how unanchored certificates for its names come to exist, by constraining issuance through CAA {{?RFC8659}}.
+An `issue` parameter meaning that certificates for the name must carry a hash chain anchor would compose with the authorization list already published there, rather than needing a critical property that would forbid issuance by every CA that does not implement it.
+Its distinctive contribution is reach, since it binds any CA that honors it, including ones the subscriber never chose to use, which neither the issuance channel of {{acme-integration}} nor anything carried in the certificate can do.
+It earns that place only where anchoring varies within a CA, since a CA that anchors everything it issues is already described by an ordinary CAA authorization list.
+This document does not define such a parameter, which is separable from this mechanism and can be specified on its own.
+What it cannot become is enforcement.
+{{Section 1 of ?RFC8659}} states that relying parties MUST NOT use CAA records as part of certificate validation, because a CAA record set grants authority as of now whereas a certificate issued before the record was published remains what it was.
+It therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor, rather than against an attacker who holds a key and finds a CA willing to issue.
+
+The limitation behind both measures is the general property that revocation targets certificates rather than keys, and it is not specific to this mechanism.
 It is more visible here only because this mechanism makes the certificates it covers substantially harder to keep alive than the ones it does not.
 
 ## Clock Skew {#clock-skew}
