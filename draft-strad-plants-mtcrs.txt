@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                           7 September 2026
-Expires: 11 March 2027
+Intended status: Experimental                           9 September 2026
+Expires: 13 March 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 11 March 2027.
+   This Internet-Draft will expire on 13 March 2027.
 
 Copyright Notice
 
@@ -103,6 +103,9 @@ Table of Contents
      8.3.  Use in TLS
      8.4.  Standalone and Landmark-Relative Certificates
    9.  Verification
+     9.1.  Verification Inputs
+     9.2.  Verification Procedure
+     9.3.  Binding of the Tick to the Certificate
    10. Tick Distribution
      10.1.  HTTP Interface
      10.2.  Discovering the Tick Base URL
@@ -110,6 +113,10 @@ Table of Contents
      10.4.  Response Format
    11. ACME Integration
    12. Authenticating Party Behavior
+     12.1.  Refreshing the Tick
+     12.2.  Presenting the Certificate
+     12.3.  Responding to Fetch Failures
+     12.4.  Serving from Multiple Nodes
    13. Privacy Considerations
    14. Security Considerations
      14.1.  Hash Function Requirements
@@ -201,6 +208,10 @@ Table of Contents
    serial-range revocation (Section 7.5 of
    [I-D.ietf-plants-merkle-tree-certs]) is a complementary mitigation
    for CA misbehavior rather than a per-certificate revocation service.
+   Section 12.7 of [I-D.ietf-plants-merkle-tree-certs] also observes
+   that the sequential serial numbers its issuance logs assign may
+   enable future improvements to revocation, while placing such work out
+   of scope.  This document is an attempt at that work.
 
    However, deployments such as Chrome's draft Quantum-resistant Root
    Program policy [CHROME-MTC] permit certificate lifetimes of up to 47
@@ -493,15 +504,15 @@ Table of Contents
                           to the committed anchor
 
    1.  *Issuance.* For each log entry, the CA generates a secret random
-       seed h[0] and hashes it forward hash_chain_length times to obtain
-       h[1], h[2], ..., h[5] (Section 4).  The final value h[5] is the
-       _anchor_. The CA commits it into the certificate as the id-pe-
-       hashChainAnchor extension (Section 7).  Because the anchor sits
-       in the log entry, it is covered by the Merkle Tree and the
+       _seed_ h[0] and hashes it forward hash_chain_length times to
+       obtain h[1], h[2], ..., h[5] (Section 4).  The final value h[5]
+       is the _anchor_. The CA commits it into the certificate as the
+       id-pe-hashChainAnchor extension (Section 7).  Because the anchor
+       sits in the log entry, it is covered by the Merkle Tree and the
        cosignatures.
 
    2.  *Per-period reveal.* Time after the certificate's notBefore is
-       divided into periods of tick_interval seconds (one hour by
+       divided into _periods_ of tick_interval seconds (one hour by
        default).  At the start of period t, the CA reveals
        h[hash_chain_length - t] (for period 2, that is h[3]), unless it
        has revoked the certificate, in which case it reveals nothing
@@ -1187,7 +1198,7 @@ Table of Contents
    proof and signatures.
 
    The authenticating party MUST include a HashChainTick whose period
-   falls within the _default_ acceptance window (step 4 of Section 9),
+   falls within the _default_ acceptance window (step 4 of Section 9.2),
    computed against its own clock.  It is bound to the default, and to
    its own clock, because neither the window a given relying party
    applies nor that party's clock is observable to it.  The window's
@@ -1204,7 +1215,7 @@ Table of Contents
    to present its most recent still-valid one (Section 15.1).  The
    relying party checks tick.period against its own clock using the
    acceptance window, which allows for clock skew and caching and is
-   specified in step 4 of Section 9.
+   specified in step 4 of Section 9.2.
 
    A certificate carrying an anchor holds a well-formed HashChainTick
    from the moment it is issued, since the parse rules admit no other
@@ -1468,6 +1479,8 @@ Table of Contents
        corresponding to steps 4 through 6 below.  The window shown is
               the default one, which a relying party MAY widen
 
+9.1.  Verification Inputs
+
    The verifier first assembles the inputs to HashChainInput (Section 6)
    and to the period computation (Section 4).  All of them are read from
    the certificate itself, and the verifier additionally needs HASH,
@@ -1491,6 +1504,8 @@ Table of Contents
    not_before:  The notBefore time of the certificate's validity period
       (Section 4), which is the same value the CA used to number
       periods.
+
+9.2.  Verification Procedure
 
    Using these inputs, the verifier performs the following steps:
 
@@ -1634,6 +1649,8 @@ Table of Contents
    that the CA has not revoked this certificate as of the indicated
    period.
 
+9.3.  Binding of the Tick to the Certificate
+
    The MTCProof is not committed to the Merkle Tree and can be modified
    in transit, but the tick is nonetheless self-authenticating.  Steps 5
    and 6 bind both tick.value and tick.period to the committed anchor,
@@ -1740,9 +1757,12 @@ Table of Contents
    rather than probabilistic, because indices are assigned sequentially
    within a log and the log number distinguishes a CA's logs, so no two
    of a CA's entries can share a URL and there is no collision case to
-   reason about.  It is also identical for a given entry's standalone
-   and landmark-relative certificates, which differ only in the proof
-   they carry (Section 8.4).
+   reason about.  That sequential assignment is the property the base
+   specification itself identifies as one that may enable improvements
+   to revocation (Section 12.7 of [I-D.ietf-plants-merkle-tree-certs]).
+   It is also identical for a given entry's standalone and landmark-
+   relative certificates, which differ only in the proof they carry
+   (Section 8.4).
 
    The URL is therefore trivially derivable by anyone holding the
    certificate, and that cuts both ways.  It lets a third party
@@ -2119,6 +2139,8 @@ Table of Contents
    certificate.  It is the counterpart to Section 9, which defines the
    relying party's procedure.
 
+12.1.  Refreshing the Tick
+
    For each certificate it serves, the authenticating party periodically
    fetches that certificate's current tick from the CA:
 
@@ -2173,6 +2195,8 @@ Table of Contents
    4.  During TLS handshakes, the authenticating party presents the
        certificate with the current tick.
 
+12.2.  Presenting the Certificate
+
    An authenticating party MUST NOT present a certificate carrying a
    hash chain anchor unless it holds a tick for that certificate whose
    period falls within the default acceptance window, computed against
@@ -2210,6 +2234,8 @@ Table of Contents
    more, which is already past period 0 when it is issued.  Its first
    fetch must succeed before it can be served (Section 4).
 
+12.3.  Responding to Fetch Failures
+
    Repeated failure to obtain a fresh tick after period 0 is different.
    It is the observable signature of either revocation (Section 5.2) or
    a distribution failure, and a 404 does not tell the authenticating
@@ -2235,7 +2261,20 @@ Table of Contents
    the two causes applies.  Continuing to present a certificate whose
    newest tick has already fallen outside that window achieves nothing:
    every relying party implementing this mechanism rejects it (step 4 of
-   Section 9).
+   Section 9.2).
+
+   The authenticating party may be unable to obtain a fresh tick, for
+   example because the CA is unavailable.  It then continues to serve
+   the most recent tick it holds for as long as that tick remains within
+   the default acceptance window (step 4 of Section 9.2), which gives it
+   between one and two periods of runway from its last successful fetch
+   (Section 15.1).  Once that runway is exhausted, the certificate
+   becomes unusable until a fresh tick is obtained or a new certificate
+   is provisioned.  Section 15.1 discusses this dependency and its
+   mitigations, including widening the acceptance window (Section 14.10)
+   and holding certificates from multiple CAs.
+
+12.4.  Serving from Multiple Nodes
 
    A deployment that terminates TLS on many nodes must get each fresh
    tick to every node that presents the certificate.  This document does
@@ -2253,17 +2292,6 @@ Table of Contents
    terminator before it goes stale (Appendix F.6.2).  A tick has none of
    those properties, which is why this document leaves the choice to the
    deployment rather than specifying a distribution mechanism for it.
-
-   The authenticating party may be unable to obtain a fresh tick, for
-   example because the CA is unavailable.  It then continues to serve
-   the most recent tick it holds for as long as that tick remains within
-   the default acceptance window (step 4 of Section 9), which gives it
-   between one and two periods of runway from its last successful fetch
-   (Section 15.1).  Once that runway is exhausted, the certificate
-   becomes unusable until a fresh tick is obtained or a new certificate
-   is provisioned.  Section 15.1 discusses this dependency and its
-   mitigations, including widening the acceptance window (Section 14.10)
-   and holding certificates from multiple CAs.
 
 13.  Privacy Considerations
 
@@ -2778,11 +2806,35 @@ Table of Contents
    to a key that is not also used with one it does, so that withholding
    a certificate's ticks is sufficient to retire it.
 
-   This is the general property that revocation targets certificates
-   rather than keys, and it is not specific to this mechanism.  It is
-   more visible here only because this mechanism makes the certificates
-   it covers substantially harder to keep alive than the ones it does
-   not.
+   A domain name holder can also narrow how unanchored certificates for
+   its names come to exist, by constraining issuance through CAA
+   [RFC8659].  An issue parameter meaning that certificates for the name
+   must carry a hash chain anchor would compose with the authorization
+   list already published there, rather than needing a critical property
+   that would forbid issuance by every CA that does not implement it.
+   Its distinctive contribution is reach, since it binds any CA that
+   honors it, including ones the subscriber never chose to use, which
+   neither the issuance channel of Section 11 nor anything carried in
+   the certificate can do.  It earns that place only where anchoring
+   varies within a CA, since a CA that anchors everything it issues is
+   already described by an ordinary CAA authorization list.  This
+   document does not define such a parameter, which is separable from
+   this mechanism and can be specified on its own.  What it cannot
+   become is enforcement.  Section 1 of [RFC8659] states that relying
+   parties MUST NOT use CAA records as part of certificate validation,
+   because a CAA record set grants authority as of now whereas a
+   certificate issued before the record was published remains what it
+   was.  It therefore reaches the CA and never the party that checks the
+   tick, which makes it a defense against an accidental downgrade such
+   as a renewal that quietly moves to a product without an anchor,
+   rather than against an attacker who holds a key and finds a CA
+   willing to issue.
+
+   The limitation behind both measures is the general property that
+   revocation targets certificates rather than keys, and it is not
+   specific to this mechanism.  It is more visible here only because
+   this mechanism makes the certificates it covers substantially harder
+   to keep alive than the ones it does not.
 
 14.10.  Clock Skew
 
@@ -2882,7 +2934,7 @@ Table of Contents
       relying party validates (Section 14.10, Section 15.1).  Widening
       is the only direction available: a relying party MUST NOT narrow
       the window, since authenticating parties target the default and
-      cannot observe a narrower one (step 4 of Section 9).
+      cannot observe a narrower one (step 4 of Section 9.2).
 
    Trusted time:  The acceptance window is anchored to the relying
       party's clock, so revocation timeliness is bounded by clock
@@ -2895,7 +2947,7 @@ Table of Contents
       for any certificate from any CA (Section 4).  A relying party MAY
       set a lower local ceiling on a certificate's implied maximum
       period and reject anything above it before hashing, and a
-      constrained implementation SHOULD do so (step 5 of Section 9,
+      constrained implementation SHOULD do so (step 5 of Section 9.2,
       Section 15.6).  This lever differs from the acceptance window in
       kind, not just in degree.  A window that is too narrow rejects a
       certificate until its next tick refresh, whereas a ceiling below
@@ -2913,6 +2965,24 @@ Table of Contents
       revocation to take effect within about one tick_interval SHOULD
       cap session-ticket reuse and force periodic full handshakes, so
       that a fresh tick is re-checked (Section 15.7).
+
+   Requiring the mechanism on longer-lived certificates:  A relying
+      party MAY refuse a certificate that carries no hash chain anchor
+      once its validity period exceeds a configured threshold, since
+      without an anchor its exposure to a detected compromise is bounded
+      only by that period (Appendix F.1).  The threshold is at once the
+      lifetime above which the relying party demands revocation and the
+      worst-case exposure it accepts where revocation is absent, so a
+      certificate that escapes the requirement is by construction one
+      short enough for expiry to bound.  It also narrows the downgrade
+      of Section 14.9, since an unanchored certificate for the same key
+      is then usable against that relying party only if its own validity
+      period is within the threshold.  The check reads notBefore,
+      notAfter, and the presence of the extension, so it costs neither
+      hashing nor network access.  As with the acceptance window it
+      applies to every certificate that relying party validates, and a
+      threshold below what its CAs issue unanchored rejects those
+      certificates outright.
 
    Enforcement and criticality:  A relying party that implements this
       mechanism MUST enforce hash chain verification whenever the id-pe-
@@ -2953,8 +3023,8 @@ Table of Contents
    tick_interval (Section 10).  A tick fetched for period t remains
    acceptable until the end of period t+1, because a relying party also
    accepts the immediately preceding period's tick (step 4 of
-   Section 9).  A single successful fetch therefore provides between one
-   and two periods of runway, depending on how far into period t it
+   Section 9.2).  A single successful fetch therefore provides between
+   one and two periods of runway, depending on how far into period t it
    landed.  An outage that outlasts that runway renders the affected
    certificate unusable until a fresh tick is obtained.  This is an
    availability dependency that the base MTC short-lived-certificate
@@ -3404,8 +3474,8 @@ Table of Contents
    overhead, which dominates for single-block messages.  Such a verifier
    can compute hash_chain_length from the certificate and reject before
    hashing anything if it exceeds a configured ceiling (step 5 of
-   Section 9, Section 14.11), and a deployment that controls its own CA
-   can choose parameters that suit it.  Neither remedy helps a
+   Section 9.2, Section 14.11), and a deployment that controls its own
+   CA can choose parameters that suit it.  Neither remedy helps a
    constrained client validating an arbitrary server's certificate,
    where the issuing CA chooses both the lifetime and tick_interval and
    the client can only bear the cost or reject the certificate.
@@ -3415,7 +3485,7 @@ Table of Contents
    approximately 18 milliseconds on the general-purpose core above and
    is of the order of a second on a constrained one, which is why a
    relying party that cannot afford it rejects such a certificate before
-   hashing (step 5 of Section 9).
+   hashing (step 5 of Section 9.2).
 
    Across the many connections a page load opens, the total stays
    bounded.  Most connections pay nothing.  A resumed session carries no
@@ -3821,6 +3891,11 @@ Table of Contents
               Code: The Implementation Status Section", BCP 205,
               RFC 7942, DOI 10.17487/RFC7942, July 2016,
               <https://www.rfc-editor.org/rfc/rfc7942>.
+
+   [RFC8659]  Hallam-Baker, P., Stradling, R., and J. Hoffman-Andrews,
+              "DNS Certification Authority Authorization (CAA) Resource
+              Record", RFC 8659, DOI 10.17487/RFC8659, November 2019,
+              <https://www.rfc-editor.org/rfc/rfc8659>.
 
    [RFC9162]  Laurie, B., Messeri, E., and R. Stradling, "Certificate
               Transparency Version 2.0", RFC 9162, DOI 10.17487/RFC9162,
