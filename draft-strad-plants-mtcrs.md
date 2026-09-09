@@ -2008,7 +2008,7 @@ This is not required for relying-party security, which rests on self-authenticat
 
 A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
 Two properties of that loop set its cost.
-Each step hashes a 53-byte HashChainInput ({{encoding}}), which occupies a single compression block, so the work is one block per elapsed period.
+Each step hashes a 45-byte HashChainInput ({{encoding}}), which occupies a single compression block, so the work is one block per elapsed period.
 The steps cannot be batched or pipelined, because each input is the preceding output, so every step also pays the hash function's initialization and finalization.
 
 On a current x86-64 core with SHA-256 instructions, 1,127 steps measure approximately 300 microseconds, or about 270 nanoseconds per step.
