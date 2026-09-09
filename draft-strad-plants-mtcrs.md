@@ -157,6 +157,8 @@ Merkle Tree Certificates {{!I-D.ietf-plants-merkle-tree-certs}} authenticate TLS
 The base MTC specification is designed around short-lived certificates and leaves certificate-level revocation out of scope.
 It notes that existing mechanisms such as CRLs and OCSP apply unchanged ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}).
 Its own serial-range revocation ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-certs}}) is a complementary mitigation for CA misbehavior rather than a per-certificate revocation service.
+{{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}} also observes that the sequential serial numbers its issuance logs assign may enable future improvements to revocation, while placing such work out of scope.
+This document is an attempt at that work.
 
 However, deployments such as Chrome's draft Quantum-resistant Root Program policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days.
 That policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
@@ -1100,6 +1102,7 @@ The authenticating party in particular does not reconstruct the log entry, so de
 
 The serial is the base specification's own identifier for an entry, used to locate it in the log during verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}) and to name it in the revocation record sketched in {{logged-revocation}}, so keying ticks on it keeps one identifier for one entry throughout.
 Its uniqueness is structural rather than probabilistic, because indices are assigned sequentially within a log and the log number distinguishes a CA's logs, so no two of a CA's entries can share a URL and there is no collision case to reason about.
+That sequential assignment is the property the base specification itself identifies as one that may enable improvements to revocation ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}).
 It is also identical for a given entry's standalone and landmark-relative certificates, which differ only in the proof they carry ({{cert-profiles}}).
 
 The URL is therefore trivially derivable by anyone holding the certificate, and that cuts both ways.
