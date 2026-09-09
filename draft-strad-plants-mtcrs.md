@@ -351,13 +351,13 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
 {: #fig-hash-chain title="MTCRS hash chain lifecycle: generated forward at issuance, revealed in reverse each period, and verified forward to the committed anchor"}
 
 1. **Issuance.**
-   For each log entry, the CA generates a secret random seed `h[0]` and hashes it forward `hash_chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
+   For each log entry, the CA generates a secret random *seed* `h[0]` and hashes it forward `hash_chain_length` times to obtain `h[1], h[2], ..., h[5]` ({{construction}}).
    The final value `h[5]` is the *anchor*.
    The CA commits it into the certificate as the id-pe-hashChainAnchor extension ({{anchor-x509-extension}}).
    Because the anchor sits in the log entry, it is covered by the Merkle Tree and the cosignatures.
 
 2. **Per-period reveal.**
-   Time after the certificate's `notBefore` is divided into periods of `tick_interval` seconds (one hour by default).
+   Time after the certificate's `notBefore` is divided into *periods* of `tick_interval` seconds (one hour by default).
    At the start of period `t`, the CA reveals `h[hash_chain_length - t]` (for period 2, that is `h[3]`), unless it has revoked the certificate, in which case it reveals nothing further ({{revealing-values}}).
    These period boundaries are the certificate's own: because they are counted from its `notBefore`, each certificate advances through its periods on its own schedule ({{construction}}).
    The hash chain is revealed in reverse of the order it was generated, so revealing the current value gives no help in computing any future one.
