@@ -977,6 +977,9 @@ Using these inputs, the verifier performs the following steps:
    A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it MUST be checked explicitly.
    The anchor extension is committed to the Merkle Tree, so a non-canonical encoding of it would be a distinct entry certifying the same thing.
    If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
+   Reject the certificate with a bad_certificate error if `hash_chain_length`, which is `ceil(lifetime / tick_interval)`, exceeds 65,535.
+   A CA is forbidden to issue such a certificate ({{construction}}), and the relying party can compute the quantity from `notBefore`, `notAfter` and `tick_interval` alone, as for the check below.
+   The tick's 16-bit period field cannot represent that certificate's later periods, so it would otherwise stop verifying partway through its life for a reason the verifier could have detected at the outset.
    Finally, reject the certificate with a bad_certificate error if its validity period is not longer than `tick_interval`, which a CA is forbidden to issue ({{construction}}) and which the relying party can detect from `notBefore`, `notAfter` and `tick_interval` alone.
    Such a certificate never leaves period 0, so its only tick is the public anchor and the mechanism would enforce nothing while appearing to.
 
