@@ -2305,6 +2305,9 @@ Exactly one change to the base specification is required:
 - **Admit the HashChainTick into the MTCProof** so that, when a certificate carries the hash chain anchor, the MTCProof in its `signatureValue` carries the tick, and otherwise remains byte-identical to a base MTCProof.
   This touches two adjacent places: the structure itself ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}) and the "extra data" check that parses it ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
   The RECOMMENDED realization appends a trailing `status_tick` field ({{tick-trailing-field}}).
+  That realization also gives the base parsing procedure a dependency on an identifier this document owns.
+  The variant is selected by `anchor_presence`, which is not encoded in the MTCProof and is determined from the id-pe-hashChainAnchor extension, so an implementation that parses an MTCProof has to recognize that object identifier in order to parse a `signatureValue` correctly, whether or not it implements this mechanism.
+  The optional item below removes that dependency, because it makes the discriminant derivable from a preceding field of the same structure and puts the code point in a registry the base specification owns ({{anchor-entry-extension}}).
   A base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends both accordingly.
 
 The following item is optional, and a base specification MAY adopt it but need not:
@@ -2339,6 +2342,7 @@ Nothing in this section is itself a normative requirement.
    The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{anchor-x509-extension}}) or a committed entry extension ({{anchor-entry-extension}}).
    Both are committed to the Merkle Tree, so the verification procedure is identical either way.
    The trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+   The entry extension also keeps the amended MTCProof parse free of an identifier this document defines, which the X.509 extension does not ({{base-spec-amendments}}).
    *Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
    Whichever is chosen becomes the single anchor home for the ecosystem.
 
