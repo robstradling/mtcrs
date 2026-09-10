@@ -205,7 +205,7 @@ Withholding a tick is not a signed, logged artifact, so monitors cannot observe 
 Third, the two-period bound is a property of the full handshake.
 A resumed TLS session carries no certificate and therefore checks no tick, so the latency a given client actually experiences is the longer of that bound and its session-resumption window, which TLS 1.3 caps at seven days ({{enforcement-latency}}).
 The first two are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
-The third is shared with every handshake-time revocation mechanism, and even under it each full handshake re-checks a live non-revocation proof where passive expiry consults only a static `notAfter`.
+The third is shared with every handshake-time revocation mechanism.
 
 This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial.
 A CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second ({{distribution}}).
@@ -213,7 +213,6 @@ What separates it from the OCSP responder MTC was built to do without is that re
 It holds no key and signs nothing.
 Every response is a public value that is immutable within its period.
 The service is therefore a precomputed dataset rather than a computation, which a CA can replicate to, or delegate wholesale to, parties trusted for availability alone ({{delegated-distribution}}, {{operational-resilience}}).
-The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
 That is a shape the ecosystem already operates at population scale, in software update and revocation-list distribution, and one a CA can hand to the parties already running it ({{delegated-distribution}}).
 
 This mechanism is designed to layer onto the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} with a single required change.
@@ -1279,7 +1278,6 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
   This covers both a revoked certificate, for which the CA has stopped revealing values ({{revoking}}), and a tick that is merely not yet available, as during the period 0 grace ({{period-zero-rationale}}).
   The status code does not distinguish these cases, so an authenticating party MUST NOT treat a 404 as definitive proof of revocation.
   It means only that no fresh tick was obtained on this attempt.
-  The authenticating party continues to serve its most recent still-valid tick and MAY retry ({{ap-behavior}}).
 
 410 (Gone), optional:
 : The server knows that no further tick will ever be published for this entry, because the certificate has been revoked ({{revoking}}), or because it has expired and tick publication has stopped ({{revealing-values}}).
@@ -1853,11 +1851,10 @@ Several factors and mitigations limit its impact:
 
 - **Multiple independent CAs remove the single point of failure.**
   Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
-  This is the preferred resilience mechanism, because unlike widening the acceptance window it restores availability at no cost to revocation freshness.
   Failover needs no new protocol.
   The tick is embedded in the MTCProof rather than negotiated as a separate stapled response.
   A server holding certificates from several CAs therefore simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
-  This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange.
+  It is driven by a background tick refresh, not by a handshake-time refetch or a new failover exchange.
   Its preconditions are that the relying party support the alternate CA's trust anchor, and that the two CAs fail independently, which is not automatic (see below).
   Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
 
@@ -2380,7 +2377,7 @@ Nothing in this section is itself a normative requirement.
    This is separable from question 2.
    The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms.
    If it is adopted, the tick should use it rather than a bare trailing field.
-   *Preference:* not needed for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
+   *Preference:* not adopted, since hash chain revocation alone does not require it ({{mtcproof-extensibility}}).
 
 4. **What should the default `tick_interval` and acceptance window be?**
    The two jointly set revocation latency: a withheld tick stops verifying within (`k` + 1) `tick_interval`s, where `k` is the number of preceding periods a relying party accepts ({{clock-skew}}).
