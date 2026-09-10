@@ -292,7 +292,7 @@ Self-authenticating:
 
 # Overview {#overview}
 
-This section is a non-normative walk-through of the mechanism's lifecycle, followed by a summary of what it costs each party.
+This section is a non-normative walk-through of the mechanism's lifecycle, followed by summaries of what each party implements ({{role-summary}}) and what that costs ({{cost-summary}}).
 The normative details follow in {{construction}} through {{distribution}}.
 It reuses the small example of {{test-vectors}}: a hash chain of length `hash_chain_length = 5` (a real certificate uses a much longer one, for example 1,128 for a 47-day lifetime with a one-hour period).
 {{fig-actors}} shows how the parties interact, and {{fig-hash-chain}} depicts the hash chain lifecycle that the five steps below trace.
@@ -382,6 +382,19 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
    To revoke a certificate, the CA simply stops revealing its hash chain values ({{revealing-values}}).
    Once the last revealed tick's period ends, no party can produce a valid tick, because doing so would require inverting the hash.
    The certificate therefore becomes unusable within at most two periods.
+
+## What Each Party Implements {#role-summary}
+
+The work this mechanism creates falls to three parties, and this table collects what each of them builds, in the order the work happens.
+Nothing here is a new requirement, and each entry cites the section that states it.
+
+| Party | What it implements |
+| --- | --- |
+| Certification authority | Chooses a `tick_interval` and a lifetime satisfying the two bounds on their ratio, generates a seed per entry, and hashes it forward to the anchor ({{construction}}). Commits the anchor in the certificate ({{anchor-x509-extension}}). Reveals one value per period, and stops revealing to revoke ({{ca-operation}}). Serves ticks at the published base URL, and conveys that URL to its subscribers ({{distribution}}, {{discovery}}). |
+| Authenticating party | Derives its tick URL from the base URL and its own `serialNumber` ({{distribution}}). Fetches once per period, at a deterministic offset within it ({{load-distribution}}). Verifies each fetched tick against the anchor in its own certificate before installing it, overwrites the trailing 2 + HASH_SIZE bytes of the MTCProof, and withholds the certificate from selection while it holds no tick within the acceptance window ({{ap-behavior}}). |
+| Relying party | Reads the anchor from the certificate's extensions and the tick from the end of the MTCProof ({{anchor-x509-extension}}, {{tick-trailing-field}}). Runs the verification procedure, which is entirely offline ({{verification-procedure}}). Fetches nothing at any point ({{rp-no-fetch}}). |
+| Issuance log and cosigners | Nothing. The anchor reaches the Merkle Tree as ordinary certificate bytes, so no component that builds or signs subtrees need recognize it ({{anchor-entry-extension}}). |
+| Monitor | Nothing, beyond reading log entries as it already does. Where tick URLs are derivable, a monitor MAY additionally watch them for withheld ticks ({{dos-withholding}}). |
 
 ## What It Costs {#cost-summary}
 
@@ -2093,6 +2106,7 @@ This section records the status of known implementations of the mechanism define
 It is requested that the RFC Editor remove this section before publication.
 
 There are no known implementations at the time of writing.
+{{role-summary}} summarizes what implementing the mechanism involves for each party.
 The author intends to produce a reference implementation covering hash chain generation ({{construction}}), tick distribution ({{distribution}}), and relying-party verification ({{verification}}), and to report interoperability results to the working group.
 The test vectors of {{test-vectors}} are given so that independent implementations can check their HashChainInput encoding and hashing order against a fixed example before any interoperable deployment exists.
 
