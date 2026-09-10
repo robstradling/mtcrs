@@ -1614,14 +1614,13 @@ Withholding a tick is not a signed, logged artifact, so monitors cannot observe 
 Third, the two-period bound is a property of the full handshake.
 A resumed TLS session carries no certificate and therefore checks no tick, so the latency a given client actually experiences is the longer of that bound and its session-resumption window, which TLS 1.3 caps at seven days (<a href="#enforcement-latency" class="auto internal xref">Section 15.7</a>).
 The first two are intrinsic to fetch-free, hard-fail revocation rather than defects, and both are bounded.
-The third is shared with every handshake-time revocation mechanism, and even under it each full handshake re-checks a live non-revocation proof where passive expiry consults only a static <code>notAfter</code>.<a href="#section-1-7" class="pilcrow">¶</a></p>
+The third is shared with every handshake-time revocation mechanism.<a href="#section-1-7" class="pilcrow">¶</a></p>
 <p id="section-1-8">This mechanism adds a per-certificate, per-period distribution service to a design that deliberately avoids per-certificate online infrastructure, and at scale that service is substantial.
 A CA serving 10<sup>9</sup> certificates answers on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second (<a href="#distribution" class="auto internal xref">Section 10</a>).
 What separates it from the OCSP responder MTC was built to do without is that relying parties never contact it (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>), so it lies outside the handshake path entirely.
 It holds no key and signs nothing.
 Every response is a public value that is immutable within its period.
 The service is therefore a precomputed dataset rather than a computation, which a CA can replicate to, or delegate wholesale to, parties trusted for availability alone (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>, <a href="#operational-resilience" class="auto internal xref">Appendix F.6.3</a>).
-The load is real, but it is the load of serving a small static file, not of operating a signing service in the critical path of every connection.
 That is a shape the ecosystem already operates at population scale, in software update and revocation-list distribution, and one a CA can hand to the parties already running it (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>).<a href="#section-1-8" class="pilcrow">¶</a></p>
 <p id="section-1-9">This mechanism is designed to layer onto the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> with a single required change.
 <a href="#base-spec-amendments" class="auto internal xref">Appendix C</a> collects what this document asks of the base specification, and <a href="#open-questions" class="auto internal xref">Appendix D</a> the design choices it leaves open for the working group to settle.
@@ -3385,8 +3384,7 @@ The period 0 grace exists precisely so that provisioning need not be complete at
             <p id="section-10.4-3.4.1">The CA is not serving a current tick for this entry.
 This covers both a revoked certificate, for which the CA has stopped revealing values (<a href="#revoking" class="auto internal xref">Section 5.2</a>), and a tick that is merely not yet available, as during the period 0 grace (<a href="#period-zero-rationale" class="auto internal xref">Appendix F.4</a>).
 The status code does not distinguish these cases, so an authenticating party <span class="bcp14">MUST NOT</span> treat a 404 as definitive proof of revocation.
-It means only that no fresh tick was obtained on this attempt.
-The authenticating party continues to serve its most recent still-valid tick and <span class="bcp14">MAY</span> retry (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).<a href="#section-10.4-3.4.1" class="pilcrow">¶</a></p>
+It means only that no fresh tick was obtained on this attempt.<a href="#section-10.4-3.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-10.4-3.5">410 (Gone), optional:</dt>
@@ -4093,11 +4091,10 @@ The multi-CA approach below is preferable wherever it is available, because it r
           <li class="normal" id="section-15.1-2.5">
             <p id="section-15.1-2.5.1"><strong>Multiple independent CAs remove the single point of failure.</strong>
 Authenticating parties <span class="bcp14">SHOULD</span> obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
-This is the preferred resilience mechanism, because unlike widening the acceptance window it restores availability at no cost to revocation freshness.
 Failover needs no new protocol.
 The tick is embedded in the MTCProof rather than negotiated as a separate stapled response.
 A server holding certificates from several CAs therefore simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-8" class="relref">Section 8</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
-This is ordinary certificate selection driven by a background tick refresh, not a handshake-time refetch or a new failover exchange.
+It is driven by a background tick refresh, not by a handshake-time refetch or a new failover exchange.
 Its preconditions are that the relying party support the alternate CA's trust anchor, and that the two CAs fail independently, which is not automatic (see below).
 Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.<a href="#section-15.1-2.5.1" class="pilcrow">¶</a></p>
 </li>
@@ -4952,7 +4949,7 @@ Either as a trailing <code>status_tick</code> field (<a href="#tick-trailing-fie
 This is separable from question 2.
 The <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms.
 If it is adopted, the tick should use it rather than a bare trailing field.
-<em>Preference:</em> not needed for hash chain revocation alone, and it carries the abuse surface discussed in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.1</a>.<a href="#appendix-D-2.3.1" class="pilcrow">¶</a></p>
+<em>Preference:</em> not adopted, since hash chain revocation alone does not require it (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>).<a href="#appendix-D-2.3.1" class="pilcrow">¶</a></p>
 </li>
         <li id="appendix-D-2.4">
           <p id="appendix-D-2.4.1"><strong>What should the default <code>tick_interval</code> and acceptance window be?</strong>
@@ -4979,10 +4976,9 @@ That construction is given in <a href="#period-zero-rationale" class="auto inter
           <p id="appendix-D-2.6.1"><strong>Is "tick" the right name for the revealed value?</strong>
 The name appears throughout this document and in the field and parameter names it proposes (<code>status_tick</code>, <code>tick_interval</code>, <code>tickInterval</code>), so it is cheap to change now and expensive later.
 It was chosen for its clock connotation, one per period on a fixed cadence, and because it is unclaimed in TLS and PKI, unlike "token", "witness", "checkpoint" and "heartbeat".
-"Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL (<a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>), and its bearer-credential connotation is the opposite of what a tick is: public, unsigned, and useless without the certificate.
+"Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL (<a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>) and its bearer-credential connotation is the opposite of what a tick is, which is public, unsigned, and useless without the certificate.
 The weakness of "tick" is that it ordinarily names a time event rather than a value, which is why this document always presents it as the pair <code>{period, value}</code>.
-<em>Preference:</em> keep "tick".
-The accurate alternative, "non-revocation proof", is too long to carry as the primary name and is used as the gloss at first mention instead.<a href="#appendix-D-2.6.1" class="pilcrow">¶</a></p>
+<em>Preference:</em> keep "tick", with the accurate alternative "non-revocation proof" used as the gloss at first mention rather than as the primary name.<a href="#appendix-D-2.6.1" class="pilcrow">¶</a></p>
 </li>
         <li id="appendix-D-2.7">
           <p id="appendix-D-2.7.1"><strong>How should the worst-case verification cost be bounded, and by which lever?</strong>
@@ -5485,22 +5481,17 @@ One certificate serves both populations, since omitting the tick leaves an MTCPr
 It is therefore gentler than marking the extension critical, which makes that same party fail the handshake instead.<a href="#appendix-F.7-6" class="pilcrow">¶</a></p>
 <p id="appendix-F.7-7">One identifier for the whole ecosystem is what makes the trust anchor extension a tempting carrier, and also what makes the fit imperfect.
 Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-9.1" class="relref">Section 9.1</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
-Against that, a trust anchor ID is defined to represent a trust anchor or a group of them (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-3" class="relref">Section 3</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>), and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-4.2" class="relref">Section 4.2</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
+Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-3" class="relref">Section 3</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>, <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-4.2" class="relref">Section 4.2</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
 A capability marker is neither, so it matches nothing and is inert to a server that does not implement this mechanism, which is harmless but is not what that extension says it carries.
-The alternative carrier is a TLS extension of this document's own, against which the objection of <a href="#tls-extension-alternative" class="auto internal xref">Appendix G.7</a> does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.
-Reusing the existing extension buys instead that no new code point is needed, and that the signal arrives where certificate selection already reads.<a href="#appendix-F.7-7" class="pilcrow">¶</a></p>
+The alternative carrier is a TLS extension of this document's own, against which the objection of <a href="#tls-extension-alternative" class="auto internal xref">Appendix G.7</a> does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.<a href="#appendix-F.7-7" class="pilcrow">¶</a></p>
 <p id="appendix-F.7-8">The cost falls on the discriminant rather than on issuance.
 <code>anchor_presence</code> (<a href="#tick-trailing-field" class="auto internal xref">Section 8.1.1</a>) would stop being derivable from the certificate alone and become a negotiated selector, of the kind that section already cites as precedent in the <code>certificate_type</code> of <span><a href="https://rfc-editor.org/rfc/rfc9846#section-4.5.1" class="relref">Section 4.5.1</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>.
-Enforcement then rests on a single invariant.
-A relying party keys its requirement to the committed anchor and never to the negotiation, so one that sees an anchor requires a tick whatever it advertised.
-Stripping the advertisement therefore gains an attacker nothing, because the certificate fails at exactly the party the mechanism relies on to enforce.
+Enforcement nonetheless rests on a single invariant.
+A relying party keys its requirement to the committed anchor and never to the negotiation, so one that sees an anchor requires a tick whatever it advertised, and stripping the advertisement gains an attacker nothing.
 What remains is that a relying party implementing this mechanism must advertise it or be denied certificates it would otherwise accept, and that an authenticating party receiving no signal at all should include the tick, which is how it behaves without negotiation.<a href="#appendix-F.7-8" class="pilcrow">¶</a></p>
-<p id="appendix-F.7-9">A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, is a natural companion and is the more interesting of the two.
-It would let a relying party state the <a href="#downgrade" class="auto internal xref">Section 14.9</a> mitigation for itself, rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
-Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally.
-What they buy is letting the authenticating party choose a certificate that will be accepted, rather than fail a handshake avoidably.
-The second earns its place only where anchoring varies within a CA, as during a rollout or where subscribers elect into it.
-Where it is a per-CA property, which is how <a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.6.2</a> describes it, an ordinary trust anchor list already expresses the same preference, and that is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-8.6" class="relref">Section 8.6</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).<a href="#appendix-F.7-9" class="pilcrow">¶</a></p>
+<p id="appendix-F.7-9">A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, would let it state the <a href="#downgrade" class="auto internal xref">Section 14.9</a> mitigation for itself rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
+Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally, and what they buy is letting the authenticating party choose a certificate that will be accepted rather than fail a handshake avoidably.
+The second earns its place only where anchoring varies within a CA, because where it is a per-CA property an ordinary trust anchor list already expresses the same preference, which is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-8.6" class="relref">Section 8.6</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).<a href="#appendix-F.7-9" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
