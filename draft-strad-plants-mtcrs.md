@@ -2401,10 +2401,9 @@ Nothing in this section is itself a normative requirement.
 6. **Is "tick" the right name for the revealed value?**
    The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
    It was chosen for its clock connotation, one per period on a fixed cadence, and because it is unclaimed in TLS and PKI, unlike "token", "witness", "checkpoint" and "heartbeat".
-   "Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL ({{unguessable-urls}}), and its bearer-credential connotation is the opposite of what a tick is: public, unsigned, and useless without the certificate.
+   "Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL ({{unguessable-urls}}) and its bearer-credential connotation is the opposite of what a tick is, which is public, unsigned, and useless without the certificate.
    The weakness of "tick" is that it ordinarily names a time event rather than a value, which is why this document always presents it as the pair `{period, value}`.
-   *Preference:* keep "tick".
-   The accurate alternative, "non-revocation proof", is too long to carry as the primary name and is used as the gloss at first mention instead.
+   *Preference:* keep "tick", with the accurate alternative "non-revocation proof" used as the gloss at first mention rather than as the primary name.
 
 7. **How should the worst-case verification cost be bounded, and by which lever?**
    Verification hashes forward once per elapsed period, so a relying party validating an arbitrary certificate is exposed not to the typical cost but to the worst case the wire format permits, which the 16-bit period field fixes at 65,535 hash computations however the issuing CA sets its parameters ({{construction}}, {{verification-cost}}).
@@ -2828,24 +2827,19 @@ It is therefore gentler than marking the extension critical, which makes that sa
 
 One identifier for the whole ecosystem is what makes the trust anchor extension a tempting carrier, and also what makes the fit imperfect.
 Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer ({{Section 9.1 of ?I-D.ietf-tls-trust-anchor-ids}}).
-Against that, a trust anchor ID is defined to represent a trust anchor or a group of them ({{Section 3 of ?I-D.ietf-tls-trust-anchor-ids}}), and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions ({{Section 4.2 of ?I-D.ietf-tls-trust-anchor-ids}}).
+Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions ({{Section 3 of ?I-D.ietf-tls-trust-anchor-ids}}, {{Section 4.2 of ?I-D.ietf-tls-trust-anchor-ids}}).
 A capability marker is neither, so it matches nothing and is inert to a server that does not implement this mechanism, which is harmless but is not what that extension says it carries.
 The alternative carrier is a TLS extension of this document's own, against which the objection of {{tls-extension-alternative}} does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.
-Reusing the existing extension buys instead that no new code point is needed, and that the signal arrives where certificate selection already reads.
 
 The cost falls on the discriminant rather than on issuance.
 `anchor_presence` ({{tick-trailing-field}}) would stop being derivable from the certificate alone and become a negotiated selector, of the kind that section already cites as precedent in the `certificate_type` of {{Section 4.5.1 of !RFC9846}}.
-Enforcement then rests on a single invariant.
-A relying party keys its requirement to the committed anchor and never to the negotiation, so one that sees an anchor requires a tick whatever it advertised.
-Stripping the advertisement therefore gains an attacker nothing, because the certificate fails at exactly the party the mechanism relies on to enforce.
+Enforcement nonetheless rests on a single invariant.
+A relying party keys its requirement to the committed anchor and never to the negotiation, so one that sees an anchor requires a tick whatever it advertised, and stripping the advertisement gains an attacker nothing.
 What remains is that a relying party implementing this mechanism must advertise it or be denied certificates it would otherwise accept, and that an authenticating party receiving no signal at all should include the tick, which is how it behaves without negotiation.
 
-A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, is a natural companion and is the more interesting of the two.
-It would let a relying party state the {{downgrade}} mitigation for itself, rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
-Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally.
-What they buy is letting the authenticating party choose a certificate that will be accepted, rather than fail a handshake avoidably.
-The second earns its place only where anchoring varies within a CA, as during a rollout or where subscribers elect into it.
-Where it is a per-CA property, which is how {{ocsp-stapling-comparison}} describes it, an ordinary trust anchor list already expresses the same preference, and that is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements ({{Section 8.6 of ?I-D.ietf-tls-trust-anchor-ids}}).
+A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, would let it state the {{downgrade}} mitigation for itself rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
+Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally, and what they buy is letting the authenticating party choose a certificate that will be accepted rather than fail a handshake avoidably.
+The second earns its place only where anchoring varies within a CA, because where it is a per-CA property an ordinary trust anchor list already expresses the same preference, which is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements ({{Section 8.6 of ?I-D.ietf-tls-trust-anchor-ids}}).
 
 # Alternatives Considered {#alternatives}
 
