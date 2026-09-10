@@ -1053,7 +1053,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Stradling</td>
-<td class="center">Expires 13 March 2027</td>
+<td class="center">Expires 14 March 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1066,12 +1066,12 @@ svg {
 <dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-09-09" class="published">9 September 2026</time>
+<time datetime="2026-09-10" class="published">10 September 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-03-13">13 March 2027</time></dd>
+<dd class="expires"><time datetime="2027-03-14">14 March 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1126,7 +1126,7 @@ The relying party can then cryptographically verify that the certificate has not
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 13 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 14 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1170,7 +1170,10 @@ The relying party can then cryptographically verify that the certificate has not
             <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-overview" class="internal xref">Overview</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
-                <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-what-it-costs" class="internal xref">What It Costs</a></p>
+                <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-what-each-party-implements" class="internal xref">What Each Party Implements</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
+                <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-what-it-costs" class="internal xref">What It Costs</a></p>
 </li>
             </ul>
 </li>
@@ -1600,7 +1603,7 @@ No new trust relationships or authenticated channels are needed.<a href="#sectio
         <dd style="margin-left: 1.5em" id="section-1-6.10">
           <p id="section-1-6.10.1">A single tick (34 bytes for SHA-256: a 2-byte period and a 32-byte hash value) is added per handshake to the certificate's MTCProof.
 The committed anchor adds about 50 bytes to each log entry (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
-<a href="#cost-summary" class="auto internal xref">Section 3.1</a> collects the full cost to each party.<a href="#section-1-6.10.1" class="pilcrow">¶</a></p>
+<a href="#cost-summary" class="auto internal xref">Section 3.2</a> collects the full cost to each party.<a href="#section-1-6.10.1" class="pilcrow">¶</a></p>
 </dd>
       <dd class="break"></dd>
 </dl>
@@ -1730,7 +1733,7 @@ Because a tampered or forged value cannot reach the committed anchor in the numb
       <h2 id="name-overview">
 <a href="#section-3" class="section-number selfRef">3. </a><a href="#name-overview" class="section-name selfRef">Overview</a>
       </h2>
-<p id="section-3-1">This section is a non-normative walk-through of the mechanism's lifecycle, followed by a summary of what it costs each party.
+<p id="section-3-1">This section is a non-normative walk-through of the mechanism's lifecycle, followed by summaries of what each party implements (<a href="#role-summary" class="auto internal xref">Section 3.1</a>) and what that costs (<a href="#cost-summary" class="auto internal xref">Section 3.2</a>).
 The normative details follow in <a href="#construction" class="auto internal xref">Section 4</a> through <a href="#distribution" class="auto internal xref">Section 10</a>.
 It reuses the small example of <a href="#test-vectors" class="auto internal xref">Appendix B</a>: a hash chain of length <code>hash_chain_length = 5</code> (a real certificate uses a much longer one, for example 1,128 for a 47-day lifetime with a one-hour period).
 <a href="#fig-actors" class="auto internal xref">Figure 1</a> shows how the parties interact, and <a href="#fig-hash-chain" class="auto internal xref">Figure 2</a> depicts the hash chain lifecycle that the five steps below trace.<a href="#section-3-1" class="pilcrow">¶</a></p>
@@ -2037,15 +2040,55 @@ Once the last revealed tick's period ends, no party can produce a valid tick, be
 The certificate therefore becomes unusable within at most two periods.<a href="#section-3-4.5.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
-<div id="cost-summary">
+<div id="role-summary">
 <section id="section-3.1">
-        <h3 id="name-what-it-costs">
-<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-what-it-costs" class="section-name selfRef">What It Costs</a>
+        <h3 id="name-what-each-party-implements">
+<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-what-each-party-implements" class="section-name selfRef">What Each Party Implements</a>
         </h3>
-<p id="section-3.1-1">Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
-They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1-1">The work this mechanism creates falls to three parties, and this table collects what each of them builds, in the order the work happens.
+Nothing here is a new requirement, and each entry cites the section that states it.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-1">
           <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Party</th>
+              <th class="text-left" rowspan="1" colspan="1">What it implements</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Certification authority</td>
+              <td class="text-left" rowspan="1" colspan="1">Chooses a <code>tick_interval</code> and a lifetime satisfying the two bounds on their ratio, generates a seed per entry, and hashes it forward to the anchor (<a href="#construction" class="auto internal xref">Section 4</a>). Commits the anchor in the certificate (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>). Reveals one value per period, and stops revealing to revoke (<a href="#ca-operation" class="auto internal xref">Section 5</a>). Serves ticks at the published base URL, and conveys that URL to its subscribers (<a href="#distribution" class="auto internal xref">Section 10</a>, <a href="#discovery" class="auto internal xref">Section 10.2</a>).</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Authenticating party</td>
+              <td class="text-left" rowspan="1" colspan="1">Derives its tick URL from the base URL and its own <code>serialNumber</code> (<a href="#distribution" class="auto internal xref">Section 10</a>). Fetches once per period, at a deterministic offset within it (<a href="#load-distribution" class="auto internal xref">Section 15.3</a>). Verifies each fetched tick against the anchor in its own certificate before installing it, overwrites the trailing 2 + HASH_SIZE bytes of the MTCProof, and withholds the certificate from selection while it holds no tick within the acceptance window (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Relying party</td>
+              <td class="text-left" rowspan="1" colspan="1">Reads the anchor from the certificate's extensions and the tick from the end of the MTCProof (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>, <a href="#tick-trailing-field" class="auto internal xref">Section 8.1.1</a>). Runs the verification procedure, which is entirely offline (<a href="#verification-procedure" class="auto internal xref">Section 9.2</a>). Fetches nothing at any point (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Issuance log and cosigners</td>
+              <td class="text-left" rowspan="1" colspan="1">Nothing. The anchor reaches the Merkle Tree as ordinary certificate bytes, so no component that builds or signs subtrees need recognize it (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">Monitor</td>
+              <td class="text-left" rowspan="1" colspan="1">Nothing, beyond reading log entries as it already does. Where tick URLs are derivable, a monitor <span class="bcp14">MAY</span> additionally watch them for withheld ticks (<a href="#dos-withholding" class="auto internal xref">Section 14.4</a>).</td>
+            </tr>
+          </tbody>
+        </table>
+</section>
+</div>
+<div id="cost-summary">
+<section id="section-3.2">
+        <h3 id="name-what-it-costs">
+<a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-what-it-costs" class="section-name selfRef">What It Costs</a>
+        </h3>
+<p id="section-3.2-1">Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
+They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-2">
+          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Party or object</th>
@@ -2079,7 +2122,7 @@ They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certi
             </tr>
           </tbody>
         </table>
-<p id="section-3.1-3">The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period (<a href="#verification-cost" class="auto internal xref">Section 15.6</a>), which is why the worst case that hashing can reach is referred to the working group (<a href="#open-questions" class="auto internal xref">Appendix D</a>).<a href="#section-3.1-3" class="pilcrow">¶</a></p>
+<p id="section-3.2-3">The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period (<a href="#verification-cost" class="auto internal xref">Section 15.6</a>), which is why the worst case that hashing can reach is referred to the working group (<a href="#open-questions" class="auto internal xref">Appendix D</a>).<a href="#section-3.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3005,6 +3048,9 @@ Examples are a malformed SEQUENCE, a <code>tickInterval</code> outside INTEGER (
 A decoder that accepts DEFAULT values permissively, as a BER decoder does, will not catch the third of these, so it <span class="bcp14">MUST</span> be checked explicitly.
 The anchor extension is committed to the Merkle Tree, so a non-canonical encoding of it would be a distinct entry certifying the same thing.
 If the anchor OCTET STRING is not exactly HASH_SIZE bytes, reject the certificate with a bad_certificate error.
+Reject the certificate with a bad_certificate error if <code>hash_chain_length</code>, which is <code>ceil(lifetime / tick_interval)</code>, exceeds 65,535.
+A CA is forbidden to issue such a certificate (<a href="#construction" class="auto internal xref">Section 4</a>), and the relying party can compute the quantity from <code>notBefore</code>, <code>notAfter</code> and <code>tick_interval</code> alone, as for the check below.
+The tick's 16-bit period field cannot represent that certificate's later periods, so it would otherwise stop verifying partway through its life for a reason the verifier could have detected at the outset.
 Finally, reject the certificate with a bad_certificate error if its validity period is not longer than <code>tick_interval</code>, which a CA is forbidden to issue (<a href="#construction" class="auto internal xref">Section 4</a>) and which the relying party can detect from <code>notBefore</code>, <code>notAfter</code> and <code>tick_interval</code> alone.
 Such a certificate never leaves period 0, so its only tick is the public anchor and the mechanism would enforce nothing while appearing to.<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
@@ -3295,17 +3341,24 @@ For ACME, the order object carries the full URL in a <code>tickURL</code> field,
 The CA-certificate SIA (<a href="#discovery" class="auto internal xref">Section 10.2</a>) conveys only the per-CA base URL, which cannot locate a token-addressed tick, and only the provisioning channel carries the token.
 The SIA therefore provides no operational value when unguessable tick URLs are used, and a CA that uses them <span class="bcp14">SHOULD NOT</span> publish the id-ad-mtcrsTicks access method.<a href="#section-10.3-6" class="pilcrow">¶</a></p>
 <p id="section-10.3-7">This hardening preserves the properties of the base HTTP interface.
-Each token addresses a value that is immutable within a period, so per-period caching and CDN distribution (<a href="#load-distribution" class="auto internal xref">Section 15.3</a>) are unchanged.<a href="#section-10.3-7" class="pilcrow">¶</a></p>
-<p id="section-10.3-8">The token is an addressing capability, not a confidentiality secret, and this hardening is defense in depth rather than a hard security boundary.
+Each token addresses a value that is immutable within a period, so per-period caching is unchanged and a cache in front of the origin is indifferent to how the path segment was formed (<a href="#load-distribution" class="auto internal xref">Section 15.3</a>).<a href="#section-10.3-7" class="pilcrow">¶</a></p>
+<p id="section-10.3-8">Delegated distribution (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>) needs one adjustment.
+A distributor is asked for a token rather than a serial, and cannot resolve one to the entry it names without K_ca.
+Giving it K_ca would let it derive every token the CA issues, and is unnecessary.
+A CA that uses unguessable tick URLs <span class="bcp14">MUST</span> instead key the bundle it publishes to its distributors by <code>tick_token</code>.
+The CA holds K_ca and so is the party that can do this, and a distributor then answers from a table keyed by exactly what the request carries, with no mapping of its own.
+The records are correspondingly larger, since a token is longer than an 8-byte serial.
+Nothing else about the arrangement changes, since the token is an addressing capability rather than a confidentiality secret and the values a distributor serves are public either way.<a href="#section-10.3-8" class="pilcrow">¶</a></p>
+<p id="section-10.3-9">The token is an addressing capability, not a confidentiality secret, and this hardening is defense in depth rather than a hard security boundary.
 The tick it locates is public and self-authenticating, so the fetch still requires no transport-layer integrity or confidentiality and <span class="bcp14">MAY</span> be served over plain HTTP.
 The token is correspondingly a bearer capability.
 An authenticating party could disclose it, and an on-path observer of a plain-HTTP fetch can see it.
 Possession of it grants only the ability to fetch that public value, or to observe its absence.
 It does not permit forging ticks, which requires the secret hash chain values (<a href="#seed-confidentiality" class="auto internal xref">Section 14.3</a>), nor using the certificate, which requires the corresponding private key.
-Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).<a href="#section-10.3-8" class="pilcrow">¶</a></p>
-<p id="section-10.3-9">That benefit has a matching cost, because a monitor is also a third party holding the certificate.
+Its benefit is that a relying party, or a third party holding a captured certificate, can no longer derive the tick URL from the certificate and probe the CA for its status (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).<a href="#section-10.3-9" class="pilcrow">¶</a></p>
+<p id="section-10.3-10">That benefit has a matching cost, because a monitor is also a third party holding the certificate.
 Unguessable tick URLs therefore trade away the external observability that <a href="#dos-withholding" class="auto internal xref">Section 14.4</a> offers as a check on a CA withholding ticks, leaving the affected subscriber as the only party positioned to notice.
-A CA adopting them is to that extent asking to be taken on trust, and a deployment that values the check above the unprobeability should keep its tick URLs derivable.<a href="#section-10.3-9" class="pilcrow">¶</a></p>
+A CA adopting them is to that extent asking to be taken on trust, and a deployment that values the check above the unprobeability should keep its tick URLs derivable.<a href="#section-10.3-10" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="response-format">
@@ -4194,6 +4247,7 @@ It does not affect relying parties, who never fetch (<a href="#rp-no-fetch" clas
 A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance (<a href="#hash-function-requirements" class="auto internal xref">Section 14.1</a>), nor serve a tampered value that verifies.
 Distribution is therefore safe to delegate to third parties, which serve only public values and hold no seed and no signing key.<a href="#section-15.5-1" class="pilcrow">¶</a></p>
 <p id="section-15.5-2">The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by <code>serial_number</code>, refreshing it as certificates advance through their own periods (<a href="#construction" class="auto internal xref">Section 4</a>).
+A CA that uses unguessable tick URLs (<a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>) keys the bundle by <code>tick_token</code> instead, so that its key matches what its distributors are asked for.
 Each distributor serves those values through the HTTP interface of <a href="#distribution" class="auto internal xref">Section 10</a>.
 This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA (<a href="#distribution" class="auto internal xref">Section 10</a>).
 The bundle is small in relation to that volume.
@@ -4237,7 +4291,7 @@ This is not required for relying-party security, which rests on self-authenticat
         </h3>
 <p id="section-15.6-1">A relying party verifies a tick by hashing <code>tick.value</code> forward <code>tick.period</code> times (<a href="#verification" class="auto internal xref">Section 9</a>), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
 Two properties of that loop set its cost.
-Each step hashes a 53-byte HashChainInput (<a href="#encoding" class="auto internal xref">Section 6</a>), which occupies a single compression block, so the work is one block per elapsed period.
+Each step hashes a 45-byte HashChainInput (<a href="#encoding" class="auto internal xref">Section 6</a>), which occupies a single compression block, so the work is one block per elapsed period.
 The steps cannot be batched or pipelined, because each input is the preceding output, so every step also pays the hash function's initialization and finalization.<a href="#section-15.6-1" class="pilcrow">¶</a></p>
 <p id="section-15.6-2">On a current x86-64 core with SHA-256 instructions, 1,127 steps measure approximately 300 microseconds, or about 270 nanoseconds per step.
 That is the same order as the handshake's asymmetric cryptography rather than negligible beside it.
@@ -4319,6 +4373,7 @@ Relative to passive expiry, this mechanism still improves matters, because every
 <p id="section-16-1">This section records the status of known implementations of the mechanism defined by this specification at the time of posting of this Internet-Draft, following <span>[<a href="#RFC7942" class="cite xref">RFC7942</a>]</span>.
 It is requested that the RFC Editor remove this section before publication.<a href="#section-16-1" class="pilcrow">¶</a></p>
 <p id="section-16-2">There are no known implementations at the time of writing.
+<a href="#role-summary" class="auto internal xref">Section 3.1</a> summarizes what implementing the mechanism involves for each party.
 The author intends to produce a reference implementation covering hash chain generation (<a href="#construction" class="auto internal xref">Section 4</a>), tick distribution (<a href="#distribution" class="auto internal xref">Section 10</a>), and relying-party verification (<a href="#verification" class="auto internal xref">Section 9</a>), and to report interoperability results to the working group.
 The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix B</a> are given so that independent implementations can check their HashChainInput encoding and hashing order against a fixed example before any interoperable deployment exists.<a href="#section-16-2" class="pilcrow">¶</a></p>
 </section>
@@ -4334,8 +4389,8 @@ The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix 
 <a href="#section-17.1" class="section-number selfRef">17.1. </a><a href="#name-module-identifier" class="section-name selfRef">Module Identifier</a>
         </h3>
 <p id="section-17.1-1">IANA is requested to register the following entry in the "SMI Security for PKIX Module Identifier" registry:<a href="#section-17.1-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-2">
-          <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
+<table class="center" id="table-3">
+          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Decimal</th>
@@ -4359,8 +4414,8 @@ The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix 
 <a href="#section-17.2" class="section-number selfRef">17.2. </a><a href="#name-certificate-extension" class="section-name selfRef">Certificate Extension</a>
         </h3>
 <p id="section-17.2-1">IANA is requested to register the following entry in the "SMI Security for PKIX Certificate Extension" registry:<a href="#section-17.2-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-3">
-          <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
+<table class="center" id="table-4">
+          <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Decimal</th>
@@ -4384,8 +4439,8 @@ The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix 
 <a href="#section-17.3" class="section-number selfRef">17.3. </a><a href="#name-access-descriptor" class="section-name selfRef">Access Descriptor</a>
         </h3>
 <p id="section-17.3-1">IANA is requested to register the following entry in the "SMI Security for PKIX Access Descriptor" registry:<a href="#section-17.3-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-4">
-          <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
+<table class="center" id="table-5">
+          <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Decimal</th>
@@ -4416,8 +4471,8 @@ id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
 <a href="#section-17.4" class="section-number selfRef">17.4. </a><a href="#name-well-known-uri" class="section-name selfRef">Well-Known URI</a>
         </h3>
 <p id="section-17.4-1">IANA is requested to register the following entry in the "Well-Known URIs" registry (<span>[<a href="#RFC8615" class="cite xref">RFC8615</a>]</span>):<a href="#section-17.4-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-5">
-          <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
+<table class="center" id="table-6">
+          <caption><a href="#table-6" class="selfRef">Table 6</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Field</th>
@@ -4458,8 +4513,8 @@ If it advances to the Standards Track, or the mechanism comes into use, the regi
 <a href="#section-17.5" class="section-number selfRef">17.5. </a><a href="#name-acme-directory-metadata-fie" class="section-name selfRef">ACME Directory Metadata Fields</a>
         </h3>
 <p id="section-17.5-1">IANA is requested to register the following entry in the "ACME Directory Metadata Fields" registry (<span><a href="https://rfc-editor.org/rfc/rfc8555#section-9.7.6" class="relref">Section 9.7.6</a> of [<a href="#RFC8555" class="cite xref">RFC8555</a>]</span>):<a href="#section-17.5-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-6">
-          <caption><a href="#table-6" class="selfRef">Table 6</a></caption>
+<table class="center" id="table-7">
+          <caption><a href="#table-7" class="selfRef">Table 7</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Field Name</th>
@@ -4487,8 +4542,8 @@ It is registered here rather than as an order object field because its value is 
 <a href="#section-17.6" class="section-number selfRef">17.6. </a><a href="#name-acme-order-object-fields" class="section-name selfRef">ACME Order Object Fields</a>
         </h3>
 <p id="section-17.6-1">IANA is requested to register the following entry in the "ACME Order Object Fields" registry (<span><a href="https://rfc-editor.org/rfc/rfc8555#section-9.7.2" class="relref">Section 9.7.2</a> of [<a href="#RFC8555" class="cite xref">RFC8555</a>]</span>):<a href="#section-17.6-1" class="pilcrow">¶</a></p>
-<table class="center" id="table-7">
-          <caption><a href="#table-7" class="selfRef">Table 7</a></caption>
+<table class="center" id="table-8">
+          <caption><a href="#table-8" class="selfRef">Table 8</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Field Name</th>
@@ -4840,6 +4895,9 @@ Each is specified in full in the section cited.<a href="#appendix-C-1" class="pi
           <p id="appendix-C-3.1.1"><strong>Admit the HashChainTick into the MTCProof</strong> so that, when a certificate carries the hash chain anchor, the MTCProof in its <code>signatureValue</code> carries the tick, and otherwise remains byte-identical to a base MTCProof.
 This touches two adjacent places: the structure itself (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.2" class="relref">Section 6.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) and the "extra data" check that parses it (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.2" class="relref">Section 7.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 The <span class="bcp14">RECOMMENDED</span> realization appends a trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 8.1.1</a>).
+That realization also gives the base parsing procedure a dependency on an identifier this document owns.
+The variant is selected by <code>anchor_presence</code>, which is not encoded in the MTCProof and is determined from the id-pe-hashChainAnchor extension, so an implementation that parses an MTCProof has to recognize that object identifier in order to parse a <code>signatureValue</code> correctly, whether or not it implements this mechanism.
+The optional item below removes that dependency, because it makes the discriminant derivable from a preceding field of the same structure and puts the code point in a registry the base specification owns (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).
 A base specification that instead adopts the general <code>proof_extensions</code> field (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>) carries the tick as a proof extension (<a href="#tick-proof-extension" class="auto internal xref">Appendix G.8</a>) and amends both accordingly.<a href="#appendix-C-3.1.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
@@ -4880,6 +4938,7 @@ Nothing in this section is itself a normative requirement.<a href="#appendix-D-1
 The anchor can be an X.509 extension of the TBSCertificateLogEntry (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>) or a committed entry extension (<a href="#anchor-entry-extension" class="auto internal xref">Appendix G.4</a>).
 Both are committed to the Merkle Tree, so the verification procedure is identical either way.
 The trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+The entry extension also keeps the amended MTCProof parse free of an identifier this document defines, which the X.509 extension does not (<a href="#base-spec-amendments" class="auto internal xref">Appendix C</a>).
 <em>Preference:</em> the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
 Whichever is chosen becomes the single anchor home for the ecosystem.<a href="#appendix-D-2.1.1" class="pilcrow">¶</a></p>
 </li>
@@ -5634,8 +5693,8 @@ Shortening the verification path is what moves it.
 Two constructions do so: a hierarchical hash chain (<a href="#hierarchical-chains" class="auto internal xref">Appendix G.6.1</a>) and, as the limiting case, a Merkle tree over the certificate's periods (<a href="#merkle-periods" class="auto internal xref">Appendix G.6.2</a>).
 Both buy hash computations with bytes, and they differ only in where on that curve they sit.
 The columns below give the worst-case forward hash computations for a 1,128-period certificate (47 days at one-hour periods), the worst case for the longest chain the 16-bit period field admits, and the resulting tick size:<a href="#appendix-G.6-3" class="pilcrow">¶</a></p>
-<table class="center" id="table-8">
-          <caption><a href="#table-8" class="selfRef">Table 8</a></caption>
+<table class="center" id="table-9">
+          <caption><a href="#table-9" class="selfRef">Table 9</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Construction</th>
