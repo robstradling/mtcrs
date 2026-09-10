@@ -1221,7 +1221,15 @@ The CA-certificate SIA ({{discovery}}) conveys only the per-CA base URL, which c
 The SIA therefore provides no operational value when unguessable tick URLs are used, and a CA that uses them SHOULD NOT publish the id-ad-mtcrsTicks access method.
 
 This hardening preserves the properties of the base HTTP interface.
-Each token addresses a value that is immutable within a period, so per-period caching and CDN distribution ({{load-distribution}}) are unchanged.
+Each token addresses a value that is immutable within a period, so per-period caching is unchanged and a cache in front of the origin is indifferent to how the path segment was formed ({{load-distribution}}).
+
+Delegated distribution ({{delegated-distribution}}) needs one adjustment.
+A distributor is asked for a token rather than a serial, and cannot resolve one to the entry it names without K_ca.
+Giving it K_ca would let it derive every token the CA issues, and is unnecessary.
+A CA that uses unguessable tick URLs MUST instead key the bundle it publishes to its distributors by `tick_token`.
+The CA holds K_ca and so is the party that can do this, and a distributor then answers from a table keyed by exactly what the request carries, with no mapping of its own.
+The records are correspondingly larger, since a token is longer than an 8-byte serial.
+Nothing else about the arrangement changes, since the token is an addressing capability rather than a confidentiality secret and the values a distributor serves are public either way.
 
 The token is an addressing capability, not a confidentiality secret, and this hardening is defense in depth rather than a hard security boundary.
 The tick it locates is public and self-authenticating, so the fetch still requires no transport-layer integrity or confidentiality and MAY be served over plain HTTP.
@@ -1963,6 +1971,7 @@ A distributor cannot forge a tick for a period the CA has not revealed, by preim
 Distribution is therefore safe to delegate to third parties, which serve only public values and hold no seed and no signing key.
 
 The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `serial_number`, refreshing it as certificates advance through their own periods ({{construction}}).
+A CA that uses unguessable tick URLs ({{unguessable-urls}}) keys the bundle by `tick_token` instead, so that its key matches what its distributors are asked for.
 Each distributor serves those values through the HTTP interface of {{distribution}}.
 This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA ({{distribution}}).
 The bundle is small in relation to that volume.
