@@ -237,7 +237,8 @@ For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
 The two parties that compute with it obtain it differently, and neither needs a carrier that does not already exist.
-A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA, taking it from the `logHash` field of the id-pe-mtcCertificationAuthority extension in the CA certificate ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+The base specification identifies that algorithm by the type of the Merkle Tree CA extension in the CA certificate, which names one hash per extension type, id-pe-mtcCertificationAuthority-SHA256 being the one it defines ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 An authenticating party has no such configuration, and reads the algorithm from the final segment of the tick base URL it is given ({{distribution}}).
 That URL is the one value a CA must convey to it in any case, so the algorithm travels with the locator rather than needing a channel of its own.
 It needs HASH only to verify a fetched tick against the anchor committed in its own certificate before presenting it ({{ap-behavior}}), and takes HASH_SIZE from the length of that anchor ({{anchor-x509-extension}}).
@@ -1109,12 +1110,12 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
 
 `hash_name`:
 : The name of the CA's log hash algorithm, taken from the "Named Information Hash Algorithm Registry" {{!RFC6920}}, which gives lowercase names such as `sha-256` that need no percent-encoding in a path segment.
-  It MUST name the algorithm the CA's `logHash` field identifies ({{conventions-and-definitions}}).
+  It MUST name the CA's log hash algorithm ({{conventions-and-definitions}}).
   Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it ({{discovery}}).
   An authenticating party MUST NOT fetch from a base URL naming an algorithm it does not implement, and MUST NOT guess one.
   It MUST also check that the named algorithm's output length equals the length of the anchor in its own certificate, and MUST NOT fetch if the two disagree.
   That check costs nothing and needs no other input, and without it the mismatch is not caught until every fetched tick fails, either on the response-length check ({{response-format}}) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
-  Where it also holds the CA certificate, the `logHash` field there is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
+  Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
 
 `serial_number`:
 : The certificate's `serialNumber`, which the base specification constructs from the entry's log number and its zero-based index within that log as `(log_number << 48) | index` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -1183,7 +1184,7 @@ Provisioning channel (primary):
 
 CA certificate SIA (fallback):
 : The base URL MAY additionally be published in the CA's certificate representation ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}) using the id-ad-mtcrsTicks Subject Information Access access method defined in {{iana-considerations}}, whose `accessLocation` is a `uniformResourceIdentifier` giving the tick base URL.
-  Its final segment names the same algorithm as that certificate's own `logHash` field, so a CA publishing both states the algorithm twice and MUST state it consistently ({{distribution}}).
+  Its final segment names the same algorithm as that certificate's own Merkle Tree CA extension type, so a CA publishing both states the algorithm twice and MUST state it consistently ({{distribution}}).
   Publishing it is the CA's choice; understanding it is not the authenticating party's, since this is the only carrier available to a CA whose issuance protocol has no provisioning binding.
   This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
   Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access ({{aia-discovery}}).
