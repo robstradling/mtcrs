@@ -1874,6 +1874,8 @@ Holding certificates from both buys nothing in that case, and the concentration 
 A deployment relying on multi-CA failover SHOULD therefore confirm that its CAs do not share a tick distributor, and CAs SHOULD publish enough about their distribution arrangements for that to be checkable.
 Delegation and multi-CA operation are both worth doing, but they are not independent of one another, and a deployment that treats them as independent overestimates its resilience.
 
+### The Dependency Relative to Short Lifetimes
+
 Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
 Short-lived certificates do not remove the dependency on CA availability.
 They relocate it.
