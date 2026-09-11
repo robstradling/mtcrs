@@ -353,16 +353,20 @@ Table of Contents
    anchor, and the tick all use this hash.  HASH is a per-CA parameter,
    uniform across every issuance log that CA operates, so a
    certificate's hash chain uses the single hash function of its issuing
-   CA and this mechanism needs no algorithm identifier of its own.  The
-   two parties that compute with it obtain it differently, and neither
-   needs a carrier that does not already exist.  A relying party is
-   configured with the CA's log hash algorithm as part of the base MTC
-   configuration it needs to accept any certificate from that CA
-   (Section 7.1 of [I-D.ietf-plants-merkle-tree-certs]).  The base
-   specification identifies that algorithm by the type of the Merkle
-   Tree CA extension in the CA certificate, which names one hash per
-   extension type, id-pe-mtcCertificationAuthority-SHA256 being the one
-   it defines (Section 5.5 of [I-D.ietf-plants-merkle-tree-certs]).  An
+   CA.  This mechanism therefore never chooses or negotiates a hash, and
+   carries no algorithm identifier in the anchor, the tick, or any other
+   committed or presented data.  The one place an identifier appears is
+   the tick base URL, which names the algorithm for the single party
+   that cannot otherwise obtain it (Section 10).  The two parties that
+   compute with it obtain it differently, and neither needs a carrier
+   that does not already exist.  A relying party is configured with the
+   CA's log hash algorithm as part of the base MTC configuration it
+   needs to accept any certificate from that CA (Section 7.1 of
+   [I-D.ietf-plants-merkle-tree-certs]).  The base specification
+   identifies that algorithm by the type of the Merkle Tree CA extension
+   in the CA certificate, which names one hash per extension type, id-
+   pe-mtcCertificationAuthority-SHA256 being the one it defines
+   (Section 5.5 of [I-D.ietf-plants-merkle-tree-certs]).  An
    authenticating party has no such configuration, and reads the
    algorithm from the final segment of the tick base URL it is given
    (Section 10).  That URL is the one value a CA must convey to it in
@@ -1806,10 +1810,16 @@ Table of Contents
       "Named Information Hash Algorithm Registry" [RFC6920], which gives
       lowercase names such as sha-256 that need no percent-encoding in a
       path segment.  It MUST name the CA's log hash algorithm
-      (Section 2).  Carrying it here is what gives the authenticating
-      party HASH, and it costs nothing to convey, because the URL is the
-      one value a CA is already obliged to deliver and any issuance
-      protocol that delivers it therefore delivers the algorithm with it
+      (Section 2).  The base specification identifies that algorithm by
+      an object identifier and this interface names it from a different
+      registry, so a CA MUST NOT serve this interface for a hash that
+      has no entry in the Named Information Hash Algorithm Registry.
+      Registering one would be a prerequisite for carrying, over this
+      interface, a hash that a future base specification introduces.
+      Carrying it here is what gives the authenticating party HASH, and
+      it costs nothing to convey, because the URL is the one value a CA
+      is already obliged to deliver and any issuance protocol that
+      delivers it therefore delivers the algorithm with it
       (Section 10.2).  An authenticating party MUST NOT fetch from a
       base URL naming an algorithm it does not implement, and MUST NOT
       guess one.  It MUST also check that the named algorithm's output
@@ -1818,10 +1828,13 @@ Table of Contents
       needs no other input, and without it the mismatch is not caught
       until every fetched tick fails, either on the response-length
       check (Section 10.4) or because forward hashing under the wrong
-      algorithm can never reach an anchor of a different length.  Where
-      it also holds the CA certificate, the algorithm named by that
-      certificate's Merkle Tree CA extension type is authoritative, and
-      it SHOULD report a disagreement as a CA misconfiguration.
+      algorithm can never reach an anchor of a different length.  It
+      detects a disagreement in output length rather than in algorithm,
+      so it does not catch a substitution between two hashes of the same
+      size.  Where it also holds the CA certificate, the algorithm named
+      by that certificate's Merkle Tree CA extension type is
+      authoritative, and it SHOULD report a disagreement as a CA
+      misconfiguration.
 
    serial_number:  The certificate's serialNumber, which the base
       specification constructs from the entry's log number and its zero-
@@ -3619,14 +3632,14 @@ Table of Contents
    Selecting a different hash function does not materially change any of
    this.  The cost is one compression block per elapsed period whatever
    the primitive, and this mechanism inherits HASH from the issuing CA
-   (Section 4) rather than choosing it, which is what lets it avoid
-   carrying an algorithm identifier of its own.  Primitives faster than
-   SHA-256 in software on 32-bit cores do exist, but they offer a small
-   constant factor, are less likely to be hardware-accelerated, and
-   would diverge from the hash the surrounding ecosystem already uses.
-   The quantity that governs this cost is the number of periods, not the
-   speed of the primitive, and reducing it is a property of the
-   construction (Appendix G.6).
+   (Section 4) rather than choosing it, which is what keeps an algorithm
+   identifier out of the anchor and the tick (Section 2).  Primitives
+   faster than SHA-256 in software on 32-bit cores do exist, but they
+   offer a small constant factor, are less likely to be hardware-
+   accelerated, and would diverge from the hash the surrounding
+   ecosystem already uses.  The quantity that governs this cost is the
+   number of periods, not the speed of the primitive, and reducing it is
+   a property of the construction (Appendix G.6).
 
 15.7.  Client-Side Enforcement Latency and Session Resumption
 
@@ -3710,10 +3723,10 @@ Table of Contents
 17.1.  Module Identifier
 
    IANA is requested to register the following entry in the "SMI
-   Security for PKIX Module Identifier" registry:
+   Security for PKIX Module Identifier" registry ([RFC7299]):
 
               +=========+===================+===============+
-              | Decimal | Description       | Reference     |
+              | Decimal | Description       | References    |
               +=========+===================+===============+
               | TBD     | id-mod-mtcrs-2026 | This document |
               +---------+-------------------+---------------+
@@ -3723,10 +3736,10 @@ Table of Contents
 17.2.  Certificate Extension
 
    IANA is requested to register the following entry in the "SMI
-   Security for PKIX Certificate Extension" registry:
+   Security for PKIX Certificate Extension" registry ([RFC7299]):
 
             +=========+=======================+===============+
-            | Decimal | Description           | Reference     |
+            | Decimal | Description           | References    |
             +=========+=======================+===============+
             | TBD     | id-pe-hashChainAnchor | This document |
             +---------+-----------------------+---------------+
@@ -3736,10 +3749,10 @@ Table of Contents
 17.3.  Access Descriptor
 
    IANA is requested to register the following entry in the "SMI
-   Security for PKIX Access Descriptor" registry:
+   Security for PKIX Access Descriptor" registry ([RFC7299]):
 
               +=========+==================+===============+
-              | Decimal | Description      | Reference     |
+              | Decimal | Description      | References    |
               +=========+==================+===============+
               | TBD     | id-ad-mtcrsTicks | This document |
               +---------+------------------+---------------+
@@ -3759,22 +3772,23 @@ Table of Contents
    IANA is requested to register the following entry in the "Well-Known
    URIs" registry ([RFC8615]):
 
-    +=============+==================================================+
-    | Field       | Value                                            |
-    +=============+==================================================+
-    | URI Suffix  | mtcrs                                            |
-    +-------------+--------------------------------------------------+
-    | Change      | IETF                                             |
-    | Controller  |                                                  |
-    +-------------+--------------------------------------------------+
-    | Reference   | This document                                    |
-    +-------------+--------------------------------------------------+
-    | Status      | provisional                                      |
-    +-------------+--------------------------------------------------+
-    | Related     | Path prefix for the MTCRS tick distribution HTTP |
-    | Information | interface: /.well-known/mtcrs/                   |
-    |             | v1/{hash_name}/tick/{serial_number} (Section 10) |
-    +-------------+--------------------------------------------------+
+   +===============+==================================================+
+   | Field         | Value                                            |
+   +===============+==================================================+
+   | URI Suffix    | mtcrs                                            |
+   +---------------+--------------------------------------------------+
+   | Change        | IETF                                             |
+   | Controller    |                                                  |
+   +---------------+--------------------------------------------------+
+   | Specification | This document                                    |
+   | document(s)   |                                                  |
+   +---------------+--------------------------------------------------+
+   | Status        | provisional                                      |
+   +---------------+--------------------------------------------------+
+   | Related       | Path prefix for the MTCRS tick distribution HTTP |
+   | Information   | interface: /.well-known/mtcrs/                   |
+   |               | v1/{hash_name}/tick/{serial_number} (Section 10) |
+   +---------------+--------------------------------------------------+
 
                                  Table 6
 
@@ -3829,15 +3843,14 @@ Table of Contents
    MTCProofExtensionType code point, hash_chain_tick(0), within a
    proof_extensions field that the base MTC specification does not
    currently define (Appendix E).  This document does not create an
-   MTCProofExtensionType registry.  If the base MTC specification
+   MTCProofExtensionType registry, and requests no IANA action for the
+   code point.  If the base MTC specification
    [I-D.ietf-plants-merkle-tree-certs] adopts the proof_extensions
    mechanism, it, and not this document, is expected to establish the
-   corresponding IANA registry, following the allocation policy
-   recommended in Appendix E.1.  This document requests that, in that
-   event, the value hash_chain_tick be allocated in that registry with a
-   reference to this document.  When the RECOMMENDED trailing
-   status_tick encoding (Section 8.1.1) is used instead, no such
-   registry or code point is required.
+   corresponding IANA registry and to allocate hash_chain_tick within
+   it, citing this document.  When the RECOMMENDED trailing status_tick
+   encoding (Section 8.1.1) is used instead, no such registry or code
+   point is required.
 
 18.  References
 
@@ -3988,6 +4001,10 @@ Table of Contents
               Infrastructure Online Certificate Status Protocol - OCSP",
               RFC 6960, DOI 10.17487/RFC6960, June 2013,
               <https://www.rfc-editor.org/rfc/rfc6960>.
+
+   [RFC7299]  Housley, R., "Object Identifier Registry for the PKIX
+              Working Group", RFC 7299, DOI 10.17487/RFC7299, July 2014,
+              <https://www.rfc-editor.org/rfc/rfc7299>.
 
    [RFC7633]  Hallam-Baker, P., "X.509v3 Transport Layer Security (TLS)
               Feature Extension", RFC 7633, DOI 10.17487/RFC7633,
@@ -4412,32 +4429,33 @@ E.1.  Considerations for the proof_extensions Field
 
    Bounded size and count:  proof_extensions is transmitted in every
       handshake, so an unbounded ignored field undercuts MTC's
-      compactness and creates a bloat and denial-of-service surface.
-      The base specification MUST set a small maximum total size and
-      extension count, well below the 2^16-1 the length prefix permits,
-      and relying parties MUST reject certificates that exceed it.
+      compactness and creates a bloat and denial-of-service surface.  A
+      base specification adopting it would need to set a small maximum
+      total size and extension count, well below the 2^16-1 the length
+      prefix permits, and to require relying parties to reject
+      certificates that exceed it.
 
    Committed admissibility:  The strongest control on stuffing is to
-      make the permissible extensions a function of committed data.  The
-      base specification SHOULD commit, per entry, an allow-list of
-      permitted (extension_type, length) pairs in the tree-committed
-      entry data (Section 7).  Relying parties should then be required
-      to reject any proof extension absent from that list or disagreeing
-      with it on length.  This is enforceable by a relying party that
-      does not implement the specific mechanism, and, being committed
-      and therefore logged, it also makes the presence of each proof-
-      level mechanism transparent to monitors (though not its per-period
+      make the permissible extensions a function of committed data.
+      That means committing, per entry, an allow-list of permitted
+      (extension_type, length) pairs in the tree-committed entry data
+      (Section 7).  Relying parties should then be required to reject
+      any proof extension absent from that list or disagreeing with it
+      on length.  This is enforceable by a relying party that does not
+      implement the specific mechanism, and, being committed and
+      therefore logged, it also makes the presence of each proof-level
+      mechanism transparent to monitors (though not its per-period
       value).
 
    Security-relevant extensions must be anchored:  Unrecognized or
       absent proof extensions are ignored.  Any future proof extension
-      carrying security-relevant data MUST therefore make its presence
+      carrying security-relevant data therefore has to make its presence
       mandatory and self-authenticating through an element committed to
       the Merkle Tree, as hash chain revocation does with the id-pe-
       hashChainAnchor extension (Section 7).  Otherwise "ignore if
       unknown" becomes a strippable soft-fail (Appendix F.6.2).
 
-   A base specification SHOULD also consider a canonical encoding
+   A base specification would also want to weigh a canonical encoding
    (ascending extension_type, no duplicate types, exact-length
    consumption), an IANA registry for MTCProofExtensionType with a
    private-use range, fail-closed rejection of unknown types, and a
@@ -4448,20 +4466,20 @@ E.1.  Considerations for the proof_extensions Field
    deployability for hard enforcement, the same trade-off as marking the
    anchor extension critical (Section 7.2).
 
-   Two properties are inherent and MUST be respected.  Proof-extension
-   values are neither logged nor committed, so a mechanism needing
-   transparency of its contents MUST use entry_extensions instead
-   (Section 7).  And because proof_extensions widen signatureValue
-   malleability (Section 12.6 of [I-D.ietf-plants-merkle-tree-certs])
-   beyond the single fixed-size tick, they broaden the identifier-
-   stability requirement of Section 8.2, which applies whichever
-   encoding is chosen.
+   Two properties are inherent, and no choice of controls escapes them.
+   Proof-extension values are neither logged nor committed, so a
+   mechanism needing transparency of its contents has to use
+   entry_extensions instead (Section 7).  And because proof_extensions
+   widen signatureValue malleability (Section 12.6 of
+   [I-D.ietf-plants-merkle-tree-certs]) beyond the single fixed-size
+   tick, they broaden the identifier-stability requirement of
+   Section 8.2, which applies whichever encoding is chosen.
 
    Taken together, committed admissibility, fixed-length determinism,
    and fail-closed handling progressively convert proof_extensions from
    an open, "ignore if unknown" channel into a closed, committed,
    verifiable set of slots.  That is much of why this document
-   RECOMMENDS the fixed trailing status_tick field (Section 8.1.1) for
+   recommends the fixed trailing status_tick field (Section 8.1.1) for
    the single use it needs.
 
 Appendix F.  Design Rationale
@@ -5193,7 +5211,7 @@ G.1.  DNS-Based Tick Distribution
    the delegated-distribution model (Section 15.5) applies unchanged,
    with edge DNS nodes fed the same bundle.
 
-   DNSSEC is not required and SHOULD NOT be used.  Each tick is self-
+   DNSSEC is neither required nor worth adding here.  Each tick is self-
    authenticating (Section 9), so an attacker cannot forge one in
    transit without inverting the hash, and suppressing a tick is only a
    denial of service against any distribution channel.  DNSSEC would add

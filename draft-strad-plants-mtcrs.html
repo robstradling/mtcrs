@@ -1651,7 +1651,9 @@ The HashValue and TrustAnchorID types are those of <span>[<a href="#I-D.ietf-pla
 <p id="section-2-3">This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5" class="relref">Section 5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
-HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
+HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA.
+This mechanism therefore never chooses or negotiates a hash, and carries no algorithm identifier in the anchor, the tick, or any other committed or presented data.
+The one place an identifier appears is the tick base URL, which names the algorithm for the single party that cannot otherwise obtain it (<a href="#distribution" class="auto internal xref">Section 10</a>).
 The two parties that compute with it obtain it differently, and neither needs a carrier that does not already exist.
 A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.1" class="relref">Section 7.1</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 The base specification identifies that algorithm by the type of the Merkle Tree CA extension in the CA certificate, which names one hash per extension type, id-pe-mtcCertificationAuthority-SHA256 being the one it defines (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.5" class="relref">Section 5.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
@@ -3200,10 +3202,13 @@ A CA <span class="bcp14">MAY</span> point that hostname at a CDN or mirror throu
           <dd style="margin-left: 1.5em" id="section-10.1-4.4">
             <p id="section-10.1-4.4.1">The name of the CA's log hash algorithm, taken from the "Named Information Hash Algorithm Registry" <span>[<a href="#RFC6920" class="cite xref">RFC6920</a>]</span>, which gives lowercase names such as <code>sha-256</code> that need no percent-encoding in a path segment.
 It <span class="bcp14">MUST</span> name the CA's log hash algorithm (<a href="#conventions-and-definitions" class="auto internal xref">Section 2</a>).
+The base specification identifies that algorithm by an object identifier and this interface names it from a different registry, so a CA <span class="bcp14">MUST NOT</span> serve this interface for a hash that has no entry in the Named Information Hash Algorithm Registry.
+Registering one would be a prerequisite for carrying, over this interface, a hash that a future base specification introduces.
 Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it (<a href="#discovery" class="auto internal xref">Section 10.2</a>).
 An authenticating party <span class="bcp14">MUST NOT</span> fetch from a base URL naming an algorithm it does not implement, and <span class="bcp14">MUST NOT</span> guess one.
 It <span class="bcp14">MUST</span> also check that the named algorithm's output length equals the length of the anchor in its own certificate, and <span class="bcp14">MUST NOT</span> fetch if the two disagree.
 That check costs nothing and needs no other input, and without it the mismatch is not caught until every fetched tick fails, either on the response-length check (<a href="#response-format" class="auto internal xref">Section 10.4</a>) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
+It detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
 Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it <span class="bcp14">SHOULD</span> report a disagreement as a CA misconfiguration.<a href="#section-10.1-4.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
@@ -4334,7 +4339,7 @@ As there, the shortcut applies only when the presented period exceeds the retain
 The opposite case arises without an attacker, since the acceptance window admits <code>expected_period</code> - 1 while the relying party may hold a tick for <code>expected_period</code> itself, so a presented period below the retained one is ordinary and the relying party verifies from the anchor instead.
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.<a href="#section-15.6-6" class="pilcrow">¶</a></p>
 <p id="section-15.6-7">Selecting a different hash function does not materially change any of this.
-The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA (<a href="#construction" class="auto internal xref">Section 4</a>) rather than choosing it, which is what lets it avoid carrying an algorithm identifier of its own.
+The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA (<a href="#construction" class="auto internal xref">Section 4</a>) rather than choosing it, which is what keeps an algorithm identifier out of the anchor and the tick (<a href="#conventions-and-definitions" class="auto internal xref">Section 2</a>).
 Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
 The quantity that governs this cost is the number of periods, not the speed of the primitive, and reducing it is a property of the construction (<a href="#shorter-verification" class="auto internal xref">Appendix G.6</a>).<a href="#section-15.6-7" class="pilcrow">¶</a></p>
 </section>
@@ -4406,14 +4411,14 @@ The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix 
         <h3 id="name-module-identifier">
 <a href="#section-17.1" class="section-number selfRef">17.1. </a><a href="#name-module-identifier" class="section-name selfRef">Module Identifier</a>
         </h3>
-<p id="section-17.1-1">IANA is requested to register the following entry in the "SMI Security for PKIX Module Identifier" registry:<a href="#section-17.1-1" class="pilcrow">¶</a></p>
+<p id="section-17.1-1">IANA is requested to register the following entry in the "SMI Security for PKIX Module Identifier" registry (<span>[<a href="#RFC7299" class="cite xref">RFC7299</a>]</span>):<a href="#section-17.1-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-3">
           <caption><a href="#table-3" class="selfRef">Table 3</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Decimal</th>
               <th class="text-left" rowspan="1" colspan="1">Description</th>
-              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+              <th class="text-left" rowspan="1" colspan="1">References</th>
             </tr>
           </thead>
           <tbody>
@@ -4431,14 +4436,14 @@ The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix 
         <h3 id="name-certificate-extension">
 <a href="#section-17.2" class="section-number selfRef">17.2. </a><a href="#name-certificate-extension" class="section-name selfRef">Certificate Extension</a>
         </h3>
-<p id="section-17.2-1">IANA is requested to register the following entry in the "SMI Security for PKIX Certificate Extension" registry:<a href="#section-17.2-1" class="pilcrow">¶</a></p>
+<p id="section-17.2-1">IANA is requested to register the following entry in the "SMI Security for PKIX Certificate Extension" registry (<span>[<a href="#RFC7299" class="cite xref">RFC7299</a>]</span>):<a href="#section-17.2-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-4">
           <caption><a href="#table-4" class="selfRef">Table 4</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Decimal</th>
               <th class="text-left" rowspan="1" colspan="1">Description</th>
-              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+              <th class="text-left" rowspan="1" colspan="1">References</th>
             </tr>
           </thead>
           <tbody>
@@ -4456,14 +4461,14 @@ The test vectors of <a href="#test-vectors" class="auto internal xref">Appendix 
         <h3 id="name-access-descriptor">
 <a href="#section-17.3" class="section-number selfRef">17.3. </a><a href="#name-access-descriptor" class="section-name selfRef">Access Descriptor</a>
         </h3>
-<p id="section-17.3-1">IANA is requested to register the following entry in the "SMI Security for PKIX Access Descriptor" registry:<a href="#section-17.3-1" class="pilcrow">¶</a></p>
+<p id="section-17.3-1">IANA is requested to register the following entry in the "SMI Security for PKIX Access Descriptor" registry (<span>[<a href="#RFC7299" class="cite xref">RFC7299</a>]</span>):<a href="#section-17.3-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-5">
           <caption><a href="#table-5" class="selfRef">Table 5</a></caption>
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Decimal</th>
               <th class="text-left" rowspan="1" colspan="1">Description</th>
-              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+              <th class="text-left" rowspan="1" colspan="1">References</th>
             </tr>
           </thead>
           <tbody>
@@ -4507,7 +4512,7 @@ id-ad-mtcrsTicks OBJECT IDENTIFIER ::= { id-ad TBD }
               <td class="text-left" rowspan="1" colspan="1">IETF</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">Reference</td>
+              <td class="text-left" rowspan="1" colspan="1">Specification document(s)</td>
               <td class="text-left" rowspan="1" colspan="1">This document</td>
             </tr>
             <tr>
@@ -4592,9 +4597,8 @@ A CA that publishes <code>tickURL</code> does not publish <code>tickBaseURL</cod
 <a href="#section-17.7" class="section-number selfRef">17.7. </a><a href="#name-mtcproof-extension-type" class="section-name selfRef">MTCProof Extension Type</a>
         </h3>
 <p id="section-17.7-1">The proof-extension encoding of the tick (<a href="#tick-proof-extension" class="auto internal xref">Appendix G.8</a>) relies on an MTCProofExtensionType code point, <code>hash_chain_tick</code>(0), within a <code>proof_extensions</code> field that the base MTC specification does not currently define (<a href="#mtcproof-extensibility" class="auto internal xref">Appendix E</a>).
-This document does not create an MTCProofExtensionType registry.
-If the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> adopts the <code>proof_extensions</code> mechanism, it, and not this document, is expected to establish the corresponding IANA registry, following the allocation policy recommended in <a href="#proof-extensions-considerations" class="auto internal xref">Appendix E.1</a>.
-This document requests that, in that event, the value <code>hash_chain_tick</code> be allocated in that registry with a reference to this document.
+This document does not create an MTCProofExtensionType registry, and requests no IANA action for the code point.
+If the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> adopts the <code>proof_extensions</code> mechanism, it, and not this document, is expected to establish the corresponding IANA registry and to allocate <code>hash_chain_tick</code> within it, citing this document.
 When the <span class="bcp14">RECOMMENDED</span> trailing <code>status_tick</code> encoding (<a href="#tick-trailing-field" class="auto internal xref">Section 8.1.1</a>) is used instead, no such registry or code point is required.<a href="#section-17.7-1" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -4735,6 +4739,10 @@ When the <span class="bcp14">RECOMMENDED</span> trailing <code>status_tick</code
 <dt id="RFC6960">[RFC6960]</dt>
         <dd>
 <span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Myers, M.</span>, <span class="refAuthor">Ankney, R.</span>, <span class="refAuthor">Malpani, A.</span>, <span class="refAuthor">Galperin, S.</span>, and <span class="refAuthor">C. Adams</span>, <span class="refTitle">"X.509 Internet Public Key Infrastructure Online Certificate Status Protocol - OCSP"</span>, <span class="seriesInfo">RFC 6960</span>, <span class="seriesInfo">DOI 10.17487/RFC6960</span>, <time datetime="2013-06" class="refDate">June 2013</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc6960">https://www.rfc-editor.org/rfc/rfc6960</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC7299">[RFC7299]</dt>
+        <dd>
+<span class="refAuthor">Housley, R.</span>, <span class="refTitle">"Object Identifier Registry for the PKIX Working Group"</span>, <span class="seriesInfo">RFC 7299</span>, <span class="seriesInfo">DOI 10.17487/RFC7299</span>, <time datetime="2014-07" class="refDate">July 2014</time>, <span>&lt;<a href="https://www.rfc-editor.org/rfc/rfc7299">https://www.rfc-editor.org/rfc/rfc7299</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC7633">[RFC7633]</dt>
         <dd>
@@ -5058,13 +5066,13 @@ A relying party can enforce the first two without understanding any extension's 
           <dt id="appendix-E.1-2.1">Bounded size and count:</dt>
           <dd style="margin-left: 1.5em" id="appendix-E.1-2.2">
             <p id="appendix-E.1-2.2.1"><code>proof_extensions</code> is transmitted in every handshake, so an unbounded ignored field undercuts MTC's compactness and creates a bloat and denial-of-service surface.
-The base specification <span class="bcp14">MUST</span> set a small maximum total size and extension count, well below the 2<sup>16</sup>-1 the length prefix permits, and relying parties <span class="bcp14">MUST</span> reject certificates that exceed it.<a href="#appendix-E.1-2.2.1" class="pilcrow">¶</a></p>
+A base specification adopting it would need to set a small maximum total size and extension count, well below the 2<sup>16</sup>-1 the length prefix permits, and to require relying parties to reject certificates that exceed it.<a href="#appendix-E.1-2.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="appendix-E.1-2.3">Committed admissibility:</dt>
           <dd style="margin-left: 1.5em" id="appendix-E.1-2.4">
             <p id="appendix-E.1-2.4.1">The strongest control on stuffing is to make the permissible extensions a function of committed data.
-The base specification <span class="bcp14">SHOULD</span> commit, per entry, an allow-list of permitted (<code>extension_type</code>, length) pairs in the tree-committed entry data (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
+That means committing, per entry, an allow-list of permitted (<code>extension_type</code>, length) pairs in the tree-committed entry data (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
 Relying parties should then be required to reject any proof extension absent from that list or disagreeing with it on length.
 This is enforceable by a relying party that does not implement the specific mechanism, and, being committed and therefore logged, it also makes the presence of each proof-level mechanism transparent to monitors (though not its per-period value).<a href="#appendix-E.1-2.4.1" class="pilcrow">¶</a></p>
 </dd>
@@ -5072,18 +5080,18 @@ This is enforceable by a relying party that does not implement the specific mech
 <dt id="appendix-E.1-2.5">Security-relevant extensions must be anchored:</dt>
           <dd style="margin-left: 1.5em" id="appendix-E.1-2.6">
             <p id="appendix-E.1-2.6.1">Unrecognized or absent proof extensions are ignored.
-Any future proof extension carrying security-relevant data <span class="bcp14">MUST</span> therefore make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
+Any future proof extension carrying security-relevant data therefore has to make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
 Otherwise "ignore if unknown" becomes a strippable soft-fail (<a href="#ocsp-stapling-comparison" class="auto internal xref">Appendix F.6.2</a>).<a href="#appendix-E.1-2.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 </dl>
-<p id="appendix-E.1-3">A base specification <span class="bcp14">SHOULD</span> also consider a canonical encoding (ascending <code>extension_type</code>, no duplicate types, exact-length consumption), an IANA registry for MTCProofExtensionType with a private-use range, fail-closed rejection of unknown types, and a deterministic fixed-length region in which each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
+<p id="appendix-E.1-3">A base specification would also want to weigh a canonical encoding (ascending <code>extension_type</code>, no duplicate types, exact-length consumption), an IANA registry for MTCProofExtensionType with a private-use range, fail-closed rejection of unknown types, and a deterministic fixed-length region in which each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
 Fail-closed handling may be softened by a per-extension criticality bit, and trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical (<a href="#extension-criticality" class="auto internal xref">Section 7.2</a>).<a href="#appendix-E.1-3" class="pilcrow">¶</a></p>
-<p id="appendix-E.1-4">Two properties are inherent and <span class="bcp14">MUST</span> be respected.
-Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents <span class="bcp14">MUST</span> use <code>entry_extensions</code> instead (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
+<p id="appendix-E.1-4">Two properties are inherent, and no choice of controls escapes them.
+Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents has to use <code>entry_extensions</code> instead (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).
 And because <code>proof_extensions</code> widen <code>signatureValue</code> malleability (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.6" class="relref">Section 12.6</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) beyond the single fixed-size tick, they broaden the identifier-stability requirement of <a href="#cert-identity" class="auto internal xref">Section 8.2</a>, which applies whichever encoding is chosen.<a href="#appendix-E.1-4" class="pilcrow">¶</a></p>
 <p id="appendix-E.1-5">Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert <code>proof_extensions</code> from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots.
-That is much of why this document RECOMMENDS the fixed trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 8.1.1</a>) for the single use it needs.<a href="#appendix-E.1-5" class="pilcrow">¶</a></p>
+That is much of why this document recommends the fixed trailing <code>status_tick</code> field (<a href="#tick-trailing-field" class="auto internal xref">Section 8.1.1</a>) for the single use it needs.<a href="#appendix-E.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -5535,7 +5543,7 @@ DNS's hierarchical caching suits small, frequently-updated values, letting recur
 A programmable authoritative server can synthesize the response for <code>{serial_number}._tick.&lt;zone&gt;</code> on demand from the same hash chain state (<a href="#distribution" class="auto internal xref">Section 10</a>), so no per-certificate records are stored.
 A TTL no longer than <code>tick_interval</code> bounds staleness: a briefly stale record stays acceptable under the one-period grace (<a href="#clock-skew" class="auto internal xref">Section 14.10</a>), and the authenticating party's pre-installation check (<a href="#verification" class="auto internal xref">Section 9</a>) refetches an unexpectedly stale one.
 Because ticks are self-authenticating, the delegated-distribution model (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>) applies unchanged, with edge DNS nodes fed the same bundle.<a href="#appendix-G.1-2" class="pilcrow">¶</a></p>
-<p id="appendix-G.1-3">DNSSEC is not required and <span class="bcp14">SHOULD NOT</span> be used.
+<p id="appendix-G.1-3">DNSSEC is neither required nor worth adding here.
 Each tick is self-authenticating (<a href="#verification" class="auto internal xref">Section 9</a>), so an attacker cannot forge one in transit without inverting the hash, and suppressing a tick is only a denial of service against any distribution channel.
 DNSSEC would add key management and signing for frequently-changing records, and larger responses, without improving the mechanism's security.<a href="#appendix-G.1-3" class="pilcrow">¶</a></p>
 </section>
