@@ -844,7 +844,7 @@ struct {
     uint48 start;
     uint48 end;
     HashValue inclusion_proof<0..2^16-1>;
-    SubtreeSignature signatures<0..2^16-1>;
+    SubtreeSignature signatures<0..2^24-1>;
     select (anchor_presence) {
         case absent:  Empty;
         case present: HashChainTick;
