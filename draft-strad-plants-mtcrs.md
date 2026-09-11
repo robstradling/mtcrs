@@ -399,6 +399,7 @@ Nothing here is a new requirement, and each entry cites the section that states 
 
 Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
 They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.
+That population is a round figure above the base specification's own estimates, which give 558 million active certificates for a single large CA and 2.1 billion unexpired across the Web PKI ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), so each cost below is an upper bound for any one CA.
 
 | Party or object | What this mechanism costs |
 | --- | --- |
@@ -1077,6 +1078,7 @@ Nothing in this section concerns relying parties, which verify the embedded tick
 
 At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
+That population is above the base specification's own estimate for a single large CA ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), so the figure is an upper bound rather than a projection.
 Because each certificate's periods run from its own `notBefore` ({{construction}}), that load is spread across the interval to the extent issuance times are.
 It concentrates only where many certificates share a boundary, as when a CA rounds `notBefore` or renewals arrive in waves.
 At this scale the serving path is fed by replication rather than by cache fill.
