@@ -235,7 +235,9 @@ The HashValue and TrustAnchorID types are those of {{!I-D.ietf-plants-merkle-tre
 This document uses the hash function HASH and its output length in bytes HASH_SIZE that a Merkle Tree CA defines for its issuance logs ({{Section 5 of !I-D.ietf-plants-merkle-tree-certs}}).
 For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
-HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
+HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA.
+This mechanism therefore never chooses or negotiates a hash, and carries no algorithm identifier in the anchor, the tick, or any other committed or presented data.
+The one place an identifier appears is the tick base URL, which names the algorithm for the single party that cannot otherwise obtain it ({{distribution}}).
 The two parties that compute with it obtain it differently, and neither needs a carrier that does not already exist.
 A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA ({{Section 7.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 The base specification identifies that algorithm by the type of the Merkle Tree CA extension in the CA certificate, which names one hash per extension type, id-pe-mtcCertificationAuthority-SHA256 being the one it defines ({{Section 5.5 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -1111,10 +1113,13 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
 `hash_name`:
 : The name of the CA's log hash algorithm, taken from the "Named Information Hash Algorithm Registry" {{!RFC6920}}, which gives lowercase names such as `sha-256` that need no percent-encoding in a path segment.
   It MUST name the CA's log hash algorithm ({{conventions-and-definitions}}).
+  The base specification identifies that algorithm by an object identifier and this interface names it from a different registry, so a CA MUST NOT serve this interface for a hash that has no entry in the Named Information Hash Algorithm Registry.
+  Registering one would be a prerequisite for carrying, over this interface, a hash that a future base specification introduces.
   Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it ({{discovery}}).
   An authenticating party MUST NOT fetch from a base URL naming an algorithm it does not implement, and MUST NOT guess one.
   It MUST also check that the named algorithm's output length equals the length of the anchor in its own certificate, and MUST NOT fetch if the two disagree.
   That check costs nothing and needs no other input, and without it the mismatch is not caught until every fetched tick fails, either on the response-length check ({{response-format}}) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
+  It detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
   Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
 
 `serial_number`:
@@ -2072,7 +2077,7 @@ The opposite case arises without an attacker, since the acceptance window admits
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
 
 Selecting a different hash function does not materially change any of this.
-The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what lets it avoid carrying an algorithm identifier of its own.
+The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what keeps an algorithm identifier out of the anchor and the tick ({{conventions-and-definitions}}).
 Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
 The quantity that governs this cost is the number of periods, not the speed of the primitive, and reducing it is a property of the construction ({{shorter-verification}}).
 
