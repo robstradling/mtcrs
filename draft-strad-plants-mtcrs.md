@@ -2127,25 +2127,25 @@ The test vectors of {{test-vectors}} are given so that independent implementatio
 
 ## Module Identifier
 
-IANA is requested to register the following entry in the "SMI Security for PKIX Module Identifier" registry:
+IANA is requested to register the following entry in the "SMI Security for PKIX Module Identifier" registry ({{?RFC7299}}):
 
-| Decimal | Description       | Reference     |
+| Decimal | Description       | References    |
 |---------|-------------------|---------------|
 | TBD     | id-mod-mtcrs-2026 | This document |
 
 ## Certificate Extension
 
-IANA is requested to register the following entry in the "SMI Security for PKIX Certificate Extension" registry:
+IANA is requested to register the following entry in the "SMI Security for PKIX Certificate Extension" registry ({{?RFC7299}}):
 
-| Decimal | Description          | Reference     |
+| Decimal | Description          | References    |
 |---------|----------------------|---------------|
 | TBD     | id-pe-hashChainAnchor | This document |
 
 ## Access Descriptor
 
-IANA is requested to register the following entry in the "SMI Security for PKIX Access Descriptor" registry:
+IANA is requested to register the following entry in the "SMI Security for PKIX Access Descriptor" registry ({{?RFC7299}}):
 
-| Decimal | Description      | Reference     |
+| Decimal | Description      | References    |
 |---------|------------------|---------------|
 | TBD     | id-ad-mtcrsTicks | This document |
 
@@ -2164,7 +2164,7 @@ IANA is requested to register the following entry in the "Well-Known URIs" regis
 |-------|-------|
 | URI Suffix | mtcrs |
 | Change Controller | IETF |
-| Reference | This document |
+| Specification document(s) | This document |
 | Status | provisional |
 | Related Information | Path prefix for the MTCRS tick distribution HTTP interface: `/.well-known/mtcrs/v1/{hash_name}/tick/{serial_number}` ({{distribution}}) |
 
@@ -2198,9 +2198,8 @@ A CA that publishes `tickURL` does not publish `tickBaseURL` ({{acme-integration
 ## MTCProof Extension Type
 
 The proof-extension encoding of the tick ({{tick-proof-extension}}) relies on an MTCProofExtensionType code point, `hash_chain_tick`(0), within a `proof_extensions` field that the base MTC specification does not currently define ({{mtcproof-extensibility}}).
-This document does not create an MTCProofExtensionType registry.
-If the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} adopts the `proof_extensions` mechanism, it, and not this document, is expected to establish the corresponding IANA registry, following the allocation policy recommended in {{proof-extensions-considerations}}.
-This document requests that, in that event, the value `hash_chain_tick` be allocated in that registry with a reference to this document.
+This document does not create an MTCProofExtensionType registry, and requests no IANA action for the code point.
+If the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} adopts the `proof_extensions` mechanism, it, and not this document, is expected to establish the corresponding IANA registry and to allocate `hash_chain_tick` within it, citing this document.
 When the RECOMMENDED trailing `status_tick` encoding ({{tick-trailing-field}}) is used instead, no such registry or code point is required.
 
 --- back
