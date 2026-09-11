@@ -1106,6 +1106,8 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
   It MUST name the algorithm the CA's `logHash` field identifies ({{conventions-and-definitions}}).
   Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it ({{discovery}}).
   An authenticating party MUST NOT fetch from a base URL naming an algorithm it does not implement, and MUST NOT guess one.
+  It MUST also check that the named algorithm's output length equals the length of the anchor in its own certificate, and MUST NOT fetch if the two disagree.
+  That check costs nothing and needs no other input, and without it the mismatch is not caught until every fetched tick fails, either on the response-length check ({{response-format}}) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
   Where it also holds the CA certificate, the `logHash` field there is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
 
 `serial_number`:
