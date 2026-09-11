@@ -2469,28 +2469,28 @@ A relying party can enforce the first two without understanding any extension's 
 
 Bounded size and count:
 : `proof_extensions` is transmitted in every handshake, so an unbounded ignored field undercuts MTC's compactness and creates a bloat and denial-of-service surface.
-  The base specification MUST set a small maximum total size and extension count, well below the 2<sup>16</sup>-1 the length prefix permits, and relying parties MUST reject certificates that exceed it.
+  A base specification adopting it would need to set a small maximum total size and extension count, well below the 2<sup>16</sup>-1 the length prefix permits, and to require relying parties to reject certificates that exceed it.
 
 Committed admissibility:
 : The strongest control on stuffing is to make the permissible extensions a function of committed data.
-  The base specification SHOULD commit, per entry, an allow-list of permitted (`extension_type`, length) pairs in the tree-committed entry data ({{anchor-x509-extension}}).
+  That means committing, per entry, an allow-list of permitted (`extension_type`, length) pairs in the tree-committed entry data ({{anchor-x509-extension}}).
   Relying parties should then be required to reject any proof extension absent from that list or disagreeing with it on length.
   This is enforceable by a relying party that does not implement the specific mechanism, and, being committed and therefore logged, it also makes the presence of each proof-level mechanism transparent to monitors (though not its per-period value).
 
 Security-relevant extensions must be anchored:
 : Unrecognized or absent proof extensions are ignored.
-  Any future proof extension carrying security-relevant data MUST therefore make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{anchor-x509-extension}}).
+  Any future proof extension carrying security-relevant data therefore has to make its presence mandatory and self-authenticating through an element committed to the Merkle Tree, as hash chain revocation does with the id-pe-hashChainAnchor extension ({{anchor-x509-extension}}).
   Otherwise "ignore if unknown" becomes a strippable soft-fail ({{ocsp-stapling-comparison}}).
 
-A base specification SHOULD also consider a canonical encoding (ascending `extension_type`, no duplicate types, exact-length consumption), an IANA registry for MTCProofExtensionType with a private-use range, fail-closed rejection of unknown types, and a deterministic fixed-length region in which each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
+A base specification would also want to weigh a canonical encoding (ascending `extension_type`, no duplicate types, exact-length consumption), an IANA registry for MTCProofExtensionType with a private-use range, fail-closed rejection of unknown types, and a deterministic fixed-length region in which each type's value length is implied, leaving no unauthenticated free space for a self-authenticating value such as the tick.
 Fail-closed handling may be softened by a per-extension criticality bit, and trades incremental deployability for hard enforcement, the same trade-off as marking the anchor extension critical ({{extension-criticality}}).
 
-Two properties are inherent and MUST be respected.
-Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents MUST use `entry_extensions` instead ({{anchor-x509-extension}}).
+Two properties are inherent, and no choice of controls escapes them.
+Proof-extension values are neither logged nor committed, so a mechanism needing transparency of its contents has to use `entry_extensions` instead ({{anchor-x509-extension}}).
 And because `proof_extensions` widen `signatureValue` malleability ({{Section 12.6 of !I-D.ietf-plants-merkle-tree-certs}}) beyond the single fixed-size tick, they broaden the identifier-stability requirement of {{cert-identity}}, which applies whichever encoding is chosen.
 
 Taken together, committed admissibility, fixed-length determinism, and fail-closed handling progressively convert `proof_extensions` from an open, "ignore if unknown" channel into a closed, committed, verifiable set of slots.
-That is much of why this document RECOMMENDS the fixed trailing `status_tick` field ({{tick-trailing-field}}) for the single use it needs.
+That is much of why this document recommends the fixed trailing `status_tick` field ({{tick-trailing-field}}) for the single use it needs.
 
 # Design Rationale {#rationale}
 
@@ -2871,7 +2871,7 @@ A programmable authoritative server can synthesize the response for `{serial_num
 A TTL no longer than `tick_interval` bounds staleness: a briefly stale record stays acceptable under the one-period grace ({{clock-skew}}), and the authenticating party's pre-installation check ({{verification}}) refetches an unexpectedly stale one.
 Because ticks are self-authenticating, the delegated-distribution model ({{delegated-distribution}}) applies unchanged, with edge DNS nodes fed the same bundle.
 
-DNSSEC is not required and SHOULD NOT be used.
+DNSSEC is neither required nor worth adding here.
 Each tick is self-authenticating ({{verification}}), so an attacker cannot forge one in transit without inverting the hash, and suppressing a tick is only a denial of service against any distribution channel.
 DNSSEC would add key management and signing for frequently-changing records, and larger responses, without improving the mechanism's security.
 
