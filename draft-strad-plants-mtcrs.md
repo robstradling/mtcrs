@@ -744,6 +744,8 @@ The inclusion proof is unaffected, since its size depends on tree depth rather t
 That proof is also the right yardstick for the per-handshake cost, since the anchor and the tick travel beside it.
 The base specification estimates it at 384 bytes for a standalone certificate and 736 bytes for a landmark-relative one ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 Against that, the 34-byte tick ({{cert-format}}) is some 5 to 9 percent.
+The same section measures its proof sizes against a single ML-DSA-44 signature at 2,420 bytes, the cost Merkle Tree Certificates exist to avoid paying per certificate.
+Against that yardstick the tick is about 1.4 percent.
 
 This committed cost is the unavoidable price of self-authentication.
 Unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
