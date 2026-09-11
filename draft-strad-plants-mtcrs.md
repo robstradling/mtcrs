@@ -1241,8 +1241,8 @@ Each token addresses a value that is immutable within a period, so per-period ca
 Delegated distribution ({{delegated-distribution}}) needs one adjustment.
 A distributor is asked for a token rather than a serial, and cannot resolve one to the entry it names without K_ca.
 Giving it K_ca would let it derive every token the CA issues, and is unnecessary.
-A CA that uses unguessable tick URLs MUST instead key the bundle it publishes to its distributors by `tick_token`.
-The CA holds K_ca and so is the party that can do this, and a distributor then answers from a table keyed by exactly what the request carries, with no mapping of its own.
+A CA that uses unguessable tick URLs MUST instead ensure that each of its distributors can answer the token-addressed requests directed to it, whatever the form of the feed, which this document does not standardize ({{bulk-retrieval}}).
+Keying the bundle by `tick_token` is the natural way, since the CA is the party holding K_ca and a distributor then answers from a table keyed by exactly what the request carries, with no mapping of its own.
 The records are correspondingly larger, since a token is longer than an 8-byte serial.
 Nothing else about the arrangement changes, since the token is an addressing capability rather than a confidentiality secret and the values a distributor serves are public either way.
 
