@@ -217,7 +217,9 @@ That is a shape the ecosystem already operates at population scale, in software 
 
 This mechanism is designed to layer onto the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} with a single required change.
 {{base-spec-amendments}} collects what this document asks of the base specification, and {{open-questions}} the design choices it leaves open for the working group to settle.
-The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}}.
+The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in {{rationale}} and {{alternatives}}.
+Those two appendices are written to support an adoption decision rather than an implementation, and account for about a quarter of the document.
+Once the working group has settled the questions in {{open-questions}}, they are expected to be cut back to the conclusions reached, or moved to a companion document, leaving a specification closer in size to the one it extends.
 A reader wanting the shape of the mechanism before its details will find a non-normative walk-through of one certificate's lifecycle in {{overview}}.
 
 This document is published as Experimental to gather implementation and deployment experience with hash chain revocation for Merkle Tree Certificates.
