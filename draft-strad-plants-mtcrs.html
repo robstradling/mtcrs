@@ -1053,7 +1053,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Stradling</td>
-<td class="center">Expires 14 March 2027</td>
+<td class="center">Expires 15 March 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1066,12 +1066,12 @@ svg {
 <dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-09-10" class="published">10 September 2026</time>
+<time datetime="2026-09-11" class="published">11 September 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-03-14">14 March 2027</time></dd>
+<dd class="expires"><time datetime="2027-03-15">15 March 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1126,7 +1126,7 @@ The relying party can then cryptographically verify that the certificate has not
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 14 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 15 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1343,6 +1343,11 @@ The relying party can then cryptographically verify that the certificate has not
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.1">
                 <p id="section-toc.1-1.15.2.1.1"><a href="#section-15.1" class="auto internal xref">15.1</a>.  <a href="#name-availability-considerations" class="internal xref">Availability Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.1.2.1">
+                    <p id="section-toc.1-1.15.2.1.2.1.1"><a href="#section-15.1.1" class="auto internal xref">15.1.1</a>.  <a href="#name-the-dependency-relative-to-" class="internal xref">The Dependency Relative to Short Lifetimes</a></p>
+</li>
+                </ul>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15.2.2">
                 <p id="section-toc.1-1.15.2.2.1"><a href="#section-15.2" class="auto internal xref">15.2</a>.  <a href="#name-ca-side-storage-and-computa" class="internal xref">CA-Side Storage and Computation Trade-off</a></p>
@@ -1624,7 +1629,9 @@ The service is therefore a precomputed dataset rather than a computation, which 
 That is a shape the ecosystem already operates at population scale, in software update and revocation-list distribution, and one a CA can hand to the parties already running it (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>).<a href="#section-1-8" class="pilcrow">¶</a></p>
 <p id="section-1-9">This mechanism is designed to layer onto the base MTC specification <span>[<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> with a single required change.
 <a href="#base-spec-amendments" class="auto internal xref">Appendix C</a> collects what this document asks of the base specification, and <a href="#open-questions" class="auto internal xref">Appendix D</a> the design choices it leaves open for the working group to settle.
-The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in <a href="#rationale" class="auto internal xref">Appendix F</a>.
+The rationale for choosing this approach over the alternatives, and the argument that functional revocation is superior to passive expiry, are developed in <a href="#rationale" class="auto internal xref">Appendix F</a> and <a href="#alternatives" class="auto internal xref">Appendix G</a>.
+Those two appendices are written to support an adoption decision rather than an implementation, and account for about a quarter of the document.
+Once the working group has settled the questions in <a href="#open-questions" class="auto internal xref">Appendix D</a>, they are expected to be cut back to the conclusions reached, or moved to a companion document, leaving a specification closer in size to the one it extends.
 A reader wanting the shape of the mechanism before its details will find a non-normative walk-through of one certificate's lifecycle in <a href="#overview" class="auto internal xref">Section 3</a>.<a href="#section-1-9" class="pilcrow">¶</a></p>
 <p id="section-1-10">This document is published as Experimental to gather implementation and deployment experience with hash chain revocation for Merkle Tree Certificates.
 The author's intent is that it advance to the Standards Track if the PLANTS working group is willing to adopt it, ideally with the single base-specification change it requests (<a href="#base-spec-amendments" class="auto internal xref">Appendix C</a>) folded into the base MTC specification itself.<a href="#section-1-10" class="pilcrow">¶</a></p>
@@ -1646,7 +1653,8 @@ For a CA using SHA-256, HASH is SHA-256 and HASH_SIZE is 32.
 Hash chain values, the anchor, and the tick all use this hash.
 HASH is a per-CA parameter, uniform across every issuance log that CA operates, so a certificate's hash chain uses the single hash function of its issuing CA and this mechanism needs no algorithm identifier of its own.
 The two parties that compute with it obtain it differently, and neither needs a carrier that does not already exist.
-A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA, taking it from the <code>logHash</code> field of the id-pe-mtcCertificationAuthority extension in the CA certificate (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.1" class="relref">Section 7.1</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
+A relying party is configured with the CA's log hash algorithm as part of the base MTC configuration it needs to accept any certificate from that CA (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.1" class="relref">Section 7.1</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
+The base specification identifies that algorithm by the type of the Merkle Tree CA extension in the CA certificate, which names one hash per extension type, id-pe-mtcCertificationAuthority-SHA256 being the one it defines (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.5" class="relref">Section 5.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
 An authenticating party has no such configuration, and reads the algorithm from the final segment of the tick base URL it is given (<a href="#distribution" class="auto internal xref">Section 10</a>).
 That URL is the one value a CA must convey to it in any case, so the algorithm travels with the locator rather than needing a channel of its own.
 It needs HASH only to verify a fetched tick against the anchor committed in its own certificate before presenting it (<a href="#ap-behavior" class="auto internal xref">Section 12</a>), and takes HASH_SIZE from the length of that anchor (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>).<a href="#section-2-3" class="pilcrow">¶</a></p>
@@ -1706,7 +1714,7 @@ A tick is the certificate's <em>non-revocation proof</em>: the component of the 
 <dt id="section-2.1-2.15">
 <code>serial_number</code>:</dt>
           <dd style="margin-left: 1.5em" id="section-2.1-2.16">
-            <p id="section-2.1-2.16.1">The certificate's <code>serialNumber</code>, which the base specification builds from the entry's log number and its index within that log, and which addresses that entry's tick in the distribution interface (<a href="#distribution" class="auto internal xref">Section 10</a>).<a href="#section-2.1-2.16.1" class="pilcrow">¶</a></p>
+            <p id="section-2.1-2.16.1">The certificate's <code>serialNumber</code>, which the base specification builds from the entry's log number and its index within that log, and which addresses that entry's tick in the distribution interface unless the CA uses unguessable tick URLs (<a href="#distribution" class="auto internal xref">Section 10</a>, <a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>).<a href="#section-2.1-2.16.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-2.1-2.17">Tick distributor:</dt>
@@ -2061,7 +2069,7 @@ Nothing here is a new requirement, and each entry cites the section that states 
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Authenticating party</td>
-              <td class="text-left" rowspan="1" colspan="1">Derives its tick URL from the base URL and its own <code>serialNumber</code> (<a href="#distribution" class="auto internal xref">Section 10</a>). Fetches once per period, at a deterministic offset within it (<a href="#load-distribution" class="auto internal xref">Section 15.3</a>). Verifies each fetched tick against the anchor in its own certificate before installing it, overwrites the trailing 2 + HASH_SIZE bytes of the MTCProof, and withholds the certificate from selection while it holds no tick within the acceptance window (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).</td>
+              <td class="text-left" rowspan="1" colspan="1">Derives its tick URL from the base URL and its own <code>serialNumber</code>, or is given the complete URL where the CA uses unguessable ones (<a href="#distribution" class="auto internal xref">Section 10</a>, <a href="#unguessable-urls" class="auto internal xref">Section 10.3</a>). Fetches once per period, at a deterministic offset within it (<a href="#load-distribution" class="auto internal xref">Section 15.3</a>). Verifies each fetched tick against the anchor in its own certificate before installing it, overwrites the trailing 2 + HASH_SIZE bytes of the MTCProof, and withholds the certificate from selection while it holds no tick within the acceptance window (<a href="#ap-behavior" class="auto internal xref">Section 12</a>).</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">Relying party</td>
@@ -2085,7 +2093,8 @@ Nothing here is a new requirement, and each entry cites the section that states 
 <a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-what-it-costs" class="section-name selfRef">What It Costs</a>
         </h3>
 <p id="section-3.2-1">Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
-They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.
+That population is a round figure above the base specification's own estimates, which give 558 million active certificates for a single large CA and 2.1 billion unexpired across the Web PKI (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.5" class="relref">Section 6.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>), so each cost below is an upper bound for any one CA.<a href="#section-3.2-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-2">
           <caption><a href="#table-2" class="selfRef">Table 2</a></caption>
 <thead>
@@ -2690,7 +2699,9 @@ The second is the certificate presentation, where the same anchor bytes travel i
 The inclusion proof is unaffected, since its size depends on tree depth rather than entry size, so the anchor adds no hashes to the proof path.
 That proof is also the right yardstick for the per-handshake cost, since the anchor and the tick travel beside it.
 The base specification estimates it at 384 bytes for a standalone certificate and 736 bytes for a landmark-relative one (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.5" class="relref">Section 6.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>).
-Against that, the 34-byte tick (<a href="#cert-format" class="auto internal xref">Section 8</a>) is some 5 to 9 percent.<a href="#section-7.1-9" class="pilcrow">¶</a></p>
+Against that, the 34-byte tick (<a href="#cert-format" class="auto internal xref">Section 8</a>) is some 5 to 9 percent.
+The same section measures its proof sizes against a single ML-DSA-44 signature at 2,420 bytes, the cost Merkle Tree Certificates exist to avoid paying per certificate.
+Against that yardstick the tick is about 1.4 percent.<a href="#section-7.1-9" class="pilcrow">¶</a></p>
 <p id="section-7.1-10">This committed cost is the unavoidable price of self-authentication.
 Unlike the tick base URL, which is deliberately kept out of the certificate (<a href="#discovery" class="auto internal xref">Section 10.2</a>), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
 The DEFAULT encoding of <code>tickInterval</code> keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
@@ -2802,7 +2813,7 @@ struct {
     uint48 start;
     uint48 end;
     HashValue inclusion_proof&lt;0..2^16-1&gt;;
-    SubtreeSignature signatures&lt;0..2^16-1&gt;;
+    SubtreeSignature signatures&lt;0..2^24-1&gt;;
     select (anchor_presence) {
         case absent:  Empty;
         case present: HashChainTick;
@@ -3154,6 +3165,7 @@ Any such agreement is bilateral, and supplements the baseline rather than replac
 Nothing in this section concerns relying parties, which verify the embedded tick offline and never fetch (<a href="#rp-no-fetch" class="auto internal xref">Section 14.5</a>).<a href="#section-10-3" class="pilcrow">¶</a></p>
 <p id="section-10-4">At large deployment scale, tick distribution is dominated by aggregate request volume rather than per-request cost.
 A CA serving 10<sup>9</sup> active certificates with a one-hour period sees on the order of 10<sup>5</sup> to 10<sup>6</sup> tick requests per second.
+That population is above the base specification's own estimate for a single large CA (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-6.5" class="relref">Section 6.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>), so the figure is an upper bound rather than a projection.
 Because each certificate's periods run from its own <code>notBefore</code> (<a href="#construction" class="auto internal xref">Section 4</a>), that load is spread across the interval to the extent issuance times are.
 It concentrates only where many certificates share a boundary, as when a CA rounds <code>notBefore</code> or renewals arrive in waves.
 At this scale the serving path is fed by replication rather than by cache fill.
@@ -3187,10 +3199,12 @@ A CA <span class="bcp14">MAY</span> point that hostname at a CDN or mirror throu
 <code>hash_name</code>:</dt>
           <dd style="margin-left: 1.5em" id="section-10.1-4.4">
             <p id="section-10.1-4.4.1">The name of the CA's log hash algorithm, taken from the "Named Information Hash Algorithm Registry" <span>[<a href="#RFC6920" class="cite xref">RFC6920</a>]</span>, which gives lowercase names such as <code>sha-256</code> that need no percent-encoding in a path segment.
-It <span class="bcp14">MUST</span> name the algorithm the CA's <code>logHash</code> field identifies (<a href="#conventions-and-definitions" class="auto internal xref">Section 2</a>).
+It <span class="bcp14">MUST</span> name the CA's log hash algorithm (<a href="#conventions-and-definitions" class="auto internal xref">Section 2</a>).
 Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it (<a href="#discovery" class="auto internal xref">Section 10.2</a>).
 An authenticating party <span class="bcp14">MUST NOT</span> fetch from a base URL naming an algorithm it does not implement, and <span class="bcp14">MUST NOT</span> guess one.
-Where it also holds the CA certificate, the <code>logHash</code> field there is authoritative, and it <span class="bcp14">SHOULD</span> report a disagreement as a CA misconfiguration.<a href="#section-10.1-4.4.1" class="pilcrow">¶</a></p>
+It <span class="bcp14">MUST</span> also check that the named algorithm's output length equals the length of the anchor in its own certificate, and <span class="bcp14">MUST NOT</span> fetch if the two disagree.
+That check costs nothing and needs no other input, and without it the mismatch is not caught until every fetched tick fails, either on the response-length check (<a href="#response-format" class="auto internal xref">Section 10.4</a>) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
+Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it <span class="bcp14">SHOULD</span> report a disagreement as a CA misconfiguration.<a href="#section-10.1-4.4.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
 <dt id="section-10.1-4.5">
@@ -3264,7 +3278,7 @@ A protocol with no provisioning binding can therefore support only the derivable
 <dt id="section-10.2-4.3">CA certificate SIA (fallback):</dt>
           <dd style="margin-left: 1.5em" id="section-10.2-4.4">
             <p id="section-10.2-4.4.1">The base URL <span class="bcp14">MAY</span> additionally be published in the CA's certificate representation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-5.5" class="relref">Section 5.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) using the id-ad-mtcrsTicks Subject Information Access access method defined in <a href="#iana-considerations" class="auto internal xref">Section 17</a>, whose <code>accessLocation</code> is a <code>uniformResourceIdentifier</code> giving the tick base URL.
-Its final segment names the same algorithm as that certificate's own <code>logHash</code> field, so a CA publishing both states the algorithm twice and <span class="bcp14">MUST</span> state it consistently (<a href="#distribution" class="auto internal xref">Section 10</a>).
+Its final segment names the same algorithm as that certificate's own Merkle Tree CA extension type, so a CA publishing both states the algorithm twice and <span class="bcp14">MUST</span> state it consistently (<a href="#distribution" class="auto internal xref">Section 10</a>).
 Publishing it is the CA's choice; understanding it is not the authenticating party's, since this is the only carrier available to a CA whose issuance protocol has no provisioning binding.
 This carries a single per-CA URL on a single object, adds no per-log-entry bytes, and provides a protocol-independent, published record that an authenticating party, its tooling, or an auditor can read once without access to any provisioning transcript.
 Because it is per-CA and distributed out of band rather than presented in the TLS handshake, it avoids the costs that led this document to reject a per-certificate tick URL in Authority Information Access (<a href="#aia-discovery" class="auto internal xref">Appendix G.3</a>).
@@ -3344,8 +3358,8 @@ Each token addresses a value that is immutable within a period, so per-period ca
 <p id="section-10.3-8">Delegated distribution (<a href="#delegated-distribution" class="auto internal xref">Section 15.5</a>) needs one adjustment.
 A distributor is asked for a token rather than a serial, and cannot resolve one to the entry it names without K_ca.
 Giving it K_ca would let it derive every token the CA issues, and is unnecessary.
-A CA that uses unguessable tick URLs <span class="bcp14">MUST</span> instead key the bundle it publishes to its distributors by <code>tick_token</code>.
-The CA holds K_ca and so is the party that can do this, and a distributor then answers from a table keyed by exactly what the request carries, with no mapping of its own.
+A CA that uses unguessable tick URLs <span class="bcp14">MUST</span> instead ensure that each of its distributors can answer the token-addressed requests directed to it, whatever the form of the feed, which this document does not standardize (<a href="#bulk-retrieval" class="auto internal xref">Section 15.4</a>).
+Keying the bundle by <code>tick_token</code> is the natural way, since the CA is the party holding K_ca and a distributor then answers from a table keyed by exactly what the request carries, with no mapping of its own.
 The records are correspondingly larger, since a token is longer than an 8-byte serial.
 Nothing else about the arrangement changes, since the token is an addressing capability rather than a confidentiality secret and the values a distributor serves are public either way.<a href="#section-10.3-8" class="pilcrow">¶</a></p>
 <p id="section-10.3-9">The token is an addressing capability, not a confidentiality secret, and this hardening is defense in depth rather than a hard security boundary.
@@ -4105,16 +4119,23 @@ Relatively few operators run distribution infrastructure at that scale, so two C
 Holding certificates from both buys nothing in that case, and the concentration makes the failure large as well as correlated, since a single distributor's outage renders every affected certificate unusable once its runway expires, whichever CA issued it.
 A deployment relying on multi-CA failover <span class="bcp14">SHOULD</span> therefore confirm that its CAs do not share a tick distributor, and CAs <span class="bcp14">SHOULD</span> publish enough about their distribution arrangements for that to be checkable.
 Delegation and multi-CA operation are both worth doing, but they are not independent of one another, and a deployment that treats them as independent overestimates its resilience.<a href="#section-15.1-3" class="pilcrow">¶</a></p>
-<p id="section-15.1-4">Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
+<div id="the-dependency-relative-to-short-lifetimes">
+<section id="section-15.1.1">
+          <h4 id="name-the-dependency-relative-to-">
+<a href="#section-15.1.1" class="section-number selfRef">15.1.1. </a><a href="#name-the-dependency-relative-to-" class="section-name selfRef">The Dependency Relative to Short Lifetimes</a>
+          </h4>
+<p id="section-15.1.1-1">Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
 Short-lived certificates do not remove the dependency on CA availability.
 They relocate it.
-Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.<a href="#section-15.1-4" class="pilcrow">¶</a></p>
-<p id="section-15.1-5">The difference is cadence and weight.
+Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.<a href="#section-15.1.1-1" class="pilcrow">¶</a></p>
+<p id="section-15.1.1-2">The difference is cadence and weight.
 MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly GET with no cryptography (<a href="#operational-resilience" class="auto internal xref">Appendix F.6.3</a>).
 That is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
 Multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
-A longer <code>tick_interval</code> trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.<a href="#section-15.1-5" class="pilcrow">¶</a></p>
-<p id="section-15.1-6">The alternative, no in-band revocation at all, instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.<a href="#section-15.1-6" class="pilcrow">¶</a></p>
+A longer <code>tick_interval</code> trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.<a href="#section-15.1.1-2" class="pilcrow">¶</a></p>
+<p id="section-15.1.1-3">The alternative, no in-band revocation at all, instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.<a href="#section-15.1.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
 </section>
 </div>
 <div id="storage-tradeoff">
@@ -4248,7 +4269,7 @@ A CA that uses unguessable tick URLs (<a href="#unguessable-urls" class="auto in
 Each distributor serves those values through the HTTP interface of <a href="#distribution" class="auto internal xref">Section 10</a>.
 This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA (<a href="#distribution" class="auto internal xref">Section 10</a>).
 The bundle is small in relation to that volume.
-One record is a serial and a tick, 42 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 42 GB per period.
+One serial-keyed record is a serial and a tick, 42 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 42 GB per period.
 Because period boundaries are each certificate's own (<a href="#construction" class="auto internal xref">Section 4</a>), that need not be sent as a periodic bulk transfer.
 A CA can stream records as certificates cross their boundaries, which at hourly periods is a sustained rate of roughly 90 Mbit/s to each distributor.
 To revoke a certificate the CA drops its entry from subsequent refreshes, so absence is revocation and no revocation list is exchanged.

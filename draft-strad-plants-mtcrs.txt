@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                          10 September 2026
-Expires: 14 March 2027
+Intended status: Experimental                          11 September 2026
+Expires: 15 March 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 14 March 2027.
+   This Internet-Draft will expire on 15 March 2027.
 
 Copyright Notice
 
@@ -134,6 +134,7 @@ Table of Contents
      14.11. Relying-Party Policy Levers
    15. Operational and Availability Considerations
      15.1.  Availability Considerations
+       15.1.1.  The Dependency Relative to Short Lifetimes
      15.2.  CA-Side Storage and Computation Trade-off
        15.2.1.  Storing Versus Recomputing Hash Chain Values
        15.2.2.  Deriving Seeds from a Long-Term CA Secret
@@ -313,10 +314,15 @@ Table of Contents
    specification, and Appendix D the design choices it leaves open for
    the working group to settle.  The rationale for choosing this
    approach over the alternatives, and the argument that functional
-   revocation is superior to passive expiry, are developed in
-   Appendix F.  A reader wanting the shape of the mechanism before its
-   details will find a non-normative walk-through of one certificate's
-   lifecycle in Section 3.
+   revocation is superior to passive expiry, are developed in Appendix F
+   and Appendix G.  Those two appendices are written to support an
+   adoption decision rather than an implementation, and account for
+   about a quarter of the document.  Once the working group has settled
+   the questions in Appendix D, they are expected to be cut back to the
+   conclusions reached, or moved to a companion document, leaving a
+   specification closer in size to the one it extends.  A reader wanting
+   the shape of the mechanism before its details will find a non-
+   normative walk-through of one certificate's lifecycle in Section 3.
 
    This document is published as Experimental to gather implementation
    and deployment experience with hash chain revocation for Merkle Tree
@@ -351,17 +357,20 @@ Table of Contents
    two parties that compute with it obtain it differently, and neither
    needs a carrier that does not already exist.  A relying party is
    configured with the CA's log hash algorithm as part of the base MTC
-   configuration it needs to accept any certificate from that CA, taking
-   it from the logHash field of the id-pe-mtcCertificationAuthority
-   extension in the CA certificate (Section 7.1 of
-   [I-D.ietf-plants-merkle-tree-certs]).  An authenticating party has no
-   such configuration, and reads the algorithm from the final segment of
-   the tick base URL it is given (Section 10).  That URL is the one
-   value a CA must convey to it in any case, so the algorithm travels
-   with the locator rather than needing a channel of its own.  It needs
-   HASH only to verify a fetched tick against the anchor committed in
-   its own certificate before presenting it (Section 12), and takes
-   HASH_SIZE from the length of that anchor (Section 7).
+   configuration it needs to accept any certificate from that CA
+   (Section 7.1 of [I-D.ietf-plants-merkle-tree-certs]).  The base
+   specification identifies that algorithm by the type of the Merkle
+   Tree CA extension in the CA certificate, which names one hash per
+   extension type, id-pe-mtcCertificationAuthority-SHA256 being the one
+   it defines (Section 5.5 of [I-D.ietf-plants-merkle-tree-certs]).  An
+   authenticating party has no such configuration, and reads the
+   algorithm from the final segment of the tick base URL it is given
+   (Section 10).  That URL is the one value a CA must convey to it in
+   any case, so the algorithm travels with the locator rather than
+   needing a channel of its own.  It needs HASH only to verify a fetched
+   tick against the anchor committed in its own certificate before
+   presenting it (Section 12), and takes HASH_SIZE from the length of
+   that anchor (Section 7).
 
    Structure names from the base specification follow its editor's copy,
    in which MerkleTreeCertEntry, MerkleTreeCertEntryExtension,
@@ -415,7 +424,8 @@ Table of Contents
    serial_number:  The certificate's serialNumber, which the base
       specification builds from the entry's log number and its index
       within that log, and which addresses that entry's tick in the
-      distribution interface (Section 10).
+      distribution interface unless the CA uses unguessable tick URLs
+      (Section 10, Section 10.3).
 
    Tick distributor:  A party other than the CA that serves ticks over
       the HTTP interface of Section 10.  Because ticks are self-
@@ -553,55 +563,61 @@ Table of Contents
    happens.  Nothing here is a new requirement, and each entry cites the
    section that states it.
 
-   +================+==================================================+
-   | Party          | What it implements                               |
-   +================+==================================================+
-   | Certification  | Chooses a tick_interval and a lifetime           |
-   | authority      | satisfying the two bounds on their ratio,        |
-   |                | generates a seed per entry, and hashes it        |
-   |                | forward to the anchor (Section 4).  Commits the  |
-   |                | anchor in the certificate (Section 7).  Reveals  |
-   |                | one value per period, and stops revealing to     |
-   |                | revoke (Section 5).  Serves ticks at the         |
-   |                | published base URL, and conveys that URL to its  |
-   |                | subscribers (Section 10, Section 10.2).          |
-   +----------------+--------------------------------------------------+
-   | Authenticating | Derives its tick URL from the base URL and its   |
-   | party          | own serialNumber (Section 10).  Fetches once     |
-   |                | per period, at a deterministic offset within it  |
-   |                | (Section 15.3).  Verifies each fetched tick      |
-   |                | against the anchor in its own certificate        |
-   |                | before installing it, overwrites the trailing 2  |
-   |                | + HASH_SIZE bytes of the MTCProof, and           |
-   |                | withholds the certificate from selection while   |
-   |                | it holds no tick within the acceptance window    |
-   |                | (Section 12).                                    |
-   +----------------+--------------------------------------------------+
-   | Relying party  | Reads the anchor from the certificate's          |
-   |                | extensions and the tick from the end of the      |
-   |                | MTCProof (Section 7, Section 8.1.1).  Runs the   |
-   |                | verification procedure, which is entirely        |
-   |                | offline (Section 9.2).  Fetches nothing at any   |
-   |                | point (Section 14.5).                            |
-   +----------------+--------------------------------------------------+
-   | Issuance log   | Nothing.  The anchor reaches the Merkle Tree as  |
-   | and cosigners  | ordinary certificate bytes, so no component      |
-   |                | that builds or signs subtrees need recognize it  |
-   |                | (Appendix G.4).                                  |
-   +----------------+--------------------------------------------------+
-   | Monitor        | Nothing, beyond reading log entries as it        |
-   |                | already does.  Where tick URLs are derivable, a  |
-   |                | monitor MAY additionally watch them for          |
-   |                | withheld ticks (Section 14.4).                   |
-   +----------------+--------------------------------------------------+
+   +================+=================================================+
+   | Party          | What it implements                              |
+   +================+=================================================+
+   | Certification  | Chooses a tick_interval and a lifetime          |
+   | authority      | satisfying the two bounds on their ratio,       |
+   |                | generates a seed per entry, and hashes it       |
+   |                | forward to the anchor (Section 4).  Commits the |
+   |                | anchor in the certificate (Section 7).  Reveals |
+   |                | one value per period, and stops revealing to    |
+   |                | revoke (Section 5).  Serves ticks at the        |
+   |                | published base URL, and conveys that URL to its |
+   |                | subscribers (Section 10, Section 10.2).         |
+   +----------------+-------------------------------------------------+
+   | Authenticating | Derives its tick URL from the base URL and its  |
+   | party          | own serialNumber, or is given the complete URL  |
+   |                | where the CA uses unguessable ones (Section 10, |
+   |                | Section 10.3).  Fetches once per period, at a   |
+   |                | deterministic offset within it (Section 15.3).  |
+   |                | Verifies each fetched tick against the anchor   |
+   |                | in its own certificate before installing it,    |
+   |                | overwrites the trailing 2 + HASH_SIZE bytes of  |
+   |                | the MTCProof, and withholds the certificate     |
+   |                | from selection while it holds no tick within    |
+   |                | the acceptance window (Section 12).             |
+   +----------------+-------------------------------------------------+
+   | Relying party  | Reads the anchor from the certificate's         |
+   |                | extensions and the tick from the end of the     |
+   |                | MTCProof (Section 7, Section 8.1.1).  Runs the  |
+   |                | verification procedure, which is entirely       |
+   |                | offline (Section 9.2).  Fetches nothing at any  |
+   |                | point (Section 14.5).                           |
+   +----------------+-------------------------------------------------+
+   | Issuance log   | Nothing.  The anchor reaches the Merkle Tree as |
+   | and cosigners  | ordinary certificate bytes, so no component     |
+   |                | that builds or signs subtrees need recognize it |
+   |                | (Appendix G.4).                                 |
+   +----------------+-------------------------------------------------+
+   | Monitor        | Nothing, beyond reading log entries as it       |
+   |                | already does.  Where tick URLs are derivable, a |
+   |                | monitor MAY additionally watch them for         |
+   |                | withheld ticks (Section 14.4).                  |
+   +----------------+-------------------------------------------------+
 
-                                  Table 1
+                                 Table 1
 
 3.2.  What It Costs
 
    Each figure below is derived in the section cited, and collected here
    so that the whole cost can be seen at once.  They assume SHA-256, a
-   one-hour period, and a population of 10^9 certificates.
+   one-hour period, and a population of 10^9 certificates.  That
+   population is a round figure above the base specification's own
+   estimates, which give 558 million active certificates for a single
+   large CA and 2.1 billion unexpired across the Web PKI (Section 6.5 of
+   [I-D.ietf-plants-merkle-tree-certs]), so each cost below is an upper
+   bound for any one CA.
 
     +================+================================================+
     | Party or       | What this mechanism costs                      |
@@ -1143,7 +1159,10 @@ Table of Contents
    at 384 bytes for a standalone certificate and 736 bytes for a
    landmark-relative one (Section 6.5 of
    [I-D.ietf-plants-merkle-tree-certs]).  Against that, the 34-byte tick
-   (Section 8) is some 5 to 9 percent.
+   (Section 8) is some 5 to 9 percent.  The same section measures its
+   proof sizes against a single ML-DSA-44 signature at 2,420 bytes, the
+   cost Merkle Tree Certificates exist to avoid paying per certificate.
+   Against that yardstick the tick is about 1.4 percent.
 
    This committed cost is the unavoidable price of self-authentication.
    Unlike the tick base URL, which is deliberately kept out of the
@@ -1311,7 +1330,7 @@ Table of Contents
        uint48 start;
        uint48 end;
        HashValue inclusion_proof<0..2^16-1>;
-       SubtreeSignature signatures<0..2^16-1>;
+       SubtreeSignature signatures<0..2^24-1>;
        select (anchor_presence) {
            case absent:  Empty;
            case present: HashChainTick;
@@ -1746,15 +1765,18 @@ Table of Contents
    At large deployment scale, tick distribution is dominated by
    aggregate request volume rather than per-request cost.  A CA serving
    10^9 active certificates with a one-hour period sees on the order of
-   10^5 to 10^6 tick requests per second.  Because each certificate's
-   periods run from its own notBefore (Section 4), that load is spread
-   across the interval to the extent issuance times are.  It
-   concentrates only where many certificates share a boundary, as when a
-   CA rounds notBefore or renewals arrive in waves.  At this scale the
-   serving path is fed by replication rather than by cache fill.  Each
-   tick is immutable within its period and so is freely cacheable, but
-   caching collapses requests only where an entry has several fetchers,
-   as in a deployment that terminates TLS on many nodes (Section 12).  A
+   10^5 to 10^6 tick requests per second.  That population is above the
+   base specification's own estimate for a single large CA (Section 6.5
+   of [I-D.ietf-plants-merkle-tree-certs]), so the figure is an upper
+   bound rather than a projection.  Because each certificate's periods
+   run from its own notBefore (Section 4), that load is spread across
+   the interval to the extent issuance times are.  It concentrates only
+   where many certificates share a boundary, as when a CA rounds
+   notBefore or renewals arrive in waves.  At this scale the serving
+   path is fed by replication rather than by cache fill.  Each tick is
+   immutable within its period and so is freely cacheable, but caching
+   collapses requests only where an entry has several fetchers, as in a
+   deployment that terminates TLS on many nodes (Section 12).  A
    certificate presented by a single server has one fetcher per period,
    so its request is a cache miss whenever it is made, and edge caching
    alone therefore does not reduce the number of distinct entries an
@@ -1783,16 +1805,23 @@ Table of Contents
    hash_name:  The name of the CA's log hash algorithm, taken from the
       "Named Information Hash Algorithm Registry" [RFC6920], which gives
       lowercase names such as sha-256 that need no percent-encoding in a
-      path segment.  It MUST name the algorithm the CA's logHash field
-      identifies (Section 2).  Carrying it here is what gives the
-      authenticating party HASH, and it costs nothing to convey, because
-      the URL is the one value a CA is already obliged to deliver and
-      any issuance protocol that delivers it therefore delivers the
-      algorithm with it (Section 10.2).  An authenticating party MUST
-      NOT fetch from a base URL naming an algorithm it does not
-      implement, and MUST NOT guess one.  Where it also holds the CA
-      certificate, the logHash field there is authoritative, and it
-      SHOULD report a disagreement as a CA misconfiguration.
+      path segment.  It MUST name the CA's log hash algorithm
+      (Section 2).  Carrying it here is what gives the authenticating
+      party HASH, and it costs nothing to convey, because the URL is the
+      one value a CA is already obliged to deliver and any issuance
+      protocol that delivers it therefore delivers the algorithm with it
+      (Section 10.2).  An authenticating party MUST NOT fetch from a
+      base URL naming an algorithm it does not implement, and MUST NOT
+      guess one.  It MUST also check that the named algorithm's output
+      length equals the length of the anchor in its own certificate, and
+      MUST NOT fetch if the two disagree.  That check costs nothing and
+      needs no other input, and without it the mismatch is not caught
+      until every fetched tick fails, either on the response-length
+      check (Section 10.4) or because forward hashing under the wrong
+      algorithm can never reach an anchor of a different length.  Where
+      it also holds the CA certificate, the algorithm named by that
+      certificate's Merkle Tree CA extension type is authoritative, and
+      it SHOULD report a disagreement as a CA misconfiguration.
 
    serial_number:  The certificate's serialNumber, which the base
       specification constructs from the entry's log number and its zero-
@@ -1923,30 +1952,31 @@ Table of Contents
       Subject Information Access access method defined in Section 17,
       whose accessLocation is a uniformResourceIdentifier giving the
       tick base URL.  Its final segment names the same algorithm as that
-      certificate's own logHash field, so a CA publishing both states
-      the algorithm twice and MUST state it consistently (Section 10).
-      Publishing it is the CA's choice; understanding it is not the
-      authenticating party's, since this is the only carrier available
-      to a CA whose issuance protocol has no provisioning binding.  This
-      carries a single per-CA URL on a single object, adds no per-log-
-      entry bytes, and provides a protocol-independent, published record
-      that an authenticating party, its tooling, or an auditor can read
-      once without access to any provisioning transcript.  Because it is
-      per-CA and distributed out of band rather than presented in the
-      TLS handshake, it avoids the costs that led this document to
-      reject a per-certificate tick URL in Authority Information Access
-      (Appendix G.3).  Its value is therefore as a published fallback
-      and tooling record.  Where a provisioning binding exists (for
-      example ACME, Section 11) it is redundant with that channel, which
-      takes precedence when the two disagree.  Where none exists, it is
-      the only interoperable carrier of the base URL.  It carries only
-      the base URL, so it does not apply when unguessable tick URLs
-      (Section 10.3) are used.  In that case the full per-certificate
-      URL is delivered through the provisioning channel and the SIA
-      SHOULD NOT be published.  A deployment that uses unguessable tick
-      URLs therefore has a single discovery channel, the provisioning
-      channel, with no SIA fallback.  The CA MUST ensure that channel
-      reliably delivers the complete per-certificate URL.
+      certificate's own Merkle Tree CA extension type, so a CA
+      publishing both states the algorithm twice and MUST state it
+      consistently (Section 10).  Publishing it is the CA's choice;
+      understanding it is not the authenticating party's, since this is
+      the only carrier available to a CA whose issuance protocol has no
+      provisioning binding.  This carries a single per-CA URL on a
+      single object, adds no per-log-entry bytes, and provides a
+      protocol-independent, published record that an authenticating
+      party, its tooling, or an auditor can read once without access to
+      any provisioning transcript.  Because it is per-CA and distributed
+      out of band rather than presented in the TLS handshake, it avoids
+      the costs that led this document to reject a per-certificate tick
+      URL in Authority Information Access (Appendix G.3).  Its value is
+      therefore as a published fallback and tooling record.  Where a
+      provisioning binding exists (for example ACME, Section 11) it is
+      redundant with that channel, which takes precedence when the two
+      disagree.  Where none exists, it is the only interoperable carrier
+      of the base URL.  It carries only the base URL, so it does not
+      apply when unguessable tick URLs (Section 10.3) are used.  In that
+      case the full per-certificate URL is delivered through the
+      provisioning channel and the SIA SHOULD NOT be published.  A
+      deployment that uses unguessable tick URLs therefore has a single
+      discovery channel, the provisioning channel, with no SIA fallback.
+      The CA MUST ensure that channel reliably delivers the complete
+      per-certificate URL.
 
    Keeping the base URL out of the certificate is not a secrecy measure,
    since the URL is derivable by anyone holding the certificate
@@ -2040,15 +2070,17 @@ Table of Contents
    distributor is asked for a token rather than a serial, and cannot
    resolve one to the entry it names without K_ca.  Giving it K_ca would
    let it derive every token the CA issues, and is unnecessary.  A CA
-   that uses unguessable tick URLs MUST instead key the bundle it
-   publishes to its distributors by tick_token.  The CA holds K_ca and
-   so is the party that can do this, and a distributor then answers from
-   a table keyed by exactly what the request carries, with no mapping of
-   its own.  The records are correspondingly larger, since a token is
-   longer than an 8-byte serial.  Nothing else about the arrangement
-   changes, since the token is an addressing capability rather than a
-   confidentiality secret and the values a distributor serves are public
-   either way.
+   that uses unguessable tick URLs MUST instead ensure that each of its
+   distributors can answer the token-addressed requests directed to it,
+   whatever the form of the feed, which this document does not
+   standardize (Section 15.4).  Keying the bundle by tick_token is the
+   natural way, since the CA is the party holding K_ca and a distributor
+   then answers from a table keyed by exactly what the request carries,
+   with no mapping of its own.  The records are correspondingly larger,
+   since a token is longer than an 8-byte serial.  Nothing else about
+   the arrangement changes, since the token is an addressing capability
+   rather than a confidentiality secret and the values a distributor
+   serves are public either way.
 
    The token is an addressing capability, not a confidentiality secret,
    and this hardening is defense in depth rather than a hard security
@@ -3188,6 +3220,8 @@ Table of Contents
    deployment that treats them as independent overestimates its
    resilience.
 
+15.1.1.  The Dependency Relative to Short Lifetimes
+
    Compared with relying on short lifetimes alone, this is a shift in
    the availability dependency rather than a new one, and the shift is
    smaller than it first appears.  Short-lived certificates do not
@@ -3429,16 +3463,16 @@ Table of Contents
    aggregate request volume tractable, because a distributor answers
    from the bundle it already holds and no per-certificate request need
    reach the CA (Section 10).  The bundle is small in relation to that
-   volume.  One record is a serial and a tick, 42 bytes, so a CA with
-   10^9 active certificates publishes about 42 GB per period.  Because
-   period boundaries are each certificate's own (Section 4), that need
-   not be sent as a periodic bulk transfer.  A CA can stream records as
-   certificates cross their boundaries, which at hourly periods is a
-   sustained rate of roughly 90 Mbit/s to each distributor.  To revoke a
-   certificate the CA drops its entry from subsequent refreshes, so
-   absence is revocation and no revocation list is exchanged.
-   Compromising a distributor exposes nothing that is not already
-   public.
+   volume.  One serial-keyed record is a serial and a tick, 42 bytes, so
+   a CA with 10^9 active certificates publishes about 42 GB per period.
+   Because period boundaries are each certificate's own (Section 4),
+   that need not be sent as a periodic bulk transfer.  A CA can stream
+   records as certificates cross their boundaries, which at hourly
+   periods is a sustained rate of roughly 90 Mbit/s to each distributor.
+   To revoke a certificate the CA drops its entry from subsequent
+   refreshes, so absence is revocation and no revocation list is
+   exchanged.  Compromising a distributor exposes nothing that is not
+   already public.
 
    MTC mirrors are a natural home for this role, since they already
    replicate and serve MTC log data at high availability.  Content
