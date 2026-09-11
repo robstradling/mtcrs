@@ -278,7 +278,7 @@ Tick:
   A tick is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of that period, complementing the inclusion proof and cosignatures that attest authenticity.
 
 `serial_number`:
-: The certificate's `serialNumber`, which the base specification builds from the entry's log number and its index within that log, and which addresses that entry's tick in the distribution interface ({{distribution}}).
+: The certificate's `serialNumber`, which the base specification builds from the entry's log number and its index within that log, and which addresses that entry's tick in the distribution interface unless the CA uses unguessable tick URLs ({{distribution}}, {{unguessable-urls}}).
 
 Tick distributor:
 : A party other than the CA that serves ticks over the HTTP interface of {{distribution}}.
@@ -390,7 +390,7 @@ Nothing here is a new requirement, and each entry cites the section that states 
 | Party | What it implements |
 | --- | --- |
 | Certification authority | Chooses a `tick_interval` and a lifetime satisfying the two bounds on their ratio, generates a seed per entry, and hashes it forward to the anchor ({{construction}}). Commits the anchor in the certificate ({{anchor-x509-extension}}). Reveals one value per period, and stops revealing to revoke ({{ca-operation}}). Serves ticks at the published base URL, and conveys that URL to its subscribers ({{distribution}}, {{discovery}}). |
-| Authenticating party | Derives its tick URL from the base URL and its own `serialNumber` ({{distribution}}). Fetches once per period, at a deterministic offset within it ({{load-distribution}}). Verifies each fetched tick against the anchor in its own certificate before installing it, overwrites the trailing 2 + HASH_SIZE bytes of the MTCProof, and withholds the certificate from selection while it holds no tick within the acceptance window ({{ap-behavior}}). |
+| Authenticating party | Derives its tick URL from the base URL and its own `serialNumber`, or is given the complete URL where the CA uses unguessable ones ({{distribution}}, {{unguessable-urls}}). Fetches once per period, at a deterministic offset within it ({{load-distribution}}). Verifies each fetched tick against the anchor in its own certificate before installing it, overwrites the trailing 2 + HASH_SIZE bytes of the MTCProof, and withholds the certificate from selection while it holds no tick within the acceptance window ({{ap-behavior}}). |
 | Relying party | Reads the anchor from the certificate's extensions and the tick from the end of the MTCProof ({{anchor-x509-extension}}, {{tick-trailing-field}}). Runs the verification procedure, which is entirely offline ({{verification-procedure}}). Fetches nothing at any point ({{rp-no-fetch}}). |
 | Issuance log and cosigners | Nothing. The anchor reaches the Merkle Tree as ordinary certificate bytes, so no component that builds or signs subtrees need recognize it ({{anchor-entry-extension}}). |
 | Monitor | Nothing, beyond reading log entries as it already does. Where tick URLs are derivable, a monitor MAY additionally watch them for withheld ticks ({{dos-withholding}}). |
@@ -1990,7 +1990,7 @@ A CA that uses unguessable tick URLs ({{unguessable-urls}}) keys the bundle by `
 Each distributor serves those values through the HTTP interface of {{distribution}}.
 This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA ({{distribution}}).
 The bundle is small in relation to that volume.
-One record is a serial and a tick, 42 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 42 GB per period.
+One serial-keyed record is a serial and a tick, 42 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 42 GB per period.
 Because period boundaries are each certificate's own ({{construction}}), that need not be sent as a periodic bulk transfer.
 A CA can stream records as certificates cross their boundaries, which at hourly periods is a sustained rate of roughly 90 Mbit/s to each distributor.
 To revoke a certificate the CA drops its entry from subsequent refreshes, so absence is revocation and no revocation list is exchanged.
