@@ -405,7 +405,8 @@ Nothing here is a new requirement, and each entry cites the section that states 
 
 Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
 They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.
-That population is a round figure above the base specification's own estimates, which give 558 million active certificates for a single large CA and 2.1 billion unexpired across the Web PKI ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}), so each cost below is an upper bound for any one CA.
+That population is a round figure above the base specification's own estimates, which give 558 million active certificates for a single large CA and 2.1 billion unexpired across the Web PKI ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}).
+Each cost below is therefore an upper bound for any one CA.
 
 | Party or object | What this mechanism costs |
 | --- | --- |
@@ -416,7 +417,8 @@ That population is a round figure above the base specification's own estimates, 
 | Log entry | About 50 bytes for the committed anchor, a fifth to a quarter of a domain-validated entry ({{anchor-x509-extension}}). |
 | Handshake | 34 bytes for the tick, 5 to 9 percent of the inclusion proof it travels beside ({{cert-format}}). |
 
-The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period ({{verification-cost}}), which is why the worst case that hashing can reach is referred to the working group ({{oq-cost-bound}}).
+The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period ({{verification-cost}}).
+That is why the worst case that hashing can reach is referred to the working group ({{oq-cost-bound}}).
 
 # Hash Chain Construction {#construction}
 
@@ -519,7 +521,8 @@ Given `h[i]`, it is computationally infeasible to compute `h[i-1]` (which would 
 The hash chain is revealed in reverse order precisely for this reason ({{revealing-values}}).
 Knowledge of the current value does not help compute future values.
 
-The label in HashChainInput ({{encoding}}) domain-separates hash chain values from other uses of the hash function in MTC, and `issuer_ca_id` separates one CA's hash chains from every other CA's, while within a CA the independent random seed separates one certificate's chain from another's ({{encoding}}).
+The label in HashChainInput ({{encoding}}) domain-separates hash chain values from other uses of the hash function in MTC, and `issuer_ca_id` separates one CA's hash chains from every other CA's.
+Within a CA, the independent random seed separates one certificate's chain from another's ({{encoding}}).
 The hash chain is the only place this mechanism uses a hash function at all, so there is no second notion of hashing to keep distinct from it.
 
 # Revealing Values and Revoking Certificates {#ca-operation}
@@ -824,7 +827,8 @@ The window's tolerance of one period in each direction is what absorbs the diffe
 The default suffices, since a relying party may only widen the window and therefore accepts a superset of what the default admits.
 In practice this is the most recent tick it has fetched and verified ({{distribution}}).
 It SHOULD present the current period's tick once it holds one, but is not required to switch at the period boundary.
-The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}), and an authenticating party that cannot obtain a fresh tick continues to present its most recent still-valid one ({{availability-considerations}}).
+The deterministic fetch offset means the preceding period's tick is normally presented for the first part of each period ({{load-distribution}}).
+An authenticating party that cannot obtain a fresh tick likewise continues to present its most recent still-valid one ({{availability-considerations}}).
 The relying party checks `tick.period` against its own clock using the acceptance window, which allows for clock skew and caching and is specified in step 4 of {{verification-procedure}}.
 
 A certificate carrying an anchor holds a well-formed HashChainTick from the moment it is issued, since the parse rules admit no other form ({{tick-trailing-field}}).
@@ -1126,10 +1130,12 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
   It MUST name the CA's log hash algorithm ({{conventions-and-definitions}}).
   The base specification identifies that algorithm by an object identifier and this interface names it from a different registry, so a CA MUST NOT serve this interface for a hash that has no entry in the Named Information Hash Algorithm Registry.
   Registering one would be a prerequisite for carrying, over this interface, a hash that a future base specification introduces.
-  Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey, because the URL is the one value a CA is already obliged to deliver and any issuance protocol that delivers it therefore delivers the algorithm with it ({{discovery}}).
+  Carrying it here is what gives the authenticating party HASH, and it costs nothing to convey.
+  The URL is the one value a CA is already obliged to deliver, so any issuance protocol that delivers it delivers the algorithm with it ({{discovery}}).
   An authenticating party MUST NOT fetch from a base URL naming an algorithm it does not implement, and MUST NOT guess one.
   It MUST also check that the named algorithm's output length equals the length of the anchor in its own certificate, and MUST NOT fetch if the two disagree.
-  That check costs nothing and needs no other input, and without it the mismatch is not caught until every fetched tick fails, either on the response-length check ({{response-format}}) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
+  That check costs nothing and needs no other input.
+  Without it the mismatch is not caught until every fetched tick fails, either on the response-length check ({{response-format}}) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
   It detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
   Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
 
@@ -1142,8 +1148,10 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
 Both parties read the serial straight from the certificate.
 The authenticating party in particular does not reconstruct the log entry, so deriving its own tick URL costs it no cryptography and needs no per-request metadata from the CA.
 
-The serial is the base specification's own identifier for an entry, used to locate it in the log during verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}) and to name it in the revocation record sketched in {{logged-revocation}}, so keying ticks on it keeps one identifier for one entry throughout.
-Its uniqueness is structural rather than probabilistic, because indices are assigned sequentially within a log and the log number distinguishes a CA's logs, so no two of a CA's entries can share a URL and there is no collision case to reason about.
+The serial is the base specification's own identifier for an entry, used to locate it in the log during verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}) and to name it in the revocation record sketched in {{logged-revocation}}.
+Keying ticks on it therefore keeps one identifier for one entry throughout.
+Its uniqueness is structural rather than probabilistic, because indices are assigned sequentially within a log and the log number distinguishes a CA's logs.
+No two of a CA's entries can therefore share a URL, and there is no collision case to reason about.
 That sequential assignment is the property the base specification itself identifies as one that may enable improvements to revocation ({{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}}).
 It is also identical for a given entry's standalone and landmark-relative certificates, which differ only in the proof they carry ({{cert-profiles}}).
 
@@ -1326,7 +1334,8 @@ The CA uses HTTP status codes ({{!RFC9110}}) as follows:
 
 An authenticating party follows redirects, which is what lets a CA migrate its tick infrastructure by redirecting from the old origin while renewals propagate the new base URL ({{discovery}}).
 It SHOULD bound the number it follows for a single fetch, for which five is ample.
-Following one is safe even to an untrusted target, since whatever is returned is verified against the anchor committed in the authenticating party's own certificate before it is installed ({{ap-behavior}}), so a redirect to a hostile origin can deny service but cannot forge a tick.
+Following one is safe even to an untrusted target, since whatever is returned is verified against the anchor committed in the authenticating party's own certificate before it is installed ({{ap-behavior}}).
+A redirect to a hostile origin can therefore deny service but cannot forge a tick.
 
 Any other status code carries its ordinary HTTP semantics ({{!RFC9110}}).
 An authenticating party treats any response that is neither a 200 nor a redirect it follows as "no fresh tick obtained on this attempt", and falls back to its most recent still-valid tick.
@@ -1442,7 +1451,8 @@ An authenticating party that holds a certificate from another CA SHOULD fail ove
 Continuing to present a certificate whose newest tick has already fallen outside that window achieves nothing: every relying party implementing this mechanism rejects it (step 4 of {{verification-procedure}}).
 
 The authenticating party may be unable to obtain a fresh tick, for example because the CA is unavailable.
-It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification-procedure}}), which gives it between one and two periods of runway from its last successful fetch ({{availability-considerations}}).
+It then continues to serve the most recent tick it holds for as long as that tick remains within the default acceptance window (step 4 of {{verification-procedure}}).
+That gives it between one and two periods of runway from its last successful fetch ({{availability-considerations}}).
 Once that runway is exhausted, the certificate becomes unusable until a fresh tick is obtained or a new certificate is provisioned.
 {{availability-considerations}} discusses this dependency and its mitigations, including widening the acceptance window ({{clock-skew}}) and holding certificates from multiple CAs.
 
@@ -1453,7 +1463,8 @@ This document does not prescribe how.
 Either arrangement works: every node MAY fetch independently, since the per-entry offset already spreads their requests and a cache or CDN collapses them ({{load-distribution}}), or one node MAY fetch and push the result to the rest.
 The tick is a public, immutable, 34-byte value with no validity window of its own, no signature to check and no per-node state, so nothing is lost by fetching it more than once.
 A node still holding the preceding period's tick keeps serving correctly while it catches up.
-This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale ({{ocsp-stapling-comparison}}).
+This is the point at which OCSP stapling has historically been most difficult to operate.
+A stapled response is a signed object with its own validity window and responder certificate, and it has to reach every terminator before it goes stale ({{ocsp-stapling-comparison}}).
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
 
 # Operational and Availability Considerations {#operational-considerations}
@@ -1553,7 +1564,8 @@ The stored values are unrevealed hash chain values and therefore carry the same 
 The per-certificate seed itself can also be eliminated from storage.
 Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed KDF or PRF, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_ca_id || entry_id)`, where `entry_id` is whatever value the CA uses to distinguish one entry from another.
 That value never appears on the wire and this document does not constrain it, but it MUST differ between entries, since two entries deriving the same seed would hold the same hash chain and could not be revoked independently.
-HashChainInput carries no per-entry salt ({{encoding}}), so the seed is the only thing separating one certificate's chain from another's, and a CA choosing `entry_id` should prefer a value it can fix before the entry is sequenced into the log, such as a hash of the certificate inputs, rather than the entry's index.
+HashChainInput carries no per-entry salt ({{encoding}}), so the seed is the only thing separating one certificate's chain from another's.
+A CA choosing `entry_id` should therefore prefer a value it can fix before the entry is sequenced into the log, such as a hash of the certificate inputs, rather than the entry's index.
 The keying is what makes derived seeds computationally indistinguishable from the independent random seeds of {{construction}}, which is why a raw `Hash(ca_seed || ...)` is forbidden ({{seed-confidentiality}}).
 Any hash chain is then recomputable on demand from `ca_seed` and the public entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
 
@@ -1704,13 +1716,16 @@ Most connections pay nothing.
 A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
 The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
 A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
-One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check ({{ap-behavior}}).
+One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods.
+It rests on the same reason, and offers the same security, as the authenticating party's incremental check ({{ap-behavior}}).
 As there, the shortcut applies only when the presented period exceeds the retained one, and a relying party MUST NOT compute the difference in unsigned arithmetic.
-The opposite case arises without an attacker, since the acceptance window admits `expected_period` - 1 while the relying party may hold a tick for `expected_period` itself, so a presented period below the retained one is ordinary and the relying party verifies from the anchor instead.
+The opposite case arises without an attacker, since the acceptance window admits `expected_period` - 1 while the relying party may hold a tick for `expected_period` itself.
+A presented period below the retained one is therefore ordinary, and the relying party verifies from the anchor instead.
 On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
 
 Selecting a different hash function does not materially change any of this.
-The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what keeps an algorithm identifier out of the anchor and the tick ({{conventions-and-definitions}}).
+The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it.
+That inheritance is what keeps an algorithm identifier out of the anchor and the tick ({{conventions-and-definitions}}).
 Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
 The quantity that governs this cost is the number of periods, not the speed of the primitive, and reducing it is a property of the construction ({{shorter-verification}}).
 
@@ -1944,7 +1959,8 @@ The per-period revocation *state*, by contrast, is neither signed nor committed,
 Four consequences follow, each bounded:
 
 - **Revocation is not provable, and not always observable.**
-  Where tick URLs are derivable, a monitor watching a certificate's tick endpoint can detect that ticks have stopped, but cannot by that alone prove the CA revoked it rather than suffered a distribution outage, because a 404 does not distinguish the two ({{response-format}}).
+  Where tick URLs are derivable, a monitor watching a certificate's tick endpoint can detect that ticks have stopped.
+  It cannot by that alone prove the CA revoked it rather than suffered a distribution outage, because a 404 does not distinguish the two ({{response-format}}).
   Even that much is unavailable under unguessable tick URLs, and a CA willing to answer monitors and subscribers differently can evade it ({{dos-withholding}}).
   The dependable signal is therefore the subscriber's own, and what is missing is an artifact on which a third party could rely ({{logged-revocation}}).
 
@@ -1961,7 +1977,8 @@ Four consequences follow, each bounded:
 - **No status after expiry.**
   Tick publication stops when the certificate expires ({{revealing-values}}), so no status can be obtained for an expired certificate, and because revocation is absence, nothing then distinguishes one that was revoked from one that was not.
   CRLs and OCSP can in principle answer past `notAfter`, which profiles for long-term signature validation depend on.
-  In practice they commonly do not, since a longitudinal study of over a million revoked certificates observed the status still present in the CRL after the certificate had expired in only 26.5 percent of cases, and preserved for more than a week beyond expiry in 2.9 percent {{REVOCATION-STATUSES}}.
+  In practice they commonly do not, since a longitudinal study of over a million revoked certificates observed the status still present in the CRL after the certificate had expired in only 26.5 percent of cases.
+  It was preserved for more than a week beyond expiry in 2.9 percent {{REVOCATION-STATUSES}}.
   This is out of scope for the TLS use case that motivates this mechanism, where an expired certificate is rejected on validity grounds before any tick is examined.
   A tick retained while the certificate was valid does remain verifiable indefinitely, since verification is offline hashing against the anchor in the certificate ({{verification}}).
   It is therefore durable, self-authenticating evidence of non-revocation as of its own period, in 34 bytes rather than an archived signed response.
@@ -1982,7 +1999,8 @@ The sketch here exists so that the working group can judge whether it wants one,
 
 The construction is a new MTCLogEntryType whose data identifies the revoked entry by its serial number, gives the first period for which ticks will be withheld, and optionally carries a reason code.
 The CA appends it to its issuance log, so it is covered by the subtree hash and by the cosignatures over that subtree.
-Its evidentiary force comes from a property the base specification already establishes, that a subtree signature is a binding assertion by the CA that it has certified every entry in the subtree, so any signed checkpoint containing the entry together with an inclusion proof suffices to prove the CA made it ({{Section 12.4 of !I-D.ietf-plants-merkle-tree-certs}}).
+Its evidentiary force comes from a property the base specification already establishes, that a subtree signature is a binding assertion by the CA that it has certified every entry in the subtree ({{Section 12.4 of !I-D.ietf-plants-merkle-tree-certs}}).
+Any signed checkpoint containing the entry, together with an inclusion proof, therefore suffices to prove the CA made it.
 That is the signed, non-repudiable artifact this section otherwise lacks, and unlike a CRL entry it does not expire ({{REVOCATION-STATUSES}}).
 Relying parties are unaffected, since an unrecognized entry type differs in its `type` field from the entry a relying party reconstructs, so its proof never matches ({{Section 12.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 The record is for monitors, and enforcement continues to rest on the presence of a fresh tick.
@@ -2025,7 +2043,8 @@ Revoked ranges are relying-party configuration distributed out of band, so they 
 For a key whose certificates do not all carry anchors, the effective guarantee is that of the weakest certificate for that key.
 
 Unanchored certificates for a key are most likely to exist during a transition.
-A deployment presenting a Merkle Tree Certificate to relying parties that support it and a traditionally-signed certificate to those that do not may hold both for one key, and holding certificates from several CAs for resilience ({{availability-considerations}}) permits the same across issuers.
+A deployment presenting a Merkle Tree Certificate to relying parties that support it and a traditionally-signed certificate to those that do not may hold both for one key.
+Holding certificates from several CAs for resilience ({{availability-considerations}}) permits the same across issuers.
 A deployment that wants key-level revocation SHOULD therefore not share a key between certificates that carry an anchor and certificates that do not.
 Keeping them on separate keys confines each certificate this mechanism does not cover to a key that is not also used with one it does, so that withholding a certificate's ticks is sufficient to retire it.
 
@@ -2036,12 +2055,14 @@ It earns that place only where anchoring varies within a CA, since a CA that anc
 This document does not define such a parameter, which is separable from this mechanism and can be specified on its own.
 What it cannot become is enforcement.
 {{Section 1 of ?RFC8659}} states that relying parties MUST NOT use CAA records as part of certificate validation, because a CAA record set grants authority as of now whereas a certificate issued before the record was published remains what it was.
-It therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor, rather than against an attacker who holds a key and finds a CA willing to issue.
+It therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor.
+It is not a defense against an attacker who holds a key and finds a CA willing to issue.
 
 A root program reaches further than either measure, because it both admits the CA and configures the relying party.
 Requiring that every certificate a member CA issues carries a hash chain anchor empties the population of unanchored certificates, and rejecting an MTC certificate that carries none enforces that requirement at the point of use, which is the step CAA cannot take.
 The two steps need not arrive together.
-{{CHROME-MTC}} already requires every CA operator it admits to provide both standalone and landmark-relative certificates ({{cert-profiles}}) while leaving the choice between them to the subscriber's ACME client, which mandates a capability across the ecosystem without mandating its use in any particular certificate.
+{{CHROME-MTC}} already requires every CA operator it admits to provide both standalone and landmark-relative certificates ({{cert-profiles}}), while leaving the choice between them to the subscriber's ACME client.
+That mandates a capability across the ecosystem without mandating its use in any particular certificate.
 Requiring anchored issuance first and enforcing on it once adoption is sufficient follows the same order, which is the order {{deployment-transition}} describes.
 
 The limitation behind these measures is the general property that revocation targets certificates rather than keys, and it is not specific to this mechanism.
