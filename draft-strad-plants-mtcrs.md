@@ -698,6 +698,8 @@ This extension is included in the TBSCertificateLogEntry's `extensions` field ({
 ~~~
 {: #fig-committed title="The anchor is committed to the Merkle Tree and fixed for the certificate's life, while the tick rides in the MTCProof, which is not committed and is rewritten each period"}
 
+### Extension Format
+
 ~~~asn.1
 id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
     iso(1) identified-organization(3) dod(6) internet(1)
@@ -734,6 +736,8 @@ A relying party rejects a certificate carrying more than one ({{verification}}).
 The extension MUST NOT be present in a certificate whose validity period is not longer than `tick_interval` ({{construction}}).
 Such a certificate cannot advance beyond period 0, so the mechanism would enforce nothing.
 
+### Committed Size Cost
+
 Because the anchor is committed to the Merkle Tree, this extension enlarges every log entry that carries it.
 With the default `tick_interval`, the committed data is a HashChainAnchorInfo carrying only the anchor (HASH_SIZE bytes, 32 for SHA-256) plus its DER and extension framing.
 That is about 50 bytes per entry for SHA-256, of which 36 are the HashChainAnchorInfo itself ({{test-vectors}}) and the rest the X.509 extension's OBJECT IDENTIFIER and wrapper.
@@ -757,6 +761,8 @@ This committed cost is the unavoidable price of self-authentication.
 Unlike the tick base URL, which is deliberately kept out of the certificate ({{discovery}}), the anchor is the value every tick is verified against and therefore cannot be delivered out of band.
 The DEFAULT encoding of `tickInterval` keeps that field off the wire whenever the default period is used, holding the committed cost to the anchor itself.
 The more compact entry-extension encoding ({{anchor-entry-extension}}) trims the framing further.
+
+### Why an X.509 Extension
 
 This document carries the anchor as an X.509 extension of the TBSCertificateLogEntry rather than as a committed MTCLogEntryExtension, so that the anchor rides as ordinary certificate bytes and the generic MTC log and cosigner infrastructure need not be MTCRS-aware.
 The anchor's home is the one design choice this document explicitly refers to the working group, and {{anchor-entry-extension}} sets out the alternative and its trade-offs in full.
