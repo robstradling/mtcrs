@@ -1720,7 +1720,13 @@ What it cannot become is enforcement.
 {{Section 1 of ?RFC8659}} states that relying parties MUST NOT use CAA records as part of certificate validation, because a CAA record set grants authority as of now whereas a certificate issued before the record was published remains what it was.
 It therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor, rather than against an attacker who holds a key and finds a CA willing to issue.
 
-The limitation behind both measures is the general property that revocation targets certificates rather than keys, and it is not specific to this mechanism.
+A root program reaches further than either measure, because it both admits the CA and configures the relying party.
+Requiring that every certificate a member CA issues carries a hash chain anchor empties the population of unanchored certificates, and rejecting an MTC certificate that carries none enforces that requirement at the point of use, which is the step CAA cannot take.
+The two steps need not arrive together.
+{{CHROME-MTC}} already requires every CA operator it admits to provide both standalone and landmark-relative certificates ({{cert-profiles}}) while leaving the choice between them to the subscriber's ACME client, which mandates a capability across the ecosystem without mandating its use in any particular certificate.
+Requiring anchored issuance first and enforcing on it once adoption is sufficient follows the same order, which is the order {{deployment-transition}} describes.
+
+The limitation behind these measures is the general property that revocation targets certificates rather than keys, and it is not specific to this mechanism.
 It is more visible here only because this mechanism makes the certificates it covers substantially harder to keep alive than the ones it does not.
 
 ## Clock Skew {#clock-skew}
