@@ -1111,6 +1111,8 @@ Given a tick base URL for the CA (see {{discovery}}), the tick for a particular 
 GET {tick_base_url}/tick/{serial_number}
 ~~~
 
+### Base URL Format
+
 The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{origin}/.well-known/mtcrs/v1/{hash_name}`.
 
 `origin`:
@@ -1133,6 +1135,8 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
 : The certificate's `serialNumber`, which the base specification constructs from the entry's log number and its zero-based index within that log as `(log_number << 48) | index` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
   It is encoded in big-endian order as exactly 16 lowercase hexadecimal digits, zero-padded, so that the CA and the authenticating party derive an identical URL and every request has the same shape.
 
+### Addressing by Serial Number
+
 Both parties read the serial straight from the certificate.
 The authenticating party in particular does not reconstruct the log entry, so deriving its own tick URL costs it no cryptography and needs no per-request metadata from the CA.
 
@@ -1147,6 +1151,8 @@ That is a smaller change than it appears, because MTC issuance logs are publishe
 Derivability is also what lets a monitor watch an endpoint for withheld ticks at all, which is the check {{dos-withholding}} offers.
 A CA that wants its endpoint not to answer to enumeration replaces the path segment with the unguessable token of {{unguessable-urls}}, which denies derivation outright rather than merely making it laborious.
 Relying parties MUST NOT fetch under either keying, and gain nothing by doing so, since the authenticating party already presents the current tick ({{rp-no-fetch}}).
+
+### Origin and Transport
 
 The tick base URL is not derived from the CA's identifier.
 A Merkle Tree CA is identified by a TrustAnchorID, which is a relative object identifier ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}) rather than a hostname, so it cannot be turned into an origin.
@@ -1164,6 +1170,8 @@ For example, if a CA using SHA-256 publishes the tick base URL `http://mtcrs.exa
 ~~~
 http://mtcrs.example/.well-known/mtcrs/v1/sha-256/tick/a1b2c3...f0
 ~~~
+
+### Interface Versioning
 
 The `v1` segment versions the MTCRS HTTP interface as a whole: the placement of `{hash_name}`, the addressing of `{serial_number}`, and the response format ({{response-format}}).
 It is a migration lever, not a per-request parameter.
