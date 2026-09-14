@@ -2838,11 +2838,15 @@ It did not supply one that does, and it leaves the majority of TLS clients with 
 
 Two aspects of this design are shaped by the need to deploy into an ecosystem where not every relying party will support hash chain revocation at once.
 
+### The Criticality Lever
+
 Marking id-pe-hashChainAnchor non-critical ({{extension-criticality}}) lets CAs begin issuing certificates with hash chain anchors before every relying party enforces them.
 Aware relying parties act on the extension and unaware ones proceed without it, and during the transition the base MTC revoked-ranges mechanism and external revocation systems continue to provide coverage.
 This mirrors how many X.509 extensions are specified as non-critical (Authority Information Access, Authority Key Identifier, CRL Distribution Points per {{!RFC5280}}).
 Because the marking is SHOULD rather than MUST, it MAY be marked critical for hard enforcement from day one.
 That applies to an ecosystem in which all relying parties are known to support the mechanism, or to a root program once adoption is sufficient.
+
+### Amending the MTCProof
 
 Amending MTCProof needs more care, because the base MTCProof has no extensibility point and {{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}} rejects any trailing bytes.
 Appending the tick therefore causes an unaware relying party to reject the certificate regardless of the anchor extension's criticality: it ignores the non-critical extension, parses the MTCProof, finds unexpected trailing bytes, and fails.
@@ -2861,6 +2865,8 @@ The required amendment is narrow and backward-compatible.
 The trailing `status_tick` occupies zero bytes when the anchor extension is absent, so a certificate not using this mechanism is byte-identical to a base MTCProof, and base MTC verification, the tree, the cosigner, and the log are unchanged ({{tick-trailing-field}}, {{anchor-entry-extension}}).
 Folding it into the base specification now, while MTC is greenfield, avoids any lasting split between aware and unaware parsers.
 Retrofitting it after wide deployment would be far harder.
+
+### Negotiating the Extended Parse
 
 Negotiation is a compatibility guard rather than a fourth independent route.
 The trailing bytes still have to be defined by whoever owns the MTCProof, so what it removes is the need for every relying party to implement that definition before issuance can begin, not the need for the definition.
