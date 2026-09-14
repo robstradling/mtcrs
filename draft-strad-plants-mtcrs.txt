@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                          11 September 2026
-Expires: 15 March 2027
+Intended status: Experimental                          14 September 2026
+Expires: 18 March 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 15 March 2027.
+   This Internet-Draft will expire on 18 March 2027.
 
 Copyright Notice
 
@@ -96,6 +96,9 @@ Table of Contents
    6.  Hash Chain Input Encoding
    7.  Integration with MTC Log Entries
      7.1.  Hash Chain Anchor Extension
+       7.1.1.  Extension Format
+       7.1.2.  Committed Size Cost
+       7.1.3.  Why an X.509 Extension
      7.2.  Criticality and Incremental Deployment
    8.  Certificate Presentation
      8.1.  Hash Chain Tick
@@ -109,6 +112,10 @@ Table of Contents
      9.3.  Binding of the Tick to the Certificate
    10. Tick Distribution
      10.1.  HTTP Interface
+       10.1.1.  Base URL Format
+       10.1.2.  Addressing by Serial Number
+       10.1.3.  Origin and Transport
+       10.1.4.  Interface Versioning
      10.2.  Discovering the Tick Base URL
      10.3.  Unguessable Tick URLs
      10.4.  Response Format
@@ -118,34 +125,34 @@ Table of Contents
      12.2.  Presenting the Certificate
      12.3.  Responding to Fetch Failures
      12.4.  Serving from Multiple Nodes
-   13. Privacy Considerations
-   14. Security Considerations
-     14.1.  Hash Function Requirements
-     14.2.  Post-Quantum Considerations
-     14.3.  Seed Confidentiality
-     14.4.  Denial of Service via Tick Withholding
-     14.5.  Relying Parties Do Not Fetch Ticks
-     14.6.  Unauthenticated Proof Extensions
-     14.7.  Interaction with Base MTC Revocation
-     14.8.  Revocation Transparency and Auditability
-       14.8.1.  A Logged Revocation Entry
-     14.9.  Downgrade to a Non-MTCRS Certificate
-     14.10. Clock Skew
-     14.11. Relying-Party Policy Levers
-   15. Operational and Availability Considerations
-     15.1.  Availability Considerations
-       15.1.1.  The Dependency Relative to Short Lifetimes
-     15.2.  CA-Side Storage and Computation Trade-off
-       15.2.1.  Storing Versus Recomputing Hash Chain Values
-       15.2.2.  Deriving Seeds from a Long-Term CA Secret
-     15.3.  Distributing Tick Requests
-       15.3.1.  Client-Side: Deterministic Per-Entry Offset
-       15.3.2.  Server-Side: Cache Freshness and Retry-After
-     15.4.  Bulk Retrieval for Large Deployments
-     15.5.  Delegated Tick Distribution
-     15.6.  Verification Cost
-     15.7.  Client-Side Enforcement Latency and Session Resumption
-   16. Implementation Status
+   13. Operational and Availability Considerations
+     13.1.  Availability Considerations
+       13.1.1.  The Dependency Relative to Short Lifetimes
+     13.2.  CA-Side Storage and Computation Trade-off
+       13.2.1.  Storing Versus Recomputing Hash Chain Values
+       13.2.2.  Deriving Seeds from a Long-Term CA Secret
+     13.3.  Distributing Tick Requests
+       13.3.1.  Client-Side: Deterministic Per-Entry Offset
+       13.3.2.  Server-Side: Cache Freshness and Retry-After
+     13.4.  Bulk Retrieval for Large Deployments
+     13.5.  Delegated Tick Distribution
+     13.6.  Verification Cost
+     13.7.  Client-Side Enforcement Latency and Session Resumption
+   14. Implementation Status
+   15. Privacy Considerations
+   16. Security Considerations
+     16.1.  Hash Function Requirements
+     16.2.  Post-Quantum Considerations
+     16.3.  Seed Confidentiality
+     16.4.  Denial of Service via Tick Withholding
+     16.5.  Relying Parties Do Not Fetch Ticks
+     16.6.  Unauthenticated Proof Extensions
+     16.7.  Interaction with Base MTC Revocation
+     16.8.  Revocation Transparency and Auditability
+       16.8.1.  A Logged Revocation Entry
+     16.9.  Downgrade to a Non-MTCRS Certificate
+     16.10. Clock Skew
+     16.11. Relying-Party Policy Levers
    17. IANA Considerations
      17.1.  Module Identifier
      17.2.  Certificate Extension
@@ -161,6 +168,18 @@ Table of Contents
    Appendix B.  Test Vectors
    Appendix C.  Amendments Requested of the Base Specification
    Appendix D.  Open Questions for the Working Group
+     D.1.  Where Does the Anchor Live?
+     D.2.  How Is the Tick Carried in the MTCProof?
+     D.3.  Does the Base Specification Want General Proof-Level
+           Extensibility at All?
+     D.4.  Should the Per-Certificate Tick URL Be a Link Relation?
+     D.5.  What Should the Default tick_interval and Acceptance Window
+           Be?
+     D.6.  Should Period 0 Enforce Revocation?
+     D.7.  Is "Tick" the Right Name for the Revealed Value?
+     D.8.  How Should the Worst-Case Verification Cost Be Bounded, and
+           by Which Lever?
+     D.9.  Should Revocations Be Recorded in the Log?
    Appendix E.  Proposed MTCProof Extensibility
      E.1.  Considerations for the proof_extensions Field
    Appendix F.  Design Rationale
@@ -179,6 +198,9 @@ Table of Contents
                Counter-Example
        F.6.5.  Why CAs Are Retiring OCSP
      F.7.  Incremental Deployment and Transition
+       F.7.1.  The Criticality Lever
+       F.7.2.  Amending the MTCProof
+       F.7.3.  Negotiating the Extended Parse
    Appendix G.  Alternatives Considered
      G.1.  DNS-Based Tick Distribution
      G.2.  OCSP-Based Tick Distribution
@@ -252,9 +274,9 @@ Table of Contents
 
    Timely revocation:  At any full handshake, revocation takes effect
       within at most two periods (e.g., two hours) under the default
-      acceptance window (Section 14.10), regardless of when the relying
+      acceptance window (Section 16.10), regardless of when the relying
       party last updated its trusted subtrees.  Session resumption
-      defers the check (Section 15.7).
+      defers the check (Section 13.7).
 
    No per-check signatures:  Unlike OCSP [RFC6960], verification
       requires only hash computations, not signature verification.  The
@@ -279,16 +301,16 @@ Table of Contents
    First, enforcement introduces an availability dependency: because an
    authenticating party must refresh its tick each period, a tick-
    distribution outage that outlasts the certificate's buffer renders it
-   unusable (Section 15.1).  Second, revocation is enforceable but not
+   unusable (Section 13.1).  Second, revocation is enforceable but not
    transparent.  Withholding a tick is not a signed, logged artifact, so
    monitors cannot observe revocation events in the Merkle Tree, and a
    deployment that needs an auditable revocation record obtains it from
-   a mechanism outside MTC (Section 14.8).  Third, the two-period bound
+   a mechanism outside MTC (Section 16.8).  Third, the two-period bound
    is a property of the full handshake.  A resumed TLS session carries
    no certificate and therefore checks no tick, so the latency a given
    client actually experiences is the longer of that bound and its
    session-resumption window, which TLS 1.3 caps at seven days
-   (Section 15.7).  The first two are intrinsic to fetch-free, hard-fail
+   (Section 13.7).  The first two are intrinsic to fetch-free, hard-fail
    revocation rather than defects, and both are bounded.  The third is
    shared with every handshake-time revocation mechanism.
 
@@ -298,15 +320,15 @@ Table of Contents
    serving 10^9 certificates answers on the order of 10^5 to 10^6 tick
    requests per second (Section 10).  What separates it from the OCSP
    responder MTC was built to do without is that relying parties never
-   contact it (Section 14.5), so it lies outside the handshake path
+   contact it (Section 16.5), so it lies outside the handshake path
    entirely.  It holds no key and signs nothing.  Every response is a
    public value that is immutable within its period.  The service is
    therefore a precomputed dataset rather than a computation, which a CA
    can replicate to, or delegate wholesale to, parties trusted for
-   availability alone (Section 15.5, Appendix F.6.3).  That is a shape
+   availability alone (Section 13.5, Appendix F.6.3).  That is a shape
    the ecosystem already operates at population scale, in software
    update and revocation-list distribution, and one a CA can hand to the
-   parties already running it (Section 15.5).
+   parties already running it (Section 13.5).
 
    This mechanism is designed to layer onto the base MTC specification
    [I-D.ietf-plants-merkle-tree-certs] with a single required change.
@@ -399,7 +421,7 @@ Table of Contents
 
    Seed:  The first value of a hash chain, h[0].  It is secret, is never
       revealed, and yields the entire hash chain to anyone who learns it
-      (Section 14.3).
+      (Section 16.3).
 
    Anchor:  The last value of a hash chain, h[hash_chain_length].  It is
       public, is committed to the Merkle Tree as part of the
@@ -423,7 +445,9 @@ Table of Contents
       tick is the certificate's _non-revocation proof_: the component of
       the MTCProof attesting that the certificate has not been revoked
       as of that period, complementing the inclusion proof and
-      cosignatures that attest authenticity.
+      cosignatures that attest authenticity.  Whether "tick" is the
+      right name for it is one of the questions this document puts to
+      the working group (Appendix D.7).
 
    serial_number:  The certificate's serialNumber, which the base
       specification builds from the entry's log number and its index
@@ -434,7 +458,7 @@ Table of Contents
    Tick distributor:  A party other than the CA that serves ticks over
       the HTTP interface of Section 10.  Because ticks are self-
       authenticating, a distributor is trusted for availability only,
-      never for integrity (Section 15.5).
+      never for integrity (Section 13.5).
 
    Self-authenticating:  Verifiable offline by hashing forward to the
       anchor committed in the certificate (Section 9), needing no
@@ -551,7 +575,7 @@ Table of Contents
        anchor (Section 9).  Hashing h[3] twice yields h[5].  It also
        checks that tick.period agrees with its own clock to within one
        period.  Verification is entirely offline.  The relying party
-       fetches nothing (Section 14.5).
+       fetches nothing (Section 16.5).
 
    5.  *Revocation = withholding.* To revoke a certificate, the CA
        simply stops revealing its hash chain values (Section 5.1).  Once
@@ -584,7 +608,7 @@ Table of Contents
    | party          | own serialNumber, or is given the complete URL  |
    |                | where the CA uses unguessable ones (Section 10, |
    |                | Section 10.3).  Fetches once per period, at a   |
-   |                | deterministic offset within it (Section 15.3).  |
+   |                | deterministic offset within it (Section 13.3).  |
    |                | Verifies each fetched tick against the anchor   |
    |                | in its own certificate before installing it,    |
    |                | overwrites the trailing 2 + HASH_SIZE bytes of  |
@@ -597,7 +621,7 @@ Table of Contents
    |                | MTCProof (Section 7, Section 8.1.1).  Runs the  |
    |                | verification procedure, which is entirely       |
    |                | offline (Section 9.2).  Fetches nothing at any  |
-   |                | point (Section 14.5).                           |
+   |                | point (Section 16.5).                           |
    +----------------+-------------------------------------------------+
    | Issuance log   | Nothing.  The anchor reaches the Merkle Tree as |
    | and cosigners  | ordinary certificate bytes, so no component     |
@@ -607,7 +631,7 @@ Table of Contents
    | Monitor        | Nothing, beyond reading log entries as it       |
    |                | already does.  Where tick URLs are derivable, a |
    |                | monitor MAY additionally watch them for         |
-   |                | withheld ticks (Section 14.4).                  |
+   |                | withheld ticks (Section 16.4).                  |
    +----------------+-------------------------------------------------+
 
                                  Table 1
@@ -620,8 +644,8 @@ Table of Contents
    population is a round figure above the base specification's own
    estimates, which give 558 million active certificates for a single
    large CA and 2.1 billion unexpired across the Web PKI (Section 6.5 of
-   [I-D.ietf-plants-merkle-tree-certs]), so each cost below is an upper
-   bound for any one CA.
+   [I-D.ietf-plants-merkle-tree-certs]).  Each cost below is therefore
+   an upper bound for any one CA.
 
     +================+================================================+
     | Party or       | What this mechanism costs                      |
@@ -629,7 +653,7 @@ Table of Contents
     +================+================================================+
     | Relying party  | About 300 microseconds of hashing per full     |
     |                | handshake, and no network request at any point |
-    |                | (Section 15.6, Section 14.5).                  |
+    |                | (Section 13.6, Section 16.5).                  |
     +----------------+------------------------------------------------+
     | Authenticating | One plain HTTP GET per certificate per period, |
     | party          | and a 34-byte overwrite in the certificate it  |
@@ -638,7 +662,7 @@ Table of Contents
     | Certification  | No signatures at all.  About 42 GB per period  |
     | authority      | published to distributors, and either about    |
     |                | 340 GB of traversal state or none              |
-    |                | (Section 15.5, Section 15.2).                  |
+    |                | (Section 13.5, Section 13.2).                  |
     +----------------+------------------------------------------------+
     | Monitor        | The entry bytes below, downloaded once per     |
     |                | entry rather than per period (Section 7).      |
@@ -655,8 +679,9 @@ Table of Contents
 
    The bytes are paid on every certificate and every handshake, and the
    hashing is borne by a party that chose neither the certificate's
-   lifetime nor its period (Section 15.6), which is why the worst case
-   that hashing can reach is referred to the working group (Appendix D).
+   lifetime nor its period (Section 13.6).  That is why the worst case
+   that hashing can reach is referred to the working group
+   (Appendix D.8).
 
 4.  Hash Chain Construction
 
@@ -669,7 +694,7 @@ Table of Contents
       so the cadence at which the CA reveals a value and the
       authenticating party refreshes its tick (Section 10).  It sets the
       granularity of revocation but not the latency, which is about two
-      intervals under the default acceptance window (Section 14.10).
+      intervals under the default acceptance window (Section 16.10).
       This MUST be greater than zero.  The RECOMMENDED and default value
       is 3600 (one hour).  Section 7 specifies how this default is
       encoded so that a certificate using it carries no tick_interval
@@ -705,7 +730,7 @@ Table of Contents
    47-day lifetime (Appendix F.3), some 58 times below the ceiling.
    Deployments SHOULD stay well within it rather than treating it as a
    target, since the verification cost a certificate imposes is borne by
-   every relying party that validates it (Section 15.6).
+   every relying party that validates it (Section 13.6).
 
    tick_interval need not evenly divide the lifetime.  If it does not,
    the final period is shorter than tick_interval, ending when the
@@ -751,7 +776,7 @@ Table of Contents
       unpredictable.  An adversary who can guess or recover it can
       compute the whole hash chain and forge ticks for a revoked
       certificate, so it carries the same unpredictability and
-      confidentiality requirement as a secret key (Section 14.3).
+      confidentiality requirement as a secret key (Section 16.3).
 
   2.  Compute the hash_chain_length + 1 values of the hash chain:
 
@@ -825,8 +850,8 @@ Table of Contents
 
    The label in HashChainInput (Section 6) domain-separates hash chain
    values from other uses of the hash function in MTC, and issuer_ca_id
-   separates one CA's hash chains from every other CA's, while within a
-   CA the independent random seed separates one certificate's chain from
+   separates one CA's hash chains from every other CA's.  Within a CA,
+   the independent random seed separates one certificate's chain from
    another's (Section 6).  The hash chain is the only place this
    mechanism uses a hash function at all, so there is no second notion
    of hashing to keep distinct from it.
@@ -851,7 +876,7 @@ Table of Contents
    final period.  The CA MUST NOT reveal a value for any period at or
    beyond hash_chain_length, and MUST NOT reveal the seed h[0] under any
    circumstances. h[0] is the whole hash chain, and disclosing it would
-   let any party forge ticks for every remaining period (Section 14.3).
+   let any party forge ticks for every remaining period (Section 16.3).
    A CA that derives the period to serve from a clock MUST therefore
    bound that period at hash_chain_length - 1 rather than evaluating
    h[hash_chain_length - t] for an arbitrary t.  Tick publication for a
@@ -921,8 +946,8 @@ Table of Contents
        distribution service (Section 10) thereafter.
 
    2.  MUST stop supplying that entry's values to delegated distributors
-       (Section 15.5), whatever the form of the feed, which this
-       document does not standardize (Section 15.4).  A distributor pre-
+       (Section 13.5), whatever the form of the feed, which this
+       document does not standardize (Section 13.4).  A distributor pre-
        provisioned with a buffer of future values cannot be revoked
        through that channel until the buffer is exhausted, which is why
        the buffer SHOULD be short.
@@ -930,20 +955,20 @@ Table of Contents
    3.  MUST, when revoking because of key compromise, also revoke the
        serial ranges of that key's certificates that carry no anchor,
        since withholding ticks reaches only the certificates that carry
-       one (Section 14.9).
+       one (Section 16.9).
 
    4.  MUST fall back to the base MTC revoked-ranges mechanism if the
        seed or its derivation secret is compromised, because an attacker
        holding those can forge ticks whatever the CA withholds
-       (Section 14.3).
+       (Section 16.3).
 
    No cache purge is required or useful.  A tick cached at an HTTP
    intermediary is bounded by the same acceptance window as a freshly
-   fetched one (Section 14.10), so the certificate becomes unusable on
+   fetched one (Section 16.10), so the certificate becomes unusable on
    the same schedule either way.  A deployment that needs the revocation
    to be publicly auditable must record it through a mechanism that
    produces such an artifact, since neither withholding a tick nor the
-   base revoked ranges does (Section 14.8).
+   base revoked ranges does (Section 16.8).
 
 6.  Hash Chain Input Encoding
 
@@ -1039,10 +1064,10 @@ Table of Contents
    What per-entry salting would have bought is small.  It would
    frustrate a preimage search mounted against a CA's whole certificate
    population at once, which the per-CA salting permits and which is far
-   out of reach either way (Section 14.2).  It would also keep two
+   out of reach either way (Section 16.2).  It would also keep two
    chains apart if a seed-generation fault repeated a seed across
    entries, which the per-CA salt does not, so that residue rests on the
-   quality of the seed (Section 14.3).
+   quality of the seed (Section 16.3).
 
    The Hash function is HASH, the hash function of the issuing CA, which
    is uniform across that CA's issuance logs (Section 5 of
@@ -1087,6 +1112,8 @@ Table of Contents
        Figure 5: The anchor is committed to the Merkle Tree and fixed
      for the certificate's life, while the tick rides in the MTCProof,
             which is not committed and is rewritten each period
+
+7.1.1.  Extension Format
 
    id-pe-hashChainAnchor OBJECT IDENTIFIER ::= {
        iso(1) identified-organization(3) dod(6) internet(1)
@@ -1133,6 +1160,8 @@ Table of Contents
    cannot advance beyond period 0, so the mechanism would enforce
    nothing.
 
+7.1.2.  Committed Size Cost
+
    Because the anchor is committed to the Merkle Tree, this extension
    enlarges every log entry that carries it.  With the default
    tick_interval, the committed data is a HashChainAnchorInfo carrying
@@ -1176,6 +1205,8 @@ Table of Contents
    whenever the default period is used, holding the committed cost to
    the anchor itself.  The more compact entry-extension encoding
    (Appendix G.4) trims the framing further.
+
+7.1.3.  Why an X.509 Extension
 
    This document carries the anchor as an X.509 extension of the
    TBSCertificateLogEntry rather than as a committed
@@ -1255,7 +1286,7 @@ Table of Contents
    relaxing, and it does so in the worst case at exactly the moment the
    count is already largest.  It also degrades as the window widens,
    since a relying party accepting k preceding periods would need k + 2
-   trials (Section 14.10).  The second is diagnosis.  An explicit period
+   trials (Section 16.10).  The second is diagnosis.  An explicit period
    distinguishes a stale tick from a forged or misrouted one, both for
    the relying party's error reporting and for the authenticating
    party's pre-installation freshness check (Section 10).  That check
@@ -1275,17 +1306,17 @@ Table of Contents
    its own clock, because neither the window a given relying party
    applies nor that party's clock is observable to it.  The window's
    tolerance of one period in each direction is what absorbs the
-   difference between the two clocks (Section 14.10).  The default
+   difference between the two clocks (Section 16.10).  The default
    suffices, since a relying party may only widen the window and
    therefore accepts a superset of what the default admits.  In practice
    this is the most recent tick it has fetched and verified
    (Section 10).  It SHOULD present the current period's tick once it
    holds one, but is not required to switch at the period boundary.  The
    deterministic fetch offset means the preceding period's tick is
-   normally presented for the first part of each period (Section 15.3),
-   and an authenticating party that cannot obtain a fresh tick continues
-   to present its most recent still-valid one (Section 15.1).  The
-   relying party checks tick.period against its own clock using the
+   normally presented for the first part of each period (Section 13.3).
+   An authenticating party that cannot obtain a fresh tick likewise
+   continues to present its most recent still-valid one (Section 13.1).
+   The relying party checks tick.period against its own clock using the
    acceptance window, which allows for clock skew and caching and is
    specified in step 4 of Section 9.2.
 
@@ -1448,7 +1479,7 @@ Table of Contents
    the MTCProof.
 
    Monitors are unaffected.  They consume log entries rather than
-   presented certificates (Section 14.8), and the entry, including the
+   presented certificates (Section 16.8), and the entry, including the
    committed anchor, is fixed for the life of the certificate.
 
 8.3.  Use in TLS
@@ -1492,9 +1523,13 @@ Table of Contents
    *  The HashChainTick for a given period is therefore identical in
       both certificates.
 
-   An authenticating party may hold both a standalone and a landmark-
-   relative certificate for the same entry, for example during the
-   renewal overlap described in Section 10.4 of
+   An authenticating party commonly holds both a standalone and a
+   landmark-relative certificate for the same entry.  Under ACME the
+   standalone certificate response carries a link to the landmark-
+   relative one, which the CA constructs and serves once a landmark
+   covering the entry has been allocated (Section 9.2 of
+   [I-D.ietf-plants-merkle-tree-certs]).  It may also hold both during
+   the renewal overlap described in Section 10.4 of
    [I-D.ietf-plants-merkle-tree-certs].  It fetches the entry's tick
    once per period and writes that same value into the MTCProof of
    whichever certificate it presents.  Refreshing the tick is
@@ -1559,7 +1594,7 @@ Table of Contents
    which it holds as part of its base MTC configuration for the issuing
    CA (Section 2).  No data from the CA's tick distribution service
    (Section 10) is needed, and the verifier MUST NOT fetch anything
-   (Section 14.5):
+   (Section 16.5):
 
    issuer_ca_id:  The issuing CA's ID, read from the certificate's
       issuer field (Section 6), which is the same value the base
@@ -1634,8 +1669,8 @@ Table of Contents
        default acceptance window is expected_period - 1,
        expected_period, and expected_period + 1.  A relying party MAY
        widen it in either direction as a matter of policy, with the
-       consequences described in Section 14.10 and collected in
-       Section 14.11.  It MUST NOT narrow it, because the authenticating
+       consequences described in Section 16.10 and collected in
+       Section 16.11.  It MUST NOT narrow it, because the authenticating
        party targets the default and cannot observe a narrower one
        (Section 8).  A relying party MUST reject a certificate whose
        tick.period falls outside the acceptance window it applies, with
@@ -1647,9 +1682,9 @@ Table of Contents
        deliberately not certificate_revoked, which [RFC9846] defines as
        "a certificate was revoked by its signer".  An out-of-window tick
        does not establish that.  It means only that non-revocation is
-       unproven as of now, which a distribution outage (Section 15.1),
+       unproven as of now, which a distribution outage (Section 13.1),
        an authenticating party that failed to refresh, or a skewed clock
-       (Section 14.10) all produce just as a genuine revocation does.
+       (Section 16.10) all produce just as a genuine revocation does.
        Claiming revocation would assert something the relying party
        cannot know and would misdirect diagnosis of what is usually an
        availability fault.
@@ -1661,7 +1696,7 @@ Table of Contents
        know hash_chain_length (Section 7), so it cannot tell whether
        expected_period + 1 lies beyond the certificate's last period,
        and it need not.  No tick exists for a period the CA never
-       reveals, and one cannot be forged (Section 14.1), so admitting
+       reveals, and one cannot be forged (Section 16.1), so admitting
        the value costs nothing.
 
        Two arithmetic hazards attend the comparison.  A verifier MUST
@@ -1706,7 +1741,7 @@ Table of Contents
        forward hashes: 1,127 for the 1,128-period hash chain of a
        47-day, one-hour-period certificate (Appendix F.3).  Under the
        default acceptance window, the expected_period + 1 allowance
-       (Section 14.10) raises the defensive upper bound the verifier
+       (Section 16.10) raises the defensive upper bound the verifier
        must tolerate by one, to hash_chain_length.  A relying party that
        widens the window raises that bound correspondingly.
 
@@ -1719,8 +1754,8 @@ Table of Contents
        costly, such as constrained devices, SHOULD configure such a
        limit and SHOULD apply it before beginning the iteration, so that
        the check costs one division rather than the hashing it avoids
-       (Section 15.6).  The consequences of setting that limit are
-       collected in Section 14.11.
+       (Section 13.6).  The consequences of setting that limit are
+       collected in Section 16.11.
 
    6.  Compare the result with anchor from the HashChainAnchorInfo.  If
        they do not match, reject the certificate with a bad_certificate
@@ -1739,7 +1774,7 @@ Table of Contents
    of forward hashes that its true period implies.  Tampering with
    either field therefore fails verification, and producing a tick for a
    period the CA has not yet revealed requires inverting the hash
-   function (Section 14.1).  The only tick an attacker can present that
+   function (Section 16.1).  The only tick an attacker can present that
    still verifies is a genuine, already-revealed one, and step 4 bounds
    how stale that may be.
 
@@ -1755,16 +1790,16 @@ Table of Contents
    own infrastructure.  It MAY delegate that to mirrors, content
    delivery networks, or other distributors, which changes who answers
    the request but not the interface or the URL that addresses it
-   (Section 15.5).  An authenticating party MUST support this interface.
+   (Section 13.5).  An authenticating party MUST support this interface.
 
    A CA and its authenticating parties MAY additionally agree on any
-   other channel, such as a batch endpoint (Section 15.4) or an entirely
+   other channel, such as a batch endpoint (Section 13.4) or an entirely
    different transport (Appendix G).  Any such agreement is bilateral,
    and supplements the baseline rather than replacing it, so an
    authenticating party that implements only this interface can always
    obtain its ticks from any conforming CA.  Nothing in this section
    concerns relying parties, which verify the embedded tick offline and
-   never fetch (Section 14.5).
+   never fetch (Section 16.5).
 
    At large deployment scale, tick distribution is dominated by
    aggregate request volume rather than per-request cost.  A CA serving
@@ -1785,12 +1820,12 @@ Table of Contents
    so its request is a cache miss whenever it is made, and edge caching
    alone therefore does not reduce the number of distinct entries an
    origin must answer for.  What does is delegated distribution
-   (Section 15.5), in which the CA publishes the currently-revealed
+   (Section 13.5), in which the CA publishes the currently-revealed
    values to distributors as a bundle and those distributors answer the
    requests, so no per-certificate request need reach the CA at all.
-   Spreading client refresh timing (Section 15.3) then flattens what
+   Spreading client refresh timing (Section 13.3) then flattens what
    remains.  Both are operational rather than protocol matters, and are
-   described alongside bulk retrieval in Section 15.
+   described alongside bulk retrieval in Section 13.
 
 10.1.  HTTP Interface
 
@@ -1799,6 +1834,8 @@ Table of Contents
    is fetched from:
 
    GET {tick_base_url}/tick/{serial_number}
+
+10.1.1.  Base URL Format
 
    The tick base URL that the CA publishes (Section 10.2) MUST have the
    form {origin}/.well-known/mtcrs/v1/{hash_name}.
@@ -1817,24 +1854,23 @@ Table of Contents
       Registering one would be a prerequisite for carrying, over this
       interface, a hash that a future base specification introduces.
       Carrying it here is what gives the authenticating party HASH, and
-      it costs nothing to convey, because the URL is the one value a CA
-      is already obliged to deliver and any issuance protocol that
-      delivers it therefore delivers the algorithm with it
-      (Section 10.2).  An authenticating party MUST NOT fetch from a
-      base URL naming an algorithm it does not implement, and MUST NOT
-      guess one.  It MUST also check that the named algorithm's output
-      length equals the length of the anchor in its own certificate, and
-      MUST NOT fetch if the two disagree.  That check costs nothing and
-      needs no other input, and without it the mismatch is not caught
-      until every fetched tick fails, either on the response-length
-      check (Section 10.4) or because forward hashing under the wrong
-      algorithm can never reach an anchor of a different length.  It
-      detects a disagreement in output length rather than in algorithm,
-      so it does not catch a substitution between two hashes of the same
-      size.  Where it also holds the CA certificate, the algorithm named
-      by that certificate's Merkle Tree CA extension type is
-      authoritative, and it SHOULD report a disagreement as a CA
-      misconfiguration.
+      it costs nothing to convey.  The URL is the one value a CA is
+      already obliged to deliver, so any issuance protocol that delivers
+      it delivers the algorithm with it (Section 10.2).  An
+      authenticating party MUST NOT fetch from a base URL naming an
+      algorithm it does not implement, and MUST NOT guess one.  It MUST
+      also check that the named algorithm's output length equals the
+      length of the anchor in its own certificate, and MUST NOT fetch if
+      the two disagree.  That check costs nothing and needs no other
+      input.  Without it the mismatch is not caught until every fetched
+      tick fails, either on the response-length check (Section 10.4) or
+      because forward hashing under the wrong algorithm can never reach
+      an anchor of a different length.  It detects a disagreement in
+      output length rather than in algorithm, so it does not catch a
+      substitution between two hashes of the same size.  Where it also
+      holds the CA certificate, the algorithm named by that
+      certificate's Merkle Tree CA extension type is authoritative, and
+      it SHOULD report a disagreement as a CA misconfiguration.
 
    serial_number:  The certificate's serialNumber, which the base
       specification constructs from the entry's log number and its zero-
@@ -1844,6 +1880,8 @@ Table of Contents
       digits, zero-padded, so that the CA and the authenticating party
       derive an identical URL and every request has the same shape.
 
+10.1.2.  Addressing by Serial Number
+
    Both parties read the serial straight from the certificate.  The
    authenticating party in particular does not reconstruct the log
    entry, so deriving its own tick URL costs it no cryptography and
@@ -1852,17 +1890,17 @@ Table of Contents
    The serial is the base specification's own identifier for an entry,
    used to locate it in the log during verification (Section 7.2 of
    [I-D.ietf-plants-merkle-tree-certs]) and to name it in the revocation
-   record sketched in Section 14.8.1, so keying ticks on it keeps one
-   identifier for one entry throughout.  Its uniqueness is structural
-   rather than probabilistic, because indices are assigned sequentially
-   within a log and the log number distinguishes a CA's logs, so no two
-   of a CA's entries can share a URL and there is no collision case to
-   reason about.  That sequential assignment is the property the base
-   specification itself identifies as one that may enable improvements
-   to revocation (Section 12.7 of [I-D.ietf-plants-merkle-tree-certs]).
-   It is also identical for a given entry's standalone and landmark-
-   relative certificates, which differ only in the proof they carry
-   (Section 8.4).
+   record sketched in Section 16.8.1.  Keying ticks on it therefore
+   keeps one identifier for one entry throughout.  Its uniqueness is
+   structural rather than probabilistic, because indices are assigned
+   sequentially within a log and the log number distinguishes a CA's
+   logs.  No two of a CA's entries can therefore share a URL, and there
+   is no collision case to reason about.  That sequential assignment is
+   the property the base specification itself identifies as one that may
+   enable improvements to revocation (Section 12.7 of
+   [I-D.ietf-plants-merkle-tree-certs]).  It is also identical for a
+   given entry's standalone and landmark-relative certificates, which
+   differ only in the proof they carry (Section 8.4).
 
    The URL is therefore trivially derivable by anyone holding the
    certificate, and that cuts both ways.  It lets a third party
@@ -1870,14 +1908,16 @@ Table of Contents
    certificate's status.  That is a smaller change than it appears,
    because MTC issuance logs are published, so any party willing to
    download one could already derive every address under any keying
-   (Section 14.4).  Derivability is also what lets a monitor watch an
-   endpoint for withheld ticks at all, which is the check Section 14.4
+   (Section 16.4).  Derivability is also what lets a monitor watch an
+   endpoint for withheld ticks at all, which is the check Section 16.4
    offers.  A CA that wants its endpoint not to answer to enumeration
    replaces the path segment with the unguessable token of Section 10.3,
    which denies derivation outright rather than merely making it
    laborious.  Relying parties MUST NOT fetch under either keying, and
    gain nothing by doing so, since the authenticating party already
-   presents the current tick (Section 14.5).
+   presents the current tick (Section 16.5).
+
+10.1.3.  Origin and Transport
 
    The tick base URL is not derived from the CA's identifier.  A Merkle
    Tree CA is identified by a TrustAnchorID, which is a relative object
@@ -1903,6 +1943,8 @@ Table of Contents
    at:
 
    http://mtcrs.example/.well-known/mtcrs/v1/sha-256/tick/a1b2c3...f0
+
+10.1.4.  Interface Versioning
 
    The v1 segment versions the MTCRS HTTP interface as a whole: the
    placement of {hash_name}, the addressing of {serial_number}, and the
@@ -1993,12 +2035,12 @@ Table of Contents
 
    Keeping the base URL out of the certificate is not a secrecy measure,
    since the URL is derivable by anyone holding the certificate
-   (Section 14.5).  It is instead a way to avoid standardizing a per-
+   (Section 16.5).  It is instead a way to avoid standardizing a per-
    certificate fetch affordance in a field relying parties routinely
    parse.  Only the authenticating party is given the base URL through
    provisioning, because only it needs to refresh the value it presents.
    Relying parties verify the embedded tick offline (Section 9) and
-   never fetch (Section 14.5).  The base URL (or, for unguessable tick
+   never fetch (Section 16.5).  The base URL (or, for unguessable tick
    URLs, the full per-certificate URL) is delivered once at
    provisioning.  The authenticating party MUST retain it for as long as
    it presents the certificate and reuse it to refresh the tick each
@@ -2016,7 +2058,7 @@ Table of Contents
    The tick fetch path described above is .well-known/mtcrs/
    v1/{hash_name}/tick/{serial_number}, and {serial_number} is read
    directly from the certificate by anyone who holds it, including a
-   relying party (Section 14.5).  Keeping the base URL out of the
+   relying party (Section 16.5).  Keeping the base URL out of the
    certificate therefore does not make the tick URL unguessable.  A CA
    that wishes to make relying-party fetching infeasible by
    construction, rather than only forbidding it normatively, MAY replace
@@ -2077,16 +2119,16 @@ Table of Contents
    This hardening preserves the properties of the base HTTP interface.
    Each token addresses a value that is immutable within a period, so
    per-period caching is unchanged and a cache in front of the origin is
-   indifferent to how the path segment was formed (Section 15.3).
+   indifferent to how the path segment was formed (Section 13.3).
 
-   Delegated distribution (Section 15.5) needs one adjustment.  A
+   Delegated distribution (Section 13.5) needs one adjustment.  A
    distributor is asked for a token rather than a serial, and cannot
    resolve one to the entry it names without K_ca.  Giving it K_ca would
    let it derive every token the CA issues, and is unnecessary.  A CA
    that uses unguessable tick URLs MUST instead ensure that each of its
    distributors can answer the token-addressed requests directed to it,
    whatever the form of the feed, which this document does not
-   standardize (Section 15.4).  Keying the bundle by tick_token is the
+   standardize (Section 13.4).  Keying the bundle by tick_token is the
    natural way, since the CA is the party holding K_ca and a distributor
    then answers from a table keyed by exactly what the request carries,
    with no mapping of its own.  The records are correspondingly larger,
@@ -2104,15 +2146,15 @@ Table of Contents
    disclose it, and an on-path observer of a plain-HTTP fetch can see
    it.  Possession of it grants only the ability to fetch that public
    value, or to observe its absence.  It does not permit forging ticks,
-   which requires the secret hash chain values (Section 14.3), nor using
+   which requires the secret hash chain values (Section 16.3), nor using
    the certificate, which requires the corresponding private key.  Its
    benefit is that a relying party, or a third party holding a captured
    certificate, can no longer derive the tick URL from the certificate
-   and probe the CA for its status (Section 14.5).
+   and probe the CA for its status (Section 16.5).
 
    That benefit has a matching cost, because a monitor is also a third
    party holding the certificate.  Unguessable tick URLs therefore trade
-   away the external observability that Section 14.4 offers as a check
+   away the external observability that Section 16.4 offers as a check
    on a CA withholding ticks, leaving the affected subscriber as the
    only party positioned to notice.  A CA adopting them is to that
    extent asking to be taken on trust, and a deployment that values the
@@ -2159,7 +2201,7 @@ Table of Contents
       to.  A delegated distributor generally cannot produce it at all:
       the CA revokes by dropping the entry from subsequent bundles, so a
       distributor cannot distinguish a revoked entry from one it was
-      never given (Section 15.5).  A 410 is a diagnostic hint and
+      never given (Section 13.5).  A 410 is a diagnostic hint and
       nothing more.  It is unsigned and MAY be carried over plain HTTP
       (Section 10), so an on-path observer or a faulty distributor can
       forge one.  An authenticating party MUST NOT let it curtail a tick
@@ -2171,7 +2213,7 @@ Table of Contents
 
    429 (Too Many Requests) or 503 (Service Unavailable):  Transient
       overload.  The authenticating party retries according to the
-      Retry-After header (Section 15.3).
+      Retry-After header (Section 13.3).
 
    An authenticating party follows redirects, which is what lets a CA
    migrate its tick infrastructure by redirecting from the old origin
@@ -2180,8 +2222,8 @@ Table of Contents
    ample.  Following one is safe even to an untrusted target, since
    whatever is returned is verified against the anchor committed in the
    authenticating party's own certificate before it is installed
-   (Section 12), so a redirect to a hostile origin can deny service but
-   cannot forge a tick.
+   (Section 12).  A redirect to a hostile origin can therefore deny
+   service but cannot forge a tick.
 
    Any other status code carries its ordinary HTTP semantics
    ([RFC9110]).  An authenticating party treats any response that is
@@ -2192,10 +2234,10 @@ Table of Contents
    would not make a 404 mean "revoked".  Revocation is only one of
    several causes of a missing tick, alongside an origin outage, a cache
    miss, and a distributor that has not yet received the current bundle
-   (Section 15.5), and those arise in every period.  The ambiguity is
+   (Section 13.5), and those arise in every period.  The ambiguity is
    therefore neither introduced nor removed by the period 0 case, and
    enforcement rests throughout on the presence of a fresh tick rather
-   than the absence of one (Section 14.8).
+   than the absence of one (Section 16.8).
 
    The CA SHOULD set HTTP cache headers with a max-age no longer than
    tick_interval seconds.  For example:
@@ -2242,7 +2284,10 @@ Table of Contents
    collide: tickBaseURL is a property of the CA and tickURL a property
    of one issuance.  A CA MUST NOT publish tickBaseURL while issuing
    token-addressed ticks, since an authenticating party that used it
-   would derive an address the CA does not serve.
+   would derive an address the CA does not serve.  Whether a per-
+   certificate URL is better carried as a link relation on the
+   certificate response, which is the form the base specification's own
+   ACME extension takes, is left open (Appendix D.4).
 
    CAs using issuance protocols other than ACME SHOULD provide an
    equivalent mechanism for communicating the tick base URL, or the
@@ -2299,7 +2344,7 @@ Table of Contents
        to the anchor, only this freshness check detects it.  This part
        is a SHOULD rather than a MUST because clock skew between the
        authenticating party and the CA can legitimately shift the served
-       period by one (Section 14.10).  A deployment MAY narrow it to
+       period by one (Section 16.10).  A deployment MAY narrow it to
        strict equality where both clocks are trusted.
 
    3.  The authenticating party updates the HashChainTick carried in its
@@ -2335,7 +2380,7 @@ Table of Contents
    related alert SHOULD NOT be used, because nothing is wrong with any
    certificate the relying party has sent or would receive: the
    condition is an availability fault on the authenticating party's side
-   (Section 15.1).  The one case in which it holds a usable tick without
+   (Section 13.1).  The one case in which it holds a usable tick without
    having fetched anything is period 0, where it can construct the tick
    from the anchor committed in its own certificate.
 
@@ -2374,7 +2419,7 @@ Table of Contents
 
    An authenticating party that holds a certificate from another CA
    SHOULD fail over to it before its newest tick leaves the default
-   acceptance window (Section 15.1), which restores service whichever of
+   acceptance window (Section 13.1), which restores service whichever of
    the two causes applies.  Continuing to present a certificate whose
    newest tick has already fallen outside that window achieves nothing:
    every relying party implementing this mechanism rejects it (step 4 of
@@ -2383,12 +2428,12 @@ Table of Contents
    The authenticating party may be unable to obtain a fresh tick, for
    example because the CA is unavailable.  It then continues to serve
    the most recent tick it holds for as long as that tick remains within
-   the default acceptance window (step 4 of Section 9.2), which gives it
+   the default acceptance window (step 4 of Section 9.2).  That gives it
    between one and two periods of runway from its last successful fetch
-   (Section 15.1).  Once that runway is exhausted, the certificate
+   (Section 13.1).  Once that runway is exhausted, the certificate
    becomes unusable until a fresh tick is obtained or a new certificate
-   is provisioned.  Section 15.1 discusses this dependency and its
-   mitigations, including widening the acceptance window (Section 14.10)
+   is provisioned.  Section 13.1 discusses this dependency and its
+   mitigations, including widening the acceptance window (Section 16.10)
    and holding certificates from multiple CAs.
 
 12.4.  Serving from Multiple Nodes
@@ -2397,731 +2442,20 @@ Table of Contents
    tick to every node that presents the certificate.  This document does
    not prescribe how.  Either arrangement works: every node MAY fetch
    independently, since the per-entry offset already spreads their
-   requests and a cache or CDN collapses them (Section 15.3), or one
+   requests and a cache or CDN collapses them (Section 13.3), or one
    node MAY fetch and push the result to the rest.  The tick is a
    public, immutable, 34-byte value with no validity window of its own,
    no signature to check and no per-node state, so nothing is lost by
    fetching it more than once.  A node still holding the preceding
    period's tick keeps serving correctly while it catches up.  This is
    the point at which OCSP stapling has historically been most difficult
-   to operate, because a stapled response is a signed object with its
-   own validity window and responder certificate that has to reach every
+   to operate.  A stapled response is a signed object with its own
+   validity window and responder certificate, and it has to reach every
    terminator before it goes stale (Appendix F.6.2).  A tick has none of
    those properties, which is why this document leaves the choice to the
    deployment rather than specifying a distribution mechanism for it.
 
-13.  Privacy Considerations
-
-   The Privacy Considerations of the base MTC specification (Section 11
-   of [I-D.ietf-plants-merkle-tree-certs]) apply to Merkle Tree
-   Certificates that use this mechanism.  This mechanism adds one
-   network interaction, the authenticating party's periodic tick fetch
-   (Section 10), and deliberately adds none on the relying-party side.
-
-   No relying-party activity is exposed.  The current tick is embedded
-   in the certificate presentation and verified offline against the
-   committed anchor, and relying parties never fetch ticks
-   (Section 14.5).  Consequently the CA learns nothing about which
-   certificates a relying party validates or which sites it visits.
-   This is the central privacy difference from client-driven OCSP
-   [RFC6960], whose status fetches revealed relying-party browsing to
-   the CA.  That failure mode is avoided here by construction rather
-   than by policy.
-
-   The authenticating party's tick fetch, by contrast, exposes request
-   metadata.  An on-path observer of a tick fetch, or the CA (or CDN)
-   serving it, sees which serial_number is being requested, or with
-   unguessable tick URLs which tick_token (Section 10.3).  It can
-   thereby learn which certificate the authenticating party holds, and
-   from the source address of the request, where that certificate is
-   deployed.  The request identifies the authenticating party's own
-   certificate rather than any relying party, so it discloses no
-   relying-party activity.  It is nonetheless a disclosure this
-   mechanism introduces, in two respects.
-
-   A certificate is public, but its deployment need not be.  Publicly
-   issued certificates are routinely used on hosts that are not
-   reachable or enumerable from the public Internet, among them internal
-   services, management interfaces, and development systems.  Such a
-   host contacts its CA at issuance and at renewal today.  Under this
-   mechanism it contacts the CA, or whichever distributor serves its
-   ticks, once per period for the life of the certificate, and the
-   source address of that request is not derivable from the certificate.
-
-   The cadence is itself a signal.  A per-certificate fetch once per
-   period reports which certificates are in active use, and when a
-   deployment starts, stops, or is interrupted.  Issuance alone does not
-   convey that.
-
-   Both follow from the fetch existing rather than from how it is
-   carried, so transport security does not address them.  An https base
-   URL protects the request against on-path observers and leaves it
-   fully visible to the party serving it.  The measure that does apply
-   is delegation.  Because ticks are self-authenticating, a deployment
-   need not fetch from the CA at all (Section 15.5), and may fetch
-   instead from a distributor it selects or operates, so that no per-
-   fetch record reaches the issuer.  A CA or distributor SHOULD NOT
-   retain per-fetch records beyond what operating the service requires,
-   since a record that is not kept can be neither disclosed nor
-   compelled (Appendix F.6.5).
-
-   Two further points concern the transport and the token:
-
-   *  Because a tick is self-authenticating and public, the fetch does
-      not require transport-layer confidentiality for correctness, so a
-      CA MAY serve ticks over plain HTTP (Section 10).  Plain HTTP
-      leaves the requested serial_number or tick_token visible to on-
-      path observers.  A CA whose subscribers deploy certificates that
-      are not otherwise publicly enumerable SHOULD publish an https base
-      URL instead.
-
-   *  Unguessable tick URLs (Section 10.3) are an addressing and access-
-      control measure, not a confidentiality one: the tick_token appears
-      in the request URL, so it offers no confidentiality against an
-      observer of the authenticating party's own fetch.  Its privacy
-      benefit is solely that a relying party, or a third party holding
-      only the certificate, cannot derive the URL and probe the CA for
-      the certificate's status (Section 14.5).
-
-   Pushed revocation lists such as [CRLite] and [CRLSets] are checked by
-   the client entirely offline.  This mechanism preserves the same
-   relying-party privacy, since the client fetches nothing either way,
-   and does so universally, for any TLS client rather than only browsers
-   that ship the list.  Its one difference is the authenticating party's
-   own fetch, and that metadata concerns the server's own public
-   certificate (whose liveness a public server already exposes by
-   answering connections), not any relying party.  It also need not
-   reach the CA at all.  Because ticks are self-authenticating,
-   distribution can be delegated to CDNs, mirrors, or other distributors
-   (Section 15.5).  The CA then publishes a bundle of currently-revealed
-   values and answers no per-certificate request, so it observes no per-
-   server fetch pattern (Section 10).
-
-14.  Security Considerations
-
-14.1.  Hash Function Requirements
-
-   The security of this mechanism depends on the preimage resistance of
-   the hash function used.  SHA-256 [SHS] provides 256 bits of preimage
-   resistance, which is sufficient for all foreseeable certificate
-   lifetimes.  With a one-hour tick_interval and a 47-day lifetime, the
-   hash chain length is 1,128, which does not meaningfully degrade the
-   security margin.
-
-14.2.  Post-Quantum Considerations
-
-   This mechanism is post-quantum robust as specified and needs no
-   migration to a new primitive.  Its security rests solely on the
-   preimage resistance of the hash function, for which the best known
-   quantum attack is Grover's algorithm, a quadratic speed-up.  Against
-   SHA-256 that leaves work on the order of 2^128 for a single target.
-   Because the hash chain is salted per CA rather than per certificate
-   (Section 6), an attacker content to invert any one of a CA's chains
-   can search them together, which at 10^9 certificates costs about
-   2^226 classically and 2^113 quantumly.  Both remain ample margins for
-   all foreseeable certificate lifetimes, and they are the figures the
-   rest of this document refers to.  The non-revocation proof relies on
-   no collision resistance, because a revealed value is bound to a
-   specific hash chain by the committed anchor rather than by any
-   collision property.  The weaker quantum bounds on collision finding
-   therefore do not apply, and no second hash appears anywhere in the
-   mechanism for them to apply to.  It also inherits whatever hash the
-   CA's issuance log uses (Section 4), so a CA that moves to a larger or
-   post-quantum-oriented hash carries this mechanism along with no
-   change here.
-
-   Just as importantly, this mechanism keeps post-quantum signatures off
-   the per-period revocation path.  A signed-status approach, using
-   OCSP-like per-certificate signatures (Appendix G.11), would require a
-   post-quantum signature per certificate per period (for example an ML-
-   DSA-65 signature of roughly 3,309 bytes), whereas a tick is 34 bytes
-   of hash output and is never signed.  Adopting hash chain revocation
-   is therefore aligned with a post-quantum transition rather than a
-   distraction from it: it removes post-quantum signing from the
-   revocation path instead of adding it.
-
-14.3.  Seed Confidentiality
-
-   The CA MUST keep the hash chain seed (h[0]) and all not-yet-revealed
-   hash chain values confidential.  Compromise of these values would
-   allow an attacker to produce future ticks, defeating revocation.
-
-   A CA that derives per-certificate seeds from a single long-term
-   secret (Section 15.2.2) concentrates this requirement into that
-   secret.  It MUST then be protected at least as strongly as the
-   issuance signing key, and per-log or per-epoch sub-seed derivation
-   SHOULD be used to bound the impact of a compromise.  Such derivation
-   MUST use a keyed KDF or PRF, for example HKDF or HMAC.  A raw
-   Hash(ca_seed || ...) construction MUST NOT be used, as it invites
-   length-extension and MAC-misuse and can make derived seeds
-   distinguishable from independent random seeds (Section 15.2.2).
-
-   If the CA's seed storage is compromised, the CA MUST revoke all
-   affected certificates via the base MTC revocation mechanism (revoked
-   ranges of serial numbers) as a fallback, as described in
-   Section 14.7.
-
-14.4.  Denial of Service via Tick Withholding
-
-   A compromised or malicious CA could withhold ticks from a legitimate
-   authenticating party, either broadly or targeted at a specific
-   subscriber.  In the targeted case it revokes that certificate with no
-   auditable signal.  This is analogous to a CA refusing to issue OCSP
-   responses, or refusing to issue or renew certificates at all.  It is
-   inherent in the CA trust model rather than novel to this mechanism,
-   and it is mitigated by the same forces that discipline CA behavior
-   today:
-
-   Detectability:  The authenticating party knows it did not receive a
-      tick, and can raise an alarm, switch to another CA, or fall back
-      to a traditionally-signed certificate.
-
-   Third-party observability:  Where tick URLs are derivable
-      (Section 10), the endpoint can be monitored externally
-      (Certificate Transparency-style auditing [RFC9162]), which makes
-      broad withholding observable.  Two limits apply.  A CA using
-      unguessable tick URLs (Section 10.3) cannot be monitored this way
-      at all, a monitor being exactly the third party that scheme
-      prevents from deriving the URL.  And nothing obliges the endpoint
-      to answer every requester alike, so a CA willing to discriminate
-      by source address can serve monitors the current tick while
-      withholding it from the subscriber.  External observation
-      therefore disciplines broad or careless withholding rather than a
-      determined and targeted one, against which the subscriber's own
-      detection above is the dependable signal.  Supplying an artifact a
-      third party could rely on instead is the subject of
-      Section 14.8.1.
-
-   Substitutability:  The interface is mandatory at both ends and
-      addressed identically at every CA (Section 10), so an
-      authenticating party is not tied to one CA's tick service.
-      Deployments are in any case encouraged to hold certificates from
-      several CAs (Section 15.1), so a party facing withheld ticks fails
-      over to another CA's certificate at once, rather than waiting on a
-      commercial response.
-
-   Because ticks are small and cacheable, they are readily distributed
-   via CDN, which further reduces the attack surface for withholding.
-
-   The converse exposure is load rather than withholding.  The endpoint
-   is public and unauthenticated, and in the derivable-URL scheme its
-   addresses can be computed by anyone holding a certificate or reading
-   the log (Section 14.5).  A third party can therefore fetch any
-   entry's tick, and can do so in volume.  This is the ordinary position
-   of a public static HTTP endpoint, and it is met by the ordinary
-   means: caching, rate limiting, and CDN or anycast capacity
-   (Section 15.3).  These are effective here because every response is
-   an immutable, precomputed per-period value that costs the origin
-   nothing to produce (Appendix F.6.3).  Unguessable tick URLs
-   (Section 10.3) additionally deny an attacker the ability to address
-   entries it has not seen.  What such flooding cannot do is defeat
-   revocation: it neither forges a tick nor suppresses one that an
-   authenticating party has already fetched and installed.
-
-14.5.  Relying Parties Do Not Fetch Ticks
-
-   The current tick is embedded in the MTCProof presented during the
-   handshake and is verified offline against the anchor committed in the
-   Merkle Tree (Section 9).  A relying party therefore has no need to
-   contact the CA, and MUST NOT fetch ticks or otherwise use the tick
-   distribution endpoint as an online revocation responder.
-
-   This is a privacy and availability protection, not a secrecy one.
-   The tick distribution URL is not secret.  The fetch path is .well-
-   known/mtcrs/v1/{hash_name}/tick/{serial_number} with {serial_number}
-   read straight from the certificate by anyone holding it, and the
-   origin is low-entropy and, when the CA certificate SIA (Section 10.2)
-   is used, available to relying parties as well.  By default the design
-   does not, and cannot, technically prevent a relying party from
-   constructing the URL and fetching.  It declines to standardize or
-   advertise such a fetch as an affordance to relying parties.
-
-   A CA that wishes to remove this derivability entirely MAY use the
-   optional per-certificate capability-token hardening in Section 10.3,
-   which makes the tick URL unguessable to a party holding only the
-   certificate.  A relying-party fetch would gain nothing over the
-   embedded tick, since the authenticating party already presents the
-   current value.  It would meanwhile reintroduce the CA-visibility of
-   relying-party activity (the CA learning which sites a relying party
-   visits), the added latency, and the soft-fail behavior that made
-   client-driven OCSP [RFC6960] problematic.  That visibility is the
-   exposure CAs cited when they began retiring OCSP altogether
-   (Appendix F.6.5).
-
-   The CA certificate SIA access method (Section 10.2) exists to convey
-   the base URL to authenticating-party tooling.  Relying parties
-   possess the CA certificate but MUST NOT use its tick base URL to
-   fetch tick status.
-
-14.6.  Unauthenticated Proof Extensions
-
-   The RECOMMENDED trailing status_tick encoding (Section 8.1.1) appends
-   a fixed-size, fully verified value and so adds no general "ignore if
-   unknown" region.  If the base specification instead adopts the
-   alternative proof_extensions encoding (Appendix E), note that this
-   field is not committed to the Merkle Tree and is covered by no
-   signature: it is mutable and can carry data that relying parties
-   ignore.  Hash chain revocation does not rely on its authenticity,
-   because the tick is self-authenticating and its presence is mandated
-   by the committed id-pe-hashChainAnchor extension.  Appendix E.1
-   discusses the general risks of this field (bloat, covert channels,
-   and a strippable soft-fail for other mechanisms) and the constraints
-   recommended for the base specification.
-
-   Independently of which encoding is chosen, the MTCProof changes once
-   per period, which constrains how an application may identify a
-   certificate (Section 8.2).  Deriving an identifier from anything but
-   the TBSCertificate breaks pinning and fingerprint allow-lists.
-
-14.7.  Interaction with Base MTC Revocation
-
-   The hash chain mechanism complements rather than replaces the base
-   MTC revoked ranges mechanism.  Revoked ranges are relying-party
-   configuration: each relying party maintains, per CA, a list of
-   revoked serial-number ranges, seeded from the CA certificate's
-   minSerial and maxSerial and extended from out-of-band sources
-   (Section 7.5 of [I-D.ietf-plants-merkle-tree-certs]).  They are
-   therefore closer in kind to CRLite [CRLite] or CRLSets [CRLSets] than
-   to a logged or signed artifact: pushed state, distributed out of
-   band, effective only for relying parties that receive it.  Nothing
-   about a revoked range is committed to the Merkle Tree.  Revoked
-   ranges provide a fallback for scenarios where the hash chain
-   mechanism is insufficient:
-
-   *  Compromise of the CA's hash chain seed storage
-
-   *  Bulk revocation of many certificates simultaneously
-
-   *  Relying parties that have not yet implemented hash chain
-      verification
-
-   Relying parties that support both mechanisms SHOULD check both.  A
-   certificate is considered revoked if either mechanism indicates
-   revocation.  Whether to check the base MTC revoked ranges in addition
-   to the hash chain is a relying-party policy choice (Section 14.11).
-
-   This composition is one-directional.  Other revocation signals may
-   only add grounds for revocation: the base MTC revoked ranges, or
-   external systems such as CRLite [CRLite] or CRLSets [CRLSets].  A
-   relying party MAY consult them and MUST reject if any reports the
-   certificate revoked.  A relying party MUST NOT, however, treat a "not
-   revoked" result from any such mechanism as license to accept a
-   certificate whose tick is absent, stale, or fails verification.
-   Doing so would reduce this mechanism's hard-fail to the strippable
-   soft-fail it is designed to prevent (Appendix F.6.2).  A missing tick
-   is thus a rejection in its own right.
-
-   Consulting another mechanism can nonetheless serve two diagnostic
-   purposes when a tick is absent.  The first is distinguishing an
-   actual revocation from a mere distribution outage, which a 404 does
-   not (Section 14.8).  The second is recovering the revocation reason
-   (keyCompromise, cessationOfOperation, and so on) from a mechanism
-   that does convey one, since a tick's absence carries no reason code
-   (Section 14.8).  Neither changes the safe action for an unproven
-   tick, which remains rejection, subject only to the availability
-   levers of Section 15.1.
-
-14.8.  Revocation Transparency and Auditability
-
-   Revocation in this mechanism is the _absence_ of a tick.  The CA
-   stops revealing hash chain values (Section 5.1) and the certificate
-   becomes unusable within two periods.  There is deliberately no
-   positive, signed, non-repudiable artifact asserting "the CA revoked
-   entry X as of period T."  This is a genuine difference from CRLs and
-   OCSP, whose signed responses are such artifacts.  The base MTC
-   revoked-ranges mechanism does not supply one either.  It is relying-
-   party configuration distributed out of band, not anything committed
-   to the log (Section 14.7).  Nor is the absence peculiar to this
-   mechanism.  The Web PKI has no transparent, immutable record of
-   revocations answering to what Certificate Transparency provides for
-   issuance, and the measurement work that documents that gap argues for
-   one [REVOCATION-STATUSES].  The transparency here is asymmetric.
-   Opting a certificate _into_ the mechanism is transparent, because the
-   anchor is an extension committed to the Merkle Tree and so visible to
-   monitors (Section 7).  The per-period revocation _state_, by
-   contrast, is neither signed nor committed, so a monitor cannot
-   observe it in the log.
-
-   Four consequences follow, each bounded:
-
-   *  *Revocation is not provable, and not always observable.* Where
-      tick URLs are derivable, a monitor watching a certificate's tick
-      endpoint can detect that ticks have stopped, but cannot by that
-      alone prove the CA revoked it rather than suffered a distribution
-      outage, because a 404 does not distinguish the two (Section 10.4).
-      Even that much is unavailable under unguessable tick URLs, and a
-      CA willing to answer monitors and subscribers differently can
-      evade it (Section 14.4).  The dependable signal is therefore the
-      subscriber's own, and what is missing is an artifact on which a
-      third party could rely (Section 14.8.1).
-
-   *  *No revocation-event transparency in the log.* Because revealed
-      ticks are not committed to the tree, the fact and time of a
-      revocation are not recorded there.  Nor do base MTC revoked ranges
-      supply such a record, being relying-party configuration rather
-      than log content (Section 14.7), so no in-band, logged revocation
-      record exists anywhere in MTC.  A deployment that requires one
-      uses an external system that provides it, either CRLs or OCSP,
-      which apply to Merkle Tree Certificates unchanged (Section 12.7 of
-      [I-D.ietf-plants-merkle-tree-certs]), or a signed revocation feed
-      published by the CA (see below).
-
-   *  *No revocation reason codes.* A tick's absence carries no reason
-      (keyCompromise, cessationOfOperation, and so on).  Conveying a
-      reason is out of scope here.  A deployment that needs machine-
-      readable reasons uses the base MTC revoked-ranges mechanism or an
-      external revocation system that carries them.
-
-   *  *No status after expiry.* Tick publication stops when the
-      certificate expires (Section 5.1), so no status can be obtained
-      for an expired certificate, and because revocation is absence,
-      nothing then distinguishes one that was revoked from one that was
-      not.  CRLs and OCSP can in principle answer past notAfter, which
-      profiles for long-term signature validation depend on.  In
-      practice they commonly do not, since a longitudinal study of over
-      a million revoked certificates observed the status still present
-      in the CRL after the certificate had expired in only 26.5 percent
-      of cases, and preserved for more than a week beyond expiry in 2.9
-      percent [REVOCATION-STATUSES].  This is out of scope for the TLS
-      use case that motivates this mechanism, where an expired
-      certificate is rejected on validity grounds before any tick is
-      examined.  A tick retained while the certificate was valid does
-      remain verifiable indefinitely, since verification is offline
-      hashing against the anchor in the certificate (Section 9).  It is
-      therefore durable, self-authenticating evidence of non-revocation
-      as of its own period, in 34 bytes rather than an archived signed
-      response.  Only the negative cannot be reconstructed later.
-
-   None of this weakens enforcement, which is what the mechanism exists
-   to provide.  A revoked certificate stops verifying at every relying
-   party within the two-period bound (Section 14.10) whether or not any
-   auditable artifact exists, because enforcement depends on the
-   _presence_ of a fresh tick, not on a monitor observing its absence.
-   Auditability, where a deployment needs it, therefore comes from
-   outside both this mechanism and the base revoked-ranges mechanism:
-   from CRLs or OCSP, which apply unchanged (Section 12.7 of
-   [I-D.ietf-plants-merkle-tree-certs]), or from a signed revocation
-   feed the CA publishes.  This document neither defines nor requires
-   such a feed.  The base specification's own extensibility would,
-   however, admit a record built inside the log rather than beside it,
-   and the following subsection sets out what such a record could and
-   could not establish.
-
-14.8.1.  A Logged Revocation Entry
-
-   MTCLogEntryType is an extensible enum, and the base specification
-   states that future documents MAY define new values for it with
-   corresponding semantics (Section 5.2.1 of
-   [I-D.ietf-plants-merkle-tree-certs]).  A revocation record is
-   therefore constructible within the log.  This document does not
-   define one.  The sketch here exists so that the working group can
-   judge whether it wants one, and where it belongs (Appendix D).
-
-   The construction is a new MTCLogEntryType whose data identifies the
-   revoked entry by its serial number, gives the first period for which
-   ticks will be withheld, and optionally carries a reason code.  The CA
-   appends it to its issuance log, so it is covered by the subtree hash
-   and by the cosignatures over that subtree.  Its evidentiary force
-   comes from a property the base specification already establishes,
-   that a subtree signature is a binding assertion by the CA that it has
-   certified every entry in the subtree, so any signed checkpoint
-   containing the entry together with an inclusion proof suffices to
-   prove the CA made it (Section 12.4 of
-   [I-D.ietf-plants-merkle-tree-certs]).  That is the signed, non-
-   repudiable artifact this section otherwise lacks, and unlike a CRL
-   entry it does not expire ([REVOCATION-STATUSES]).  Relying parties
-   are unaffected, since an unrecognized entry type differs in its type
-   field from the entry a relying party reconstructs, so its proof never
-   matches (Section 12.5 of [I-D.ietf-plants-merkle-tree-certs]).  The
-   record is for monitors, and enforcement continues to rest on the
-   presence of a fresh tick.
-
-   Such a record would bind the logged status to the served status in
-   one direction, and would do so cryptographically.  A logged
-   revocation naming period t, together with a tick for that entry whose
-   period is t or later, is a contradiction anyone can check offline.
-   The log entry cannot be repudiated and the tick cannot be forged
-   without inverting the hash (Section 14.1), so the pair is evidence
-   that the CA both declared a revocation and continued to supply the
-   material that defeats it.  Neither artifact requires trusting the
-   monitor that presents it.  One interaction needs care: a CA that has
-   pre-provisioned a distributor with a buffer of future values
-   (Section 15.5) can produce that contradiction without acting again,
-   so a deployment doing both would have to reconcile the logged period
-   with the buffer depth.
-
-   The converse direction cannot be bought at all, and the reason bounds
-   what any revocation transparency mechanism can promise here.
-   Withholding is the absence of a response, and absence is not
-   attributable.  A distribution outage, a failed distributor, a network
-   partition and a deliberate unlogged revocation are indistinguishable
-   to an observer, which is the same reason a 404 does not mean
-   "revoked" (Section 10.4).  Certificate Transparency closes the
-   corresponding gap for issuance by conscripting the relying party,
-   since a certificate lacking evidence of logging is rejected and
-   logging is thereby compelled.  That remedy is unavailable here,
-   because it requires the relying party to check something it does not
-   receive in the handshake, and this mechanism rests on the relying
-   party fetching nothing (Section 14.5).  Pushing the log's contents to
-   clients out of band would restore it only for the clients that
-   receive the push, which is the coverage limitation this document
-   declines to depend on (Appendix G.10).
-
-   Such a mechanism would therefore be sound rather than complete.
-   Nothing inconsistent can be logged and served without producing a
-   proof, but a CA can still withhold silently.  The most a
-   specification can add is an obligation to declare, so that ticks
-   stopping with no corresponding entry becomes a detectable failure to
-   comply rather than an unremarkable event.  This is the asymmetry that
-   governs enforcement reappearing in the transparency layer.  Presence
-   is provable and absence is not, whether the thing present is a tick
-   or a log entry.
-
-14.9.  Downgrade to a Non-MTCRS Certificate
-
-   Hash chain revocation applies per certificate, not per key.  More
-   precisely, it applies per log entry carrying the id-pe-
-   hashChainAnchor extension.  An attacker who holds a private key (the
-   only party who can use any certificate for that key) could therefore
-   present a different, still-valid certificate for the same key that
-   does not carry the anchor extension, escaping tick enforcement.
-
-   This bounds what the mechanism claims.  Withholding ticks bounds the
-   exposure of the certificates that carry an anchor, and revokes a
-   _key_ only when every unexpired certificate for that key carries one.
-   The limitation bites where the mechanism is most wanted, since key
-   compromise is the case for which a two-period bound is worth having
-   at all.
-
-   Certificates without an anchor are outside this mechanism's scope and
-   are handled exactly as in base MTC, by the per-serial revoked-ranges
-   mechanism, which is independent of hash chain revocation and bounded
-   by the short lifetimes and trusted-validity windows of the base
-   model.  A CA revoking a compromised key MUST therefore revoke all of
-   that key's certificates, withholding ticks for those that use this
-   mechanism (Section 5.1) and revoking the serial ranges of the rest
-   (Section 14.7).  Withholding ticks alone would revoke only the
-   certificates that carry an anchor.
-
-   That fallback is weaker than the mechanism it stands in for.  Revoked
-   ranges are relying-party configuration distributed out of band, so
-   they reach only the relying parties that receive them (Section 14.7),
-   which is the same property this document gives as a reason not to
-   depend on external revocation systems (Appendix G.10).  For a key
-   whose certificates do not all carry anchors, the effective guarantee
-   is that of the weakest certificate for that key.
-
-   Unanchored certificates for a key are most likely to exist during a
-   transition.  A deployment presenting a Merkle Tree Certificate to
-   relying parties that support it and a traditionally-signed
-   certificate to those that do not may hold both for one key, and
-   holding certificates from several CAs for resilience (Section 15.1)
-   permits the same across issuers.  A deployment that wants key-level
-   revocation SHOULD therefore not share a key between certificates that
-   carry an anchor and certificates that do not.  Keeping them on
-   separate keys confines each certificate this mechanism does not cover
-   to a key that is not also used with one it does, so that withholding
-   a certificate's ticks is sufficient to retire it.
-
-   A domain name holder can also narrow how unanchored certificates for
-   its names come to exist, by constraining issuance through CAA
-   [RFC8659].  An issue parameter meaning that certificates for the name
-   must carry a hash chain anchor would compose with the authorization
-   list already published there, rather than needing a critical property
-   that would forbid issuance by every CA that does not implement it.
-   Its distinctive contribution is reach, since it binds any CA that
-   honors it, including ones the subscriber never chose to use, which
-   neither the issuance channel of Section 11 nor anything carried in
-   the certificate can do.  It earns that place only where anchoring
-   varies within a CA, since a CA that anchors everything it issues is
-   already described by an ordinary CAA authorization list.  This
-   document does not define such a parameter, which is separable from
-   this mechanism and can be specified on its own.  What it cannot
-   become is enforcement.  Section 1 of [RFC8659] states that relying
-   parties MUST NOT use CAA records as part of certificate validation,
-   because a CAA record set grants authority as of now whereas a
-   certificate issued before the record was published remains what it
-   was.  It therefore reaches the CA and never the party that checks the
-   tick, which makes it a defense against an accidental downgrade such
-   as a renewal that quietly moves to a product without an anchor,
-   rather than against an attacker who holds a key and finds a CA
-   willing to issue.
-
-   The limitation behind both measures is the general property that
-   revocation targets certificates rather than keys, and it is not
-   specific to this mechanism.  It is more visible here only because
-   this mechanism makes the certificates it covers substantially harder
-   to keep alive than the ones it does not.
-
-14.10.  Clock Skew
-
-   The default acceptance window of verification step 4 accepts a tick
-   whose period is the verifier's expected_period, the immediately
-   preceding period (expected_period - 1), or the immediately following
-   period (expected_period + 1).  This tolerates a verifier clock that
-   is behind or ahead of the authenticating party's by up to one full
-   tick_interval in either direction.  It also tolerates an
-   authenticating party that is still serving the previous period's tick
-   for caching or staggered refresh (Section 15.3).  Figure 7 shows the
-   window.
-
-                       expected_period
-                              |
-                              v
-       +------+------+------+------+------+------+
-       | t-3  | t-2  | t-1  |  t   | t+1  | t+2  |
-       +------+------+------+------+------+------+
-          ^          |                    |     ^
-          |          +---- accepted ------+     |
-          |             default window          |
-          |                                     |
-       rejected                             rejected
-       too stale                         clock behind
-
-       Figure 7: The default acceptance window.  A tick outside it is
-       rejected with certificate_expired, whichever side it falls on
-
-   The two directions are not equivalent in cost.  Accepting the
-   immediately following period, which is what a verifier whose clock is
-   behind will see, costs nothing in revocation terms.  That tick is a
-   fresher non-revocation proof than the verifier expected, and a tick
-   for a period the CA has not yet reached cannot be forged, by preimage
-   resistance (Section 14.1).  Accepting the immediately preceding
-   period, which arises from a verifier clock that is ahead or from a
-   deliberately stale tick, accepts a non-revocation proof up to one
-   tick_interval old.  That is the intended one-period grace.
-
-   Deployments with known clock-skew or availability concerns MAY widen
-   the window, as step 4 permits.  Accepting further preceding periods
-   tolerates a tick-distribution outage (Section 15.1) at the cost of
-   correspondingly delayed revocation enforcement, while accepting
-   further following periods tolerates a verifier clock that runs
-   further behind and carries no revocation cost.
-
-   Widening the preceding side relaxes the revocation bound one-for-one.
-   A relying party that accepts the k immediately preceding periods
-   keeps a withheld certificate usable for up to k + 1 periods after the
-   CA stops revealing values, in place of the two periods the default
-   window gives (Section 5.1).  The worst-case revocation latency stated
-   elsewhere in this document, at most two periods, therefore assumes
-   the default window.  How quickly revocation takes effect at a given
-   relying party is a property of that relying party's policy, not of
-   the hash chain.  This is why widening is a deliberate, ecosystem-wide
-   trade-off rather than a per-server option (Section 14.11).
-
-   The acceptance window is anchored to the relying party's own clock,
-   so revocation timeliness depends on that clock's integrity.  A clock
-   running behind true time shifts the window toward the past, so a
-   genuine but stale tick, one the CA revealed before it stopped
-   revealing, can fall inside the window and be accepted.  An attacker
-   who moves a relying party's clock backward can thereby keep a revoked
-   certificate acceptable for roughly the induced offset, bounded by the
-   window width and ultimately by notAfter, checked against the same
-   clock.  The forward direction adds no forgery avenue, since a tick
-   for a period the CA has not yet reached cannot be produced without
-   inverting the hash (Section 14.1).  The exposure comes entirely from
-   the clock being wrong, not from accepting a fresher-than-expected
-   proof, and it is the trusted-time dependency shared by every time-
-   based check: notAfter, OCSP thisUpdate and nextUpdate, CRL validity,
-   and the base MTC short-lived-certificate model itself.
-
-   Two consequences follow.  The acceptance window SHOULD be kept as
-   narrow as clock quality allows, since widening it for outage
-   tolerance enlarges this exposure.  And a deployment whose relying
-   parties cannot trust their clocks gains little revocation timeliness
-   from a short tick_interval, because the clock error rather than the
-   period then bounds how long a revoked certificate remains acceptable.
-   A relying party that requires tight revocation SHOULD therefore
-   source time from a trusted, integrity-protected clock.  Both this and
-   the window width are relying-party policy choices (Section 14.11).
-
-14.11.  Relying-Party Policy Levers
-
-   Several behaviors of this mechanism are configurable by relying-party
-   (client) policy, which a root program may also set.  This section
-   collects them for convenience.  Each is specified in full in the
-   section cited, and nothing here is a new requirement.
-
-   Acceptance window:  The default accepts a tick for the current,
-      immediately preceding, or immediately following period.  A relying
-      party MAY widen the preceding side to tolerate a tick-distribution
-      outage, at the cost of correspondingly delayed revocation, or the
-      following side to tolerate a clock that runs behind, at no
-      revocation cost.  Widening applies to every certificate the
-      relying party validates (Section 14.10, Section 15.1).  Widening
-      is the only direction available: a relying party MUST NOT narrow
-      the window, since authenticating parties target the default and
-      cannot observe a narrower one (step 4 of Section 9.2).
-
-   Trusted time:  The acceptance window is anchored to the relying
-      party's clock, so revocation timeliness is bounded by clock
-      integrity.  A relying party that requires tight revocation SHOULD
-      source time from a trusted, integrity-protected clock and keep its
-      window narrow (Section 14.10).
-
-   Maximum verification cost:  Verification hashes forward up to
-      tick.period times, which the 16-bit period field caps at 65,535
-      for any certificate from any CA (Section 4).  A relying party MAY
-      set a lower local ceiling on a certificate's implied maximum
-      period and reject anything above it before hashing, and a
-      constrained implementation SHOULD do so (step 5 of Section 9.2,
-      Section 15.6).  This lever differs from the acceptance window in
-      kind, not just in degree.  A window that is too narrow rejects a
-      certificate until its next tick refresh, whereas a ceiling below
-      what the deployment's CAs actually issue rejects those
-      certificates for their whole lifetime.  It is therefore set
-      against the tick_interval values a relying party expects to
-      encounter, not against its own preferences alone.
-
-   Cross-checking base MTC revocation:  A relying party that also
-      supports the base MTC revoked-ranges mechanism SHOULD check both.
-      A certificate is revoked if either indicates so (Section 14.7).
-
-   Resumption and long-lived connections:  The tick is checked only at
-      full-handshake certificate validation.  A relying party that wants
-      revocation to take effect within about one tick_interval SHOULD
-      cap session-ticket reuse and force periodic full handshakes, so
-      that a fresh tick is re-checked (Section 15.7).
-
-   Requiring the mechanism on longer-lived certificates:  A relying
-      party MAY refuse a certificate that carries no hash chain anchor
-      once its validity period exceeds a configured threshold, since
-      without an anchor its exposure to a detected compromise is bounded
-      only by that period (Appendix F.1).  The threshold is at once the
-      lifetime above which the relying party demands revocation and the
-      worst-case exposure it accepts where revocation is absent, so a
-      certificate that escapes the requirement is by construction one
-      short enough for expiry to bound.  It also narrows the downgrade
-      of Section 14.9, since an unanchored certificate for the same key
-      is then usable against that relying party only if its own validity
-      period is within the threshold.  The check reads notBefore,
-      notAfter, and the presence of the extension, so it costs neither
-      hashing nor network access.  As with the acceptance window it
-      applies to every certificate that relying party validates, and a
-      threshold below what its CAs issue unanchored rejects those
-      certificates outright.
-
-   Enforcement and criticality:  A relying party that implements this
-      mechanism MUST enforce hash chain verification whenever the id-pe-
-      hashChainAnchor extension is present.  An ecosystem MAY
-      additionally mark the extension critical for hard enforcement
-      (Section 7.2).
-
-   Fixed, not a lever:  Relying parties MUST NOT fetch ticks or use the
-      distribution endpoint as an online responder (Section 14.5).  This
-      is a constraint, not a configurable choice.
-
-   If the base specification adopts the general proof_extensions field
-   (Appendix E), further relying-party handling applies: size-budget
-   enforcement, committed admissibility, and unknown-type handling
-   (Appendix E.1).
-
-   The resilience levers that involve holding certificates from multiple
-   CAs, operating redundant tick distribution, and choosing
-   tick_interval are authenticating-party or CA decisions, not relying-
-   party policy (Section 15.1, Section 4).
-
-15.  Operational and Availability Considerations
+13.  Operational and Availability Considerations
 
    This section covers the operational characteristics of the mechanism
    that are not security properties in themselves: the availability
@@ -3129,12 +2463,12 @@ Table of Contents
    a CA, how tick distribution is scaled and delegated, and what it
    costs a relying party to verify.  None of it changes the wire
    protocol, which Section 10 defines in full, and none of it is visible
-   to relying parties, which never fetch (Section 14.5).  The
+   to relying parties, which never fetch (Section 16.5).  The
    subsections run in the order the work does, from the CA that
    generates hash chains, through the interface that distributes them,
    to the relying party that verifies a tick in a handshake.
 
-15.1.  Availability Considerations
+13.1.  Availability Considerations
 
    An authenticating party must fetch a fresh tick at least once per
    tick_interval (Section 10).  A tick fetched for period t remains
@@ -3176,7 +2510,7 @@ Table of Contents
       band process and reach nothing for the rest of that certificate's
       life, whereas this mechanism needs a tick each period.  An
       operator in that position runs a distributor itself
-      (Section 15.5), or has one connected node fetch and push ticks to
+      (Section 13.5), or has one connected node fetch and push ticks to
       the others exactly as it already pushes certificates (Section 12).
       Either restores the original property, because a tick verifies
       against the committed anchor wherever it was obtained (Section 9).
@@ -3185,7 +2519,7 @@ Table of Contents
       party MAY accept ticks from further preceding periods, converting
       a tick-distribution outage longer than one period into bounded
       additional revocation latency rather than a hard failure
-      (Section 14.10).  This is a relying-party (or root-program)
+      (Section 16.10).  This is a relying-party (or root-program)
       policy, not something a server can switch on, and it applies to
       every certificate that relying party validates, so it loosens
       revocation freshness ecosystem-wide.  It is therefore a conscious
@@ -3218,7 +2552,7 @@ Table of Contents
    The last of these mitigations rests on an assumption.  Ticks are safe
    to delegate because they are self-authenticating, so a CA is
    encouraged to serve them from mirrors, content delivery networks, or
-   other distributors (Section 15.5).  Relatively few operators run
+   other distributors (Section 13.5).  Relatively few operators run
    distribution infrastructure at that scale, so two CAs may delegate to
    the same one, and their tick availability is then perfectly
    correlated.  Holding certificates from both buys nothing in that
@@ -3233,7 +2567,7 @@ Table of Contents
    deployment that treats them as independent overestimates its
    resilience.
 
-15.1.1.  The Dependency Relative to Short Lifetimes
+13.1.1.  The Dependency Relative to Short Lifetimes
 
    Compared with relying on short lifetimes alone, this is a shift in
    the availability dependency rather than a new one, and the shift is
@@ -3259,7 +2593,7 @@ Table of Contents
    ecosystem depend entirely on external revocation systems whose
    availability the CA does not control.
 
-15.2.  CA-Side Storage and Computation Trade-off
+13.2.  CA-Side Storage and Computation Trade-off
 
    A CA has two largely independent implementation choices for each
    certificate's hash chain of length hash_chain_length (denoted L
@@ -3268,7 +2602,7 @@ Table of Contents
    the-wire tick and the relying party's verification procedure
    (Section 9) are unchanged.
 
-15.2.1.  Storing Versus Recomputing Hash Chain Values
+13.2.1.  Storing Versus Recomputing Hash Chain Values
 
    Neither naive extreme is attractive at scale.  Storing each hash
    chain in full costs O(L) per certificate, roughly 35 KiB at L = 1128
@@ -3299,9 +2633,9 @@ Table of Contents
    would remove it entirely, since any value becomes recomputable from
    the seed and no per-certificate state is kept (Appendix G.6).  The
    stored values are unrevealed hash chain values and therefore carry
-   the same confidentiality requirement as the seed (Section 14.3).
+   the same confidentiality requirement as the seed (Section 16.3).
 
-15.2.2.  Deriving Seeds from a Long-Term CA Secret
+13.2.2.  Deriving Seeds from a Long-Term CA Secret
 
    The per-certificate seed itself can also be eliminated from storage.
    Instead of generating and storing an independent random seed per
@@ -3314,20 +2648,20 @@ Table of Contents
    deriving the same seed would hold the same hash chain and could not
    be revoked independently.  HashChainInput carries no per-entry salt
    (Section 6), so the seed is the only thing separating one
-   certificate's chain from another's, and a CA choosing entry_id should
-   prefer a value it can fix before the entry is sequenced into the log,
-   such as a hash of the certificate inputs, rather than the entry's
-   index.  The keying is what makes derived seeds computationally
-   indistinguishable from the independent random seeds of Section 4,
-   which is why a raw Hash(ca_seed || ...) is forbidden (Section 14.3).
-   Any hash chain is then recomputable on demand from ca_seed and the
-   public entry identity, giving O(1) secret storage for the entire CA
-   and stateless, reconstructible issuance, with no change visible to
-   verifiers.
+   certificate's chain from another's.  A CA choosing entry_id should
+   therefore prefer a value it can fix before the entry is sequenced
+   into the log, such as a hash of the certificate inputs, rather than
+   the entry's index.  The keying is what makes derived seeds
+   computationally indistinguishable from the independent random seeds
+   of Section 4, which is why a raw Hash(ca_seed || ...) is forbidden
+   (Section 16.3).  Any hash chain is then recomputable on demand from
+   ca_seed and the public entry identity, giving O(1) secret storage for
+   the entire CA and stateless, reconstructible issuance, with no change
+   visible to verifiers.
 
    The cost is concentration.  Compromise of ca_seed exposes every
    certificate's hash chain, past, present, and future, so it demands
-   the custody of an issuance signing key (Section 14.3).  Being a
+   the custody of an issuance signing key (Section 16.3).  Being a
    single small key, it is nonetheless better suited to that custody
    than a bulk per-certificate seed store.  Per-log or per-epoch sub-
    seeds bound the blast radius and can be retired as their logs expire,
@@ -3336,9 +2670,9 @@ Table of Contents
    issuance rather than from anything per-period.  As with any seed
    compromise, rotation protects only certificates issued afterward, and
    already-committed anchors still require the revoked-ranges fallback
-   (Section 14.3).
+   (Section 16.3).
 
-15.3.  Distributing Tick Requests
+13.3.  Distributing Tick Requests
 
    Because a relying party also accepts a tick for the immediately
    preceding period (Section 9), an authenticating party has up to one
@@ -3354,7 +2688,7 @@ Table of Contents
    rather than of the period schedule itself, and the two mechanisms
    below exploit the slack above to blunt it in either case.
 
-15.3.1.  Client-Side: Deterministic Per-Entry Offset
+13.3.1.  Client-Side: Deterministic Per-Entry Offset
 
    Rather than fetching at the start of each period, an authenticating
    party SHOULD fetch at a fixed offset into the first half of the
@@ -3373,7 +2707,7 @@ Table of Contents
    period's tick.
 
    The serving delay and a verifier whose clock runs ahead both draw on
-   the same one-period preceding-tick grace (Section 14.10).  A verifier
+   the same one-period preceding-tick grace (Section 16.10).  A verifier
    whose clock is ahead by more than (tick_interval - offset) already
    expects the following period and rejects a tick two periods behind
    its expectation.  Bounding the offset to half of tick_interval leaves
@@ -3389,7 +2723,7 @@ Table of Contents
    is preferable to independent random jitter, which can still cluster
    and which varies each period.
 
-15.3.2.  Server-Side: Cache Freshness and Retry-After
+13.3.2.  Server-Side: Cache Freshness and Retry-After
 
    The CA (or an edge cache) SHOULD serve each tick with a Cache-Control
    max-age no longer than tick_interval seconds (Section 10.4), so that
@@ -3414,26 +2748,26 @@ Table of Contents
    The deterministic per-entry offset above and edge caching together
    flatten period-boundary load.  Neither reduces the number of distinct
    entries an origin must answer for in a period, which is what
-   delegating the serving path addresses (Section 15.5).  This document
+   delegating the serving path addresses (Section 13.5).  This document
    specifies both as SHOULD rather than MUST, because fetch timing is
    not observable to relying parties and affects neither
    interoperability nor the security of verification.  A specific load-
    shaping or availability target is left to root-program or CA
    operational policy.
 
-15.4.  Bulk Retrieval for Large Deployments
+13.4.  Bulk Retrieval for Large Deployments
 
    The HTTP interface (Section 10) addresses one tick per request, so an
    operator fronting many certificates, such as a large hosting provider
    or CDN, issues on the order of N fetches per period for N
-   certificates.  The per-entry offset (Section 15.3) spreads them
+   certificates.  The per-entry offset (Section 13.3) spreads them
    across the period but does not reduce their number.  This stays
    inexpensive.  Each tick is a 34-byte value that is immutable within
    its period and cacheable (Section 10.4), and HTTP/2 and HTTP/3
    multiplex many such small requests over a few persistent connections,
    so N fetches is not N connections or N round-trip stalls.  An
    operator that prefers fewer requests can front its certificates with
-   its own cache, or act as a delegated distributor (Section 15.5).  The
+   its own cache, or act as a delegated distributor (Section 13.5).  The
    CA-to-distributor bundle is exactly a bulk transfer of the currently-
    revealed ticks, so taking that feed obtains all of them in one
    exchange.
@@ -3445,7 +2779,7 @@ Table of Contents
    entry GETs.  It therefore suits an operator fetching from the CA or a
    mirror it controls rather than from a shared edge cache.  This
    document standardizes neither a batch wire format nor the CA-to-
-   distributor bundle (Section 15.5).  Both are bilateral agreements,
+   distributor bundle (Section 13.5).  Both are bilateral agreements,
    layered on the single-tick interface rather than replacing it, since
    that interface is mandatory at both ends and is what guarantees
    interoperability (Section 10).  An operator large enough to find per-
@@ -3455,14 +2789,14 @@ Table of Contents
    would be the more useful of the two, since a single format would
    serve delegated distribution and bulk retrieval alike, and this
    document leaves that to the working group.  It does not affect
-   relying parties, who never fetch (Section 14.5).
+   relying parties, who never fetch (Section 16.5).
 
-15.5.  Delegated Tick Distribution
+13.5.  Delegated Tick Distribution
 
    Because a tick is self-authenticating (Section 9), the party that
    serves ticks need not be trusted for integrity.  A distributor cannot
    forge a tick for a period the CA has not revealed, by preimage
-   resistance (Section 14.1), nor serve a tampered value that verifies.
+   resistance (Section 16.1), nor serve a tampered value that verifies.
    Distribution is therefore safe to delegate to third parties, which
    serve only public values and hold no seed and no signing key.
 
@@ -3498,15 +2832,15 @@ Table of Contents
    point of failure.  How much redundancy to provide is a matter for
    root-program or CA policy rather than an interoperability requirement
    of this document.  Running such a service is distinct from the
-   prohibition in Section 14.5, which forbids a relying party from using
+   prohibition in Section 16.5, which forbids a relying party from using
    the endpoint as its own online responder during validation.  A
    relying-party-side organization may perfectly well operate one that
    authenticating parties fetch from.
 
    What is delegated is distribution, not revocation authority.  The CA
-   retains the seed and the unrevealed hash chain values (Section 14.3),
+   retains the seed and the unrevealed hash chain values (Section 16.3),
    so it alone decides what to reveal.  A distributor can at most
-   withhold or delay the values it was given (Section 14.4), which is an
+   withhold or delay the values it was given (Section 16.4), which is an
    availability fault mitigated by redundancy, not a way to un-revoke a
    certificate.  The only trust placed in any distributor is for
    availability.
@@ -3520,9 +2854,9 @@ Table of Contents
    what it buys.  A certificate cannot be revoked through a distributor
    that already holds its future values, so the buffer length caps
    revocation latency through that channel, leaving only the base MTC
-   revoked-ranges fallback (Section 14.7) during the window.  Buffered
+   revoked-ranges fallback (Section 16.7) during the window.  Buffered
    values are as sensitive as the CA's own unrevealed ones
-   (Section 14.3), since compromising the distributor keeps a revoked
+   (Section 16.3), since compromising the distributor keeps a revoked
    certificate alive for the remainder of the buffer.  A CA SHOULD
    therefore keep the buffer short, sized to its outage-tolerance
    against revocation-latency budget, and SHOULD pre-provision only
@@ -3535,7 +2869,7 @@ Table of Contents
    period t+N, since any later period would require inverting the hash.
 
    A CA MUST NOT instead share the seed-derivation secret
-   (Section 15.2.2), which would grant the unbounded ability to forge
+   (Section 13.2.2), which would grant the unbounded ability to forge
    non-revocation for the entire certificate population, and MUST NOT
    hand that secret or per-certificate seeds to a successor operator
    even in disaster recovery.  It is as sensitive as the issuance
@@ -3556,7 +2890,7 @@ Table of Contents
    distributor being fed corrupt bundles that would cause authenticating
    parties to reject ticks and refetch.
 
-15.6.  Verification Cost
+13.6.  Verification Cost
 
    A relying party verifies a tick by hashing tick.value forward
    tick.period times (Section 9), so the cost grows with the
@@ -3592,7 +2926,7 @@ Table of Contents
    overhead, which dominates for single-block messages.  Such a verifier
    can compute hash_chain_length from the certificate and reject before
    hashing anything if it exceeds a configured ceiling (step 5 of
-   Section 9.2, Section 14.11), and a deployment that controls its own
+   Section 9.2, Section 16.11), and a deployment that controls its own
    CA can choose parameters that suit it.  Neither remedy helps a
    constrained client validating an arbitrary server's certificate,
    where the issuing CA chooses both the lifetime and tick_interval and
@@ -3607,7 +2941,7 @@ Table of Contents
 
    Across the many connections a page load opens, the total stays
    bounded.  Most connections pay nothing.  A resumed session carries no
-   Certificate message and verifies no tick (Section 15.7), and
+   Certificate message and verifies no tick (Section 13.7), and
    connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin
    assets onto one connection.  The cost is incurred per full handshake
    rather than per request, so it does not grow with page complexity.  A
@@ -3616,32 +2950,32 @@ Table of Contents
    skip the forward hashing on repeat.  One that has retained a verified
    tick for an earlier period of the same entry can do better still,
    verifying the current tick by hashing it forward only the difference
-   between the two periods, for the same reason and with the same
-   security as the authenticating party's incremental check
+   between the two periods.  It rests on the same reason, and offers the
+   same security, as the authenticating party's incremental check
    (Section 12).  As there, the shortcut applies only when the presented
    period exceeds the retained one, and a relying party MUST NOT compute
    the difference in unsigned arithmetic.  The opposite case arises
    without an attacker, since the acceptance window admits
    expected_period - 1 while the relying party may hold a tick for
-   expected_period itself, so a presented period below the retained one
-   is ordinary and the relying party verifies from the anchor instead.
-   On a battery-powered sensor or wearable one verification costs a
-   fraction of a millijoule, comparable to the asymmetric operations the
-   same handshake performs.
+   expected_period itself.  A presented period below the retained one is
+   therefore ordinary, and the relying party verifies from the anchor
+   instead.  On a battery-powered sensor or wearable one verification
+   costs a fraction of a millijoule, comparable to the asymmetric
+   operations the same handshake performs.
 
    Selecting a different hash function does not materially change any of
    this.  The cost is one compression block per elapsed period whatever
    the primitive, and this mechanism inherits HASH from the issuing CA
-   (Section 4) rather than choosing it, which is what keeps an algorithm
-   identifier out of the anchor and the tick (Section 2).  Primitives
-   faster than SHA-256 in software on 32-bit cores do exist, but they
-   offer a small constant factor, are less likely to be hardware-
-   accelerated, and would diverge from the hash the surrounding
+   (Section 4) rather than choosing it.  That inheritance is what keeps
+   an algorithm identifier out of the anchor and the tick (Section 2).
+   Primitives faster than SHA-256 in software on 32-bit cores do exist,
+   but they offer a small constant factor, are less likely to be
+   hardware-accelerated, and would diverge from the hash the surrounding
    ecosystem already uses.  The quantity that governs this cost is the
    number of periods, not the speed of the primitive, and reducing it is
    a property of the construction (Appendix G.6).
 
-15.7.  Client-Side Enforcement Latency and Session Resumption
+13.7.  Client-Side Enforcement Latency and Session Resumption
 
    A relying party checks the non-revocation proof (Section 9) only when
    it validates the certificate, which happens during a full TLS
@@ -3686,7 +3020,7 @@ Table of Contents
    ticket lifetime, and where practical the lifetime of long-lived
    connections, to a value near tick_interval.  That forces a fresh full
    handshake, and thus a fresh tick, within that period.  On the
-   relying-party side this is a policy choice (Section 14.11).  A client
+   relying-party side this is a policy choice (Section 16.11).  A client
    MAY cap how long it reuses session tickets and force a periodic full
    handshake so that the tick is re-checked, independently of the
    server's ticket-lifetime setting.
@@ -3701,7 +3035,7 @@ Table of Contents
    checks a per-period non-revocation proof rather than trusting a
    static notAfter.
 
-16.  Implementation Status
+14.  Implementation Status
 
    This section records the status of known implementations of the
    mechanism defined by this specification at the time of posting of
@@ -3717,6 +3051,732 @@ Table of Contents
    vectors of Appendix B are given so that independent implementations
    can check their HashChainInput encoding and hashing order against a
    fixed example before any interoperable deployment exists.
+
+15.  Privacy Considerations
+
+   The Privacy Considerations of the base MTC specification (Section 11
+   of [I-D.ietf-plants-merkle-tree-certs]) apply to Merkle Tree
+   Certificates that use this mechanism.  This mechanism adds one
+   network interaction, the authenticating party's periodic tick fetch
+   (Section 10), and deliberately adds none on the relying-party side.
+
+   No relying-party activity is exposed.  The current tick is embedded
+   in the certificate presentation and verified offline against the
+   committed anchor, and relying parties never fetch ticks
+   (Section 16.5).  Consequently the CA learns nothing about which
+   certificates a relying party validates or which sites it visits.
+   This is the central privacy difference from client-driven OCSP
+   [RFC6960], whose status fetches revealed relying-party browsing to
+   the CA.  That failure mode is avoided here by construction rather
+   than by policy.
+
+   The authenticating party's tick fetch, by contrast, exposes request
+   metadata.  An on-path observer of a tick fetch, or the CA (or CDN)
+   serving it, sees which serial_number is being requested, or with
+   unguessable tick URLs which tick_token (Section 10.3).  It can
+   thereby learn which certificate the authenticating party holds, and
+   from the source address of the request, where that certificate is
+   deployed.  The request identifies the authenticating party's own
+   certificate rather than any relying party, so it discloses no
+   relying-party activity.  It is nonetheless a disclosure this
+   mechanism introduces, in two respects.
+
+   A certificate is public, but its deployment need not be.  Publicly
+   issued certificates are routinely used on hosts that are not
+   reachable or enumerable from the public Internet, among them internal
+   services, management interfaces, and development systems.  Such a
+   host contacts its CA at issuance and at renewal today.  Under this
+   mechanism it contacts the CA, or whichever distributor serves its
+   ticks, once per period for the life of the certificate, and the
+   source address of that request is not derivable from the certificate.
+
+   The cadence is itself a signal.  A per-certificate fetch once per
+   period reports which certificates are in active use, and when a
+   deployment starts, stops, or is interrupted.  Issuance alone does not
+   convey that.
+
+   Both follow from the fetch existing rather than from how it is
+   carried, so transport security does not address them.  An https base
+   URL protects the request against on-path observers and leaves it
+   fully visible to the party serving it.  The measure that does apply
+   is delegation.  Because ticks are self-authenticating, a deployment
+   need not fetch from the CA at all (Section 13.5), and may fetch
+   instead from a distributor it selects or operates, so that no per-
+   fetch record reaches the issuer.  A CA or distributor SHOULD NOT
+   retain per-fetch records beyond what operating the service requires,
+   since a record that is not kept can be neither disclosed nor
+   compelled (Appendix F.6.5).
+
+   Two further points concern the transport and the token:
+
+   *  Because a tick is self-authenticating and public, the fetch does
+      not require transport-layer confidentiality for correctness, so a
+      CA MAY serve ticks over plain HTTP (Section 10).  Plain HTTP
+      leaves the requested serial_number or tick_token visible to on-
+      path observers.  A CA whose subscribers deploy certificates that
+      are not otherwise publicly enumerable SHOULD publish an https base
+      URL instead.
+
+   *  Unguessable tick URLs (Section 10.3) are an addressing and access-
+      control measure, not a confidentiality one: the tick_token appears
+      in the request URL, so it offers no confidentiality against an
+      observer of the authenticating party's own fetch.  Its privacy
+      benefit is solely that a relying party, or a third party holding
+      only the certificate, cannot derive the URL and probe the CA for
+      the certificate's status (Section 16.5).
+
+   Pushed revocation lists such as [CRLite] and [CRLSets] are checked by
+   the client entirely offline.  This mechanism preserves the same
+   relying-party privacy, since the client fetches nothing either way,
+   and does so universally, for any TLS client rather than only browsers
+   that ship the list.  Its one difference is the authenticating party's
+   own fetch, and that metadata concerns the server's own public
+   certificate (whose liveness a public server already exposes by
+   answering connections), not any relying party.  It also need not
+   reach the CA at all.  Because ticks are self-authenticating,
+   distribution can be delegated to CDNs, mirrors, or other distributors
+   (Section 13.5).  The CA then publishes a bundle of currently-revealed
+   values and answers no per-certificate request, so it observes no per-
+   server fetch pattern (Section 10).
+
+16.  Security Considerations
+
+16.1.  Hash Function Requirements
+
+   The security of this mechanism depends on the preimage resistance of
+   the hash function used.  SHA-256 [SHS] provides 256 bits of preimage
+   resistance, which is sufficient for all foreseeable certificate
+   lifetimes.  With a one-hour tick_interval and a 47-day lifetime, the
+   hash chain length is 1,128, which does not meaningfully degrade the
+   security margin.
+
+16.2.  Post-Quantum Considerations
+
+   This mechanism is post-quantum robust as specified and needs no
+   migration to a new primitive.  Its security rests solely on the
+   preimage resistance of the hash function, for which the best known
+   quantum attack is Grover's algorithm, a quadratic speed-up.  Against
+   SHA-256 that leaves work on the order of 2^128 for a single target.
+   Because the hash chain is salted per CA rather than per certificate
+   (Section 6), an attacker content to invert any one of a CA's chains
+   can search them together, which at 10^9 certificates costs about
+   2^226 classically and 2^113 quantumly.  Both remain ample margins for
+   all foreseeable certificate lifetimes, and they are the figures the
+   rest of this document refers to.  The non-revocation proof relies on
+   no collision resistance, because a revealed value is bound to a
+   specific hash chain by the committed anchor rather than by any
+   collision property.  The weaker quantum bounds on collision finding
+   therefore do not apply, and no second hash appears anywhere in the
+   mechanism for them to apply to.  It also inherits whatever hash the
+   CA's issuance log uses (Section 4), so a CA that moves to a larger or
+   post-quantum-oriented hash carries this mechanism along with no
+   change here.
+
+   Just as importantly, this mechanism keeps post-quantum signatures off
+   the per-period revocation path.  A signed-status approach, using
+   OCSP-like per-certificate signatures (Appendix G.11), would require a
+   post-quantum signature per certificate per period (for example an ML-
+   DSA-65 signature of roughly 3,309 bytes), whereas a tick is 34 bytes
+   of hash output and is never signed.  Adopting hash chain revocation
+   is therefore aligned with a post-quantum transition rather than a
+   distraction from it: it removes post-quantum signing from the
+   revocation path instead of adding it.
+
+16.3.  Seed Confidentiality
+
+   The CA MUST keep the hash chain seed (h[0]) and all not-yet-revealed
+   hash chain values confidential.  Compromise of these values would
+   allow an attacker to produce future ticks, defeating revocation.
+
+   A CA that derives per-certificate seeds from a single long-term
+   secret (Section 13.2.2) concentrates this requirement into that
+   secret.  It MUST then be protected at least as strongly as the
+   issuance signing key, and per-log or per-epoch sub-seed derivation
+   SHOULD be used to bound the impact of a compromise.  Such derivation
+   MUST use a keyed KDF or PRF, for example HKDF or HMAC.  A raw
+   Hash(ca_seed || ...) construction MUST NOT be used, as it invites
+   length-extension and MAC-misuse and can make derived seeds
+   distinguishable from independent random seeds (Section 13.2.2).
+
+   If the CA's seed storage is compromised, the CA MUST revoke all
+   affected certificates via the base MTC revocation mechanism (revoked
+   ranges of serial numbers) as a fallback, as described in
+   Section 16.7.
+
+16.4.  Denial of Service via Tick Withholding
+
+   A compromised or malicious CA could withhold ticks from a legitimate
+   authenticating party, either broadly or targeted at a specific
+   subscriber.  In the targeted case it revokes that certificate with no
+   auditable signal.  This is analogous to a CA refusing to issue OCSP
+   responses, or refusing to issue or renew certificates at all.  It is
+   inherent in the CA trust model rather than novel to this mechanism,
+   and it is mitigated by the same forces that discipline CA behavior
+   today:
+
+   Detectability:  The authenticating party knows it did not receive a
+      tick, and can raise an alarm, switch to another CA, or fall back
+      to a traditionally-signed certificate.
+
+   Third-party observability:  Where tick URLs are derivable
+      (Section 10), the endpoint can be monitored externally
+      (Certificate Transparency-style auditing [RFC9162]), which makes
+      broad withholding observable.  Two limits apply.  A CA using
+      unguessable tick URLs (Section 10.3) cannot be monitored this way
+      at all, a monitor being exactly the third party that scheme
+      prevents from deriving the URL.  And nothing obliges the endpoint
+      to answer every requester alike, so a CA willing to discriminate
+      by source address can serve monitors the current tick while
+      withholding it from the subscriber.  External observation
+      therefore disciplines broad or careless withholding rather than a
+      determined and targeted one, against which the subscriber's own
+      detection above is the dependable signal.  Supplying an artifact a
+      third party could rely on instead is the subject of
+      Section 16.8.1.
+
+   Substitutability:  The interface is mandatory at both ends and
+      addressed identically at every CA (Section 10), so an
+      authenticating party is not tied to one CA's tick service.
+      Deployments are in any case encouraged to hold certificates from
+      several CAs (Section 13.1), so a party facing withheld ticks fails
+      over to another CA's certificate at once, rather than waiting on a
+      commercial response.
+
+   Because ticks are small and cacheable, they are readily distributed
+   via CDN, which further reduces the attack surface for withholding.
+
+   The converse exposure is load rather than withholding.  The endpoint
+   is public and unauthenticated, and in the derivable-URL scheme its
+   addresses can be computed by anyone holding a certificate or reading
+   the log (Section 16.5).  A third party can therefore fetch any
+   entry's tick, and can do so in volume.  This is the ordinary position
+   of a public static HTTP endpoint, and it is met by the ordinary
+   means: caching, rate limiting, and CDN or anycast capacity
+   (Section 13.3).  These are effective here because every response is
+   an immutable, precomputed per-period value that costs the origin
+   nothing to produce (Appendix F.6.3).  Unguessable tick URLs
+   (Section 10.3) additionally deny an attacker the ability to address
+   entries it has not seen.  What such flooding cannot do is defeat
+   revocation: it neither forges a tick nor suppresses one that an
+   authenticating party has already fetched and installed.
+
+16.5.  Relying Parties Do Not Fetch Ticks
+
+   The current tick is embedded in the MTCProof presented during the
+   handshake and is verified offline against the anchor committed in the
+   Merkle Tree (Section 9).  A relying party therefore has no need to
+   contact the CA, and MUST NOT fetch ticks or otherwise use the tick
+   distribution endpoint as an online revocation responder.
+
+   This is a privacy and availability protection, not a secrecy one.
+   The tick distribution URL is not secret.  The fetch path is .well-
+   known/mtcrs/v1/{hash_name}/tick/{serial_number} with {serial_number}
+   read straight from the certificate by anyone holding it, and the
+   origin is low-entropy and, when the CA certificate SIA (Section 10.2)
+   is used, available to relying parties as well.  By default the design
+   does not, and cannot, technically prevent a relying party from
+   constructing the URL and fetching.  It declines to standardize or
+   advertise such a fetch as an affordance to relying parties.
+
+   A CA that wishes to remove this derivability entirely MAY use the
+   optional per-certificate capability-token hardening in Section 10.3,
+   which makes the tick URL unguessable to a party holding only the
+   certificate.  A relying-party fetch would gain nothing over the
+   embedded tick, since the authenticating party already presents the
+   current value.  It would meanwhile reintroduce the CA-visibility of
+   relying-party activity (the CA learning which sites a relying party
+   visits), the added latency, and the soft-fail behavior that made
+   client-driven OCSP [RFC6960] problematic.  That visibility is the
+   exposure CAs cited when they began retiring OCSP altogether
+   (Appendix F.6.5).
+
+   The CA certificate SIA access method (Section 10.2) exists to convey
+   the base URL to authenticating-party tooling.  Relying parties
+   possess the CA certificate but MUST NOT use its tick base URL to
+   fetch tick status.
+
+16.6.  Unauthenticated Proof Extensions
+
+   The RECOMMENDED trailing status_tick encoding (Section 8.1.1) appends
+   a fixed-size, fully verified value and so adds no general "ignore if
+   unknown" region.  If the base specification instead adopts the
+   alternative proof_extensions encoding (Appendix E), note that this
+   field is not committed to the Merkle Tree and is covered by no
+   signature: it is mutable and can carry data that relying parties
+   ignore.  Hash chain revocation does not rely on its authenticity,
+   because the tick is self-authenticating and its presence is mandated
+   by the committed id-pe-hashChainAnchor extension.  Appendix E.1
+   discusses the general risks of this field (bloat, covert channels,
+   and a strippable soft-fail for other mechanisms) and the constraints
+   recommended for the base specification.
+
+   Independently of which encoding is chosen, the MTCProof changes once
+   per period, which constrains how an application may identify a
+   certificate (Section 8.2).  Deriving an identifier from anything but
+   the TBSCertificate breaks pinning and fingerprint allow-lists.
+
+16.7.  Interaction with Base MTC Revocation
+
+   The hash chain mechanism complements rather than replaces the base
+   MTC revoked ranges mechanism.  Revoked ranges are relying-party
+   configuration: each relying party maintains, per CA, a list of
+   revoked serial-number ranges, seeded from the CA certificate's
+   minSerial and maxSerial and extended from out-of-band sources
+   (Section 7.5 of [I-D.ietf-plants-merkle-tree-certs]).  They are
+   therefore closer in kind to CRLite [CRLite] or CRLSets [CRLSets] than
+   to a logged or signed artifact: pushed state, distributed out of
+   band, effective only for relying parties that receive it.  Nothing
+   about a revoked range is committed to the Merkle Tree.  Revoked
+   ranges provide a fallback for scenarios where the hash chain
+   mechanism is insufficient:
+
+   *  Compromise of the CA's hash chain seed storage
+
+   *  Bulk revocation of many certificates simultaneously
+
+   *  Relying parties that have not yet implemented hash chain
+      verification
+
+   Relying parties that support both mechanisms SHOULD check both.  A
+   certificate is considered revoked if either mechanism indicates
+   revocation.  Whether to check the base MTC revoked ranges in addition
+   to the hash chain is a relying-party policy choice (Section 16.11).
+
+   This composition is one-directional.  Other revocation signals may
+   only add grounds for revocation: the base MTC revoked ranges, or
+   external systems such as CRLite [CRLite] or CRLSets [CRLSets].  A
+   relying party MAY consult them and MUST reject if any reports the
+   certificate revoked.  A relying party MUST NOT, however, treat a "not
+   revoked" result from any such mechanism as license to accept a
+   certificate whose tick is absent, stale, or fails verification.
+   Doing so would reduce this mechanism's hard-fail to the strippable
+   soft-fail it is designed to prevent (Appendix F.6.2).  A missing tick
+   is thus a rejection in its own right.
+
+   Consulting another mechanism can nonetheless serve two diagnostic
+   purposes when a tick is absent.  The first is distinguishing an
+   actual revocation from a mere distribution outage, which a 404 does
+   not (Section 16.8).  The second is recovering the revocation reason
+   (keyCompromise, cessationOfOperation, and so on) from a mechanism
+   that does convey one, since a tick's absence carries no reason code
+   (Section 16.8).  Neither changes the safe action for an unproven
+   tick, which remains rejection, subject only to the availability
+   levers of Section 13.1.
+
+16.8.  Revocation Transparency and Auditability
+
+   Revocation in this mechanism is the _absence_ of a tick.  The CA
+   stops revealing hash chain values (Section 5.1) and the certificate
+   becomes unusable within two periods.  There is deliberately no
+   positive, signed, non-repudiable artifact asserting "the CA revoked
+   entry X as of period T."  This is a genuine difference from CRLs and
+   OCSP, whose signed responses are such artifacts.  The base MTC
+   revoked-ranges mechanism does not supply one either.  It is relying-
+   party configuration distributed out of band, not anything committed
+   to the log (Section 16.7).  Nor is the absence peculiar to this
+   mechanism.  The Web PKI has no transparent, immutable record of
+   revocations answering to what Certificate Transparency provides for
+   issuance, and the measurement work that documents that gap argues for
+   one [REVOCATION-STATUSES].  The transparency here is asymmetric.
+   Opting a certificate _into_ the mechanism is transparent, because the
+   anchor is an extension committed to the Merkle Tree and so visible to
+   monitors (Section 7).  The per-period revocation _state_, by
+   contrast, is neither signed nor committed, so a monitor cannot
+   observe it in the log.
+
+   Four consequences follow, each bounded:
+
+   *  *Revocation is not provable, and not always observable.* Where
+      tick URLs are derivable, a monitor watching a certificate's tick
+      endpoint can detect that ticks have stopped.  It cannot by that
+      alone prove the CA revoked it rather than suffered a distribution
+      outage, because a 404 does not distinguish the two (Section 10.4).
+      Even that much is unavailable under unguessable tick URLs, and a
+      CA willing to answer monitors and subscribers differently can
+      evade it (Section 16.4).  The dependable signal is therefore the
+      subscriber's own, and what is missing is an artifact on which a
+      third party could rely (Section 16.8.1).
+
+   *  *No revocation-event transparency in the log.* Because revealed
+      ticks are not committed to the tree, the fact and time of a
+      revocation are not recorded there.  Nor do base MTC revoked ranges
+      supply such a record, being relying-party configuration rather
+      than log content (Section 16.7), so no in-band, logged revocation
+      record exists anywhere in MTC.  A deployment that requires one
+      uses an external system that provides it, either CRLs or OCSP,
+      which apply to Merkle Tree Certificates unchanged (Section 12.7 of
+      [I-D.ietf-plants-merkle-tree-certs]), or a signed revocation feed
+      published by the CA (see below).
+
+   *  *No revocation reason codes.* A tick's absence carries no reason
+      (keyCompromise, cessationOfOperation, and so on).  Conveying a
+      reason is out of scope here.  A deployment that needs machine-
+      readable reasons uses the base MTC revoked-ranges mechanism or an
+      external revocation system that carries them.
+
+   *  *No status after expiry.* Tick publication stops when the
+      certificate expires (Section 5.1), so no status can be obtained
+      for an expired certificate, and because revocation is absence,
+      nothing then distinguishes one that was revoked from one that was
+      not.  CRLs and OCSP can in principle answer past notAfter, which
+      profiles for long-term signature validation depend on.  In
+      practice they commonly do not, since a longitudinal study of over
+      a million revoked certificates observed the status still present
+      in the CRL after the certificate had expired in only 26.5 percent
+      of cases.  It was preserved for more than a week beyond expiry in
+      2.9 percent [REVOCATION-STATUSES].  This is out of scope for the
+      TLS use case that motivates this mechanism, where an expired
+      certificate is rejected on validity grounds before any tick is
+      examined.  A tick retained while the certificate was valid does
+      remain verifiable indefinitely, since verification is offline
+      hashing against the anchor in the certificate (Section 9).  It is
+      therefore durable, self-authenticating evidence of non-revocation
+      as of its own period, in 34 bytes rather than an archived signed
+      response.  Only the negative cannot be reconstructed later.
+
+   None of this weakens enforcement, which is what the mechanism exists
+   to provide.  A revoked certificate stops verifying at every relying
+   party within the two-period bound (Section 16.10) whether or not any
+   auditable artifact exists, because enforcement depends on the
+   _presence_ of a fresh tick, not on a monitor observing its absence.
+   Auditability, where a deployment needs it, therefore comes from
+   outside both this mechanism and the base revoked-ranges mechanism:
+   from CRLs or OCSP, which apply unchanged (Section 12.7 of
+   [I-D.ietf-plants-merkle-tree-certs]), or from a signed revocation
+   feed the CA publishes.  This document neither defines nor requires
+   such a feed.  The base specification's own extensibility would,
+   however, admit a record built inside the log rather than beside it,
+   and the following subsection sets out what such a record could and
+   could not establish.
+
+16.8.1.  A Logged Revocation Entry
+
+   MTCLogEntryType is an extensible enum, and the base specification
+   states that future documents MAY define new values for it with
+   corresponding semantics (Section 5.2.1 of
+   [I-D.ietf-plants-merkle-tree-certs]).  A revocation record is
+   therefore constructible within the log.  This document does not
+   define one.  The sketch here exists so that the working group can
+   judge whether it wants one, and where it belongs (Appendix D.9).
+
+   The construction is a new MTCLogEntryType whose data identifies the
+   revoked entry by its serial number, gives the first period for which
+   ticks will be withheld, and optionally carries a reason code.  The CA
+   appends it to its issuance log, so it is covered by the subtree hash
+   and by the cosignatures over that subtree.  Its evidentiary force
+   comes from a property the base specification already establishes,
+   that a subtree signature is a binding assertion by the CA that it has
+   certified every entry in the subtree (Section 12.4 of
+   [I-D.ietf-plants-merkle-tree-certs]).  Any signed checkpoint
+   containing the entry, together with an inclusion proof, therefore
+   suffices to prove the CA made it.  That is the signed, non-repudiable
+   artifact this section otherwise lacks, and unlike a CRL entry it does
+   not expire ([REVOCATION-STATUSES]).  Relying parties are unaffected,
+   since an unrecognized entry type differs in its type field from the
+   entry a relying party reconstructs, so its proof never matches
+   (Section 12.5 of [I-D.ietf-plants-merkle-tree-certs]).  The record is
+   for monitors, and enforcement continues to rest on the presence of a
+   fresh tick.
+
+   Such a record would bind the logged status to the served status in
+   one direction, and would do so cryptographically.  A logged
+   revocation naming period t, together with a tick for that entry whose
+   period is t or later, is a contradiction anyone can check offline.
+   The log entry cannot be repudiated and the tick cannot be forged
+   without inverting the hash (Section 16.1), so the pair is evidence
+   that the CA both declared a revocation and continued to supply the
+   material that defeats it.  Neither artifact requires trusting the
+   monitor that presents it.  One interaction needs care: a CA that has
+   pre-provisioned a distributor with a buffer of future values
+   (Section 13.5) can produce that contradiction without acting again,
+   so a deployment doing both would have to reconcile the logged period
+   with the buffer depth.
+
+   The converse direction cannot be bought at all, and the reason bounds
+   what any revocation transparency mechanism can promise here.
+   Withholding is the absence of a response, and absence is not
+   attributable.  A distribution outage, a failed distributor, a network
+   partition and a deliberate unlogged revocation are indistinguishable
+   to an observer, which is the same reason a 404 does not mean
+   "revoked" (Section 10.4).  Certificate Transparency closes the
+   corresponding gap for issuance by conscripting the relying party,
+   since a certificate lacking evidence of logging is rejected and
+   logging is thereby compelled.  That remedy is unavailable here,
+   because it requires the relying party to check something it does not
+   receive in the handshake, and this mechanism rests on the relying
+   party fetching nothing (Section 16.5).  Pushing the log's contents to
+   clients out of band would restore it only for the clients that
+   receive the push, which is the coverage limitation this document
+   declines to depend on (Appendix G.10).
+
+   Such a mechanism would therefore be sound rather than complete.
+   Nothing inconsistent can be logged and served without producing a
+   proof, but a CA can still withhold silently.  The most a
+   specification can add is an obligation to declare, so that ticks
+   stopping with no corresponding entry becomes a detectable failure to
+   comply rather than an unremarkable event.  This is the asymmetry that
+   governs enforcement reappearing in the transparency layer.  Presence
+   is provable and absence is not, whether the thing present is a tick
+   or a log entry.
+
+16.9.  Downgrade to a Non-MTCRS Certificate
+
+   Hash chain revocation applies per certificate, not per key.  More
+   precisely, it applies per log entry carrying the id-pe-
+   hashChainAnchor extension.  An attacker who holds a private key (the
+   only party who can use any certificate for that key) could therefore
+   present a different, still-valid certificate for the same key that
+   does not carry the anchor extension, escaping tick enforcement.
+
+   This bounds what the mechanism claims.  Withholding ticks bounds the
+   exposure of the certificates that carry an anchor, and revokes a
+   _key_ only when every unexpired certificate for that key carries one.
+   The limitation bites where the mechanism is most wanted, since key
+   compromise is the case for which a two-period bound is worth having
+   at all.
+
+   Certificates without an anchor are outside this mechanism's scope and
+   are handled exactly as in base MTC, by the per-serial revoked-ranges
+   mechanism, which is independent of hash chain revocation and bounded
+   by the short lifetimes and trusted-validity windows of the base
+   model.  A CA revoking a compromised key MUST therefore revoke all of
+   that key's certificates, withholding ticks for those that use this
+   mechanism (Section 5.1) and revoking the serial ranges of the rest
+   (Section 16.7).  Withholding ticks alone would revoke only the
+   certificates that carry an anchor.
+
+   That fallback is weaker than the mechanism it stands in for.  Revoked
+   ranges are relying-party configuration distributed out of band, so
+   they reach only the relying parties that receive them (Section 16.7),
+   which is the same property this document gives as a reason not to
+   depend on external revocation systems (Appendix G.10).  For a key
+   whose certificates do not all carry anchors, the effective guarantee
+   is that of the weakest certificate for that key.
+
+   Unanchored certificates for a key are most likely to exist during a
+   transition.  A deployment presenting a Merkle Tree Certificate to
+   relying parties that support it and a traditionally-signed
+   certificate to those that do not may hold both for one key.  Holding
+   certificates from several CAs for resilience (Section 13.1) permits
+   the same across issuers.  A deployment that wants key-level
+   revocation SHOULD therefore not share a key between certificates that
+   carry an anchor and certificates that do not.  Keeping them on
+   separate keys confines each certificate this mechanism does not cover
+   to a key that is not also used with one it does, so that withholding
+   a certificate's ticks is sufficient to retire it.
+
+   A domain name holder can also narrow how unanchored certificates for
+   its names come to exist, by constraining issuance through CAA
+   [RFC8659].  An issue parameter meaning that certificates for the name
+   must carry a hash chain anchor would compose with the authorization
+   list already published there, rather than needing a critical property
+   that would forbid issuance by every CA that does not implement it.
+   Its distinctive contribution is reach, since it binds any CA that
+   honors it, including ones the subscriber never chose to use, which
+   neither the issuance channel of Section 11 nor anything carried in
+   the certificate can do.  It earns that place only where anchoring
+   varies within a CA, since a CA that anchors everything it issues is
+   already described by an ordinary CAA authorization list.  This
+   document does not define such a parameter, which is separable from
+   this mechanism and can be specified on its own.  What it cannot
+   become is enforcement.  Section 1 of [RFC8659] states that relying
+   parties MUST NOT use CAA records as part of certificate validation,
+   because a CAA record set grants authority as of now whereas a
+   certificate issued before the record was published remains what it
+   was.  It therefore reaches the CA and never the party that checks the
+   tick, which makes it a defense against an accidental downgrade such
+   as a renewal that quietly moves to a product without an anchor.  It
+   is not a defense against an attacker who holds a key and finds a CA
+   willing to issue.
+
+   A root program reaches further than either measure, because it both
+   admits the CA and configures the relying party.  Requiring that every
+   certificate a member CA issues carries a hash chain anchor empties
+   the population of unanchored certificates, and rejecting an MTC
+   certificate that carries none enforces that requirement at the point
+   of use, which is the step CAA cannot take.  The two steps need not
+   arrive together.  [CHROME-MTC] already requires every CA operator it
+   admits to provide both standalone and landmark-relative certificates
+   (Section 8.4), while leaving the choice between them to the
+   subscriber's ACME client.  That mandates a capability across the
+   ecosystem without mandating its use in any particular certificate.
+   Requiring anchored issuance first and enforcing on it once adoption
+   is sufficient follows the same order, which is the order Appendix F.7
+   describes.
+
+   The limitation behind these measures is the general property that
+   revocation targets certificates rather than keys, and it is not
+   specific to this mechanism.  It is more visible here only because
+   this mechanism makes the certificates it covers substantially harder
+   to keep alive than the ones it does not.
+
+16.10.  Clock Skew
+
+   The default acceptance window of verification step 4 accepts a tick
+   whose period is the verifier's expected_period, the immediately
+   preceding period (expected_period - 1), or the immediately following
+   period (expected_period + 1).  This tolerates a verifier clock that
+   is behind or ahead of the authenticating party's by up to one full
+   tick_interval in either direction.  It also tolerates an
+   authenticating party that is still serving the previous period's tick
+   for caching or staggered refresh (Section 13.3).  Figure 7 shows the
+   window.
+
+                       expected_period
+                              |
+                              v
+       +------+------+------+------+------+------+
+       | t-3  | t-2  | t-1  |  t   | t+1  | t+2  |
+       +------+------+------+------+------+------+
+          ^          |                    |     ^
+          |          +---- accepted ------+     |
+          |             default window          |
+          |                                     |
+       rejected                             rejected
+       too stale                         clock behind
+
+       Figure 7: The default acceptance window.  A tick outside it is
+       rejected with certificate_expired, whichever side it falls on
+
+   The two directions are not equivalent in cost.  Accepting the
+   immediately following period, which is what a verifier whose clock is
+   behind will see, costs nothing in revocation terms.  That tick is a
+   fresher non-revocation proof than the verifier expected, and a tick
+   for a period the CA has not yet reached cannot be forged, by preimage
+   resistance (Section 16.1).  Accepting the immediately preceding
+   period, which arises from a verifier clock that is ahead or from a
+   deliberately stale tick, accepts a non-revocation proof up to one
+   tick_interval old.  That is the intended one-period grace.
+
+   Deployments with known clock-skew or availability concerns MAY widen
+   the window, as step 4 permits.  Accepting further preceding periods
+   tolerates a tick-distribution outage (Section 13.1) at the cost of
+   correspondingly delayed revocation enforcement, while accepting
+   further following periods tolerates a verifier clock that runs
+   further behind and carries no revocation cost.
+
+   Widening the preceding side relaxes the revocation bound one-for-one.
+   A relying party that accepts the k immediately preceding periods
+   keeps a withheld certificate usable for up to k + 1 periods after the
+   CA stops revealing values, in place of the two periods the default
+   window gives (Section 5.1).  The worst-case revocation latency stated
+   elsewhere in this document, at most two periods, therefore assumes
+   the default window.  How quickly revocation takes effect at a given
+   relying party is a property of that relying party's policy, not of
+   the hash chain.  This is why widening is a deliberate, ecosystem-wide
+   trade-off rather than a per-server option (Section 16.11).
+
+   The acceptance window is anchored to the relying party's own clock,
+   so revocation timeliness depends on that clock's integrity.  A clock
+   running behind true time shifts the window toward the past, so a
+   genuine but stale tick, one the CA revealed before it stopped
+   revealing, can fall inside the window and be accepted.  An attacker
+   who moves a relying party's clock backward can thereby keep a revoked
+   certificate acceptable for roughly the induced offset, bounded by the
+   window width and ultimately by notAfter, checked against the same
+   clock.  The forward direction adds no forgery avenue, since a tick
+   for a period the CA has not yet reached cannot be produced without
+   inverting the hash (Section 16.1).  The exposure comes entirely from
+   the clock being wrong, not from accepting a fresher-than-expected
+   proof, and it is the trusted-time dependency shared by every time-
+   based check: notAfter, OCSP thisUpdate and nextUpdate, CRL validity,
+   and the base MTC short-lived-certificate model itself.
+
+   Two consequences follow.  The acceptance window SHOULD be kept as
+   narrow as clock quality allows, since widening it for outage
+   tolerance enlarges this exposure.  And a deployment whose relying
+   parties cannot trust their clocks gains little revocation timeliness
+   from a short tick_interval, because the clock error rather than the
+   period then bounds how long a revoked certificate remains acceptable.
+   A relying party that requires tight revocation SHOULD therefore
+   source time from a trusted, integrity-protected clock.  Both this and
+   the window width are relying-party policy choices (Section 16.11).
+
+16.11.  Relying-Party Policy Levers
+
+   Several behaviors of this mechanism are configurable by relying-party
+   (client) policy, which a root program may also set.  This section
+   collects them for convenience.  Each is specified in full in the
+   section cited, and nothing here is a new requirement.
+
+   Acceptance window:  The default accepts a tick for the current,
+      immediately preceding, or immediately following period.  A relying
+      party MAY widen the preceding side to tolerate a tick-distribution
+      outage, at the cost of correspondingly delayed revocation, or the
+      following side to tolerate a clock that runs behind, at no
+      revocation cost.  Widening applies to every certificate the
+      relying party validates (Section 16.10, Section 13.1).  Widening
+      is the only direction available: a relying party MUST NOT narrow
+      the window, since authenticating parties target the default and
+      cannot observe a narrower one (step 4 of Section 9.2).
+
+   Trusted time:  The acceptance window is anchored to the relying
+      party's clock, so revocation timeliness is bounded by clock
+      integrity.  A relying party that requires tight revocation SHOULD
+      source time from a trusted, integrity-protected clock and keep its
+      window narrow (Section 16.10).
+
+   Maximum verification cost:  Verification hashes forward up to
+      tick.period times, which the 16-bit period field caps at 65,535
+      for any certificate from any CA (Section 4).  A relying party MAY
+      set a lower local ceiling on a certificate's implied maximum
+      period and reject anything above it before hashing, and a
+      constrained implementation SHOULD do so (step 5 of Section 9.2,
+      Section 13.6).  This lever differs from the acceptance window in
+      kind, not just in degree.  A window that is too narrow rejects a
+      certificate until its next tick refresh, whereas a ceiling below
+      what the deployment's CAs actually issue rejects those
+      certificates for their whole lifetime.  It is therefore set
+      against the tick_interval values a relying party expects to
+      encounter, not against its own preferences alone.
+
+   Cross-checking base MTC revocation:  A relying party that also
+      supports the base MTC revoked-ranges mechanism SHOULD check both.
+      A certificate is revoked if either indicates so (Section 16.7).
+
+   Resumption and long-lived connections:  The tick is checked only at
+      full-handshake certificate validation.  A relying party that wants
+      revocation to take effect within about one tick_interval SHOULD
+      cap session-ticket reuse and force periodic full handshakes, so
+      that a fresh tick is re-checked (Section 13.7).
+
+   Requiring the mechanism on longer-lived certificates:  A relying
+      party MAY refuse a certificate that carries no hash chain anchor
+      once its validity period exceeds a configured threshold, since
+      without an anchor its exposure to a detected compromise is bounded
+      only by that period (Appendix F.1).  The threshold is at once the
+      lifetime above which the relying party demands revocation and the
+      worst-case exposure it accepts where revocation is absent, so a
+      certificate that escapes the requirement is by construction one
+      short enough for expiry to bound.  It also narrows the downgrade
+      of Section 16.9, since an unanchored certificate for the same key
+      is then usable against that relying party only if its own validity
+      period is within the threshold.  The check reads notBefore,
+      notAfter, and the presence of the extension, so it costs neither
+      hashing nor network access.  As with the acceptance window it
+      applies to every certificate that relying party validates, and a
+      threshold below what its CAs issue unanchored rejects those
+      certificates outright.
+
+   Enforcement and criticality:  A relying party that implements this
+      mechanism MUST enforce hash chain verification whenever the id-pe-
+      hashChainAnchor extension is present.  An ecosystem MAY
+      additionally mark the extension critical for hard enforcement
+      (Section 7.2).
+
+   Fixed, not a lever:  Relying parties MUST NOT fetch ticks or use the
+      distribution endpoint as an online responder (Section 16.5).  This
+      is a constraint, not a configurable choice.
+
+   If the base specification adopts the general proof_extensions field
+   (Appendix E), further relying-party handling applies: size-budget
+   enforcement, committed admissibility, and unknown-type handling
+   (Appendix E.1).
+
+   The resilience levers that involve holding certificates from multiple
+   CAs, operating redundant tick distribution, and choosing
+   tick_interval are authenticating-party or CA decisions, not relying-
+   party policy (Section 13.1, Section 4).
 
 17.  IANA Considerations
 
@@ -3796,7 +3856,7 @@ Table of Contents
    permanent registration for values defined by Standards Track RFCs and
    other open standards, or for values the experts find to be in use.
    This document is Experimental and has no known implementations
-   (Section 16).  If it advances to the Standards Track, or the
+   (Section 14).  If it advances to the Standards Track, or the
    mechanism comes into use, the registration can be made permanent by
    the process that section describes.
 
@@ -4252,134 +4312,160 @@ Appendix D.  Open Questions for the Working Group
    adopts this document should expect to settle them.  Nothing in this
    section is itself a normative requirement.
 
-   1.  *Where does the anchor live?* The anchor can be an X.509
-       extension of the TBSCertificateLogEntry (Section 7) or a
-       committed entry extension (Appendix G.4).  Both are committed to
-       the Merkle Tree, so the verification procedure is identical
-       either way.  The trade is compactness and committed/uncommitted
-       symmetry against a criticality lever and MTCRS-agnostic log and
-       cosigner software.  The entry extension also keeps the amended
-       MTCProof parse free of an identifier this document defines, which
-       the X.509 extension does not (Appendix C). _Preference:_ the
-       X.509 extension, because it lets the mechanism layer onto an
-       unmodified MTC log and cosigner deployment.  Whichever is chosen
-       becomes the single anchor home for the ecosystem.
+D.1.  Where Does the Anchor Live?
 
-   2.  *How is the tick carried in the MTCProof?* Either as a trailing
-       status_tick field (Section 8.1.1) or as a hash_chain_tick proof
-       extension (Appendix G.8). _Preference:_ the trailing field, as
-       the minimal change to a base-specification-owned structure,
-       adding no variable-length "ignore if unknown" region.
+   The anchor can be an X.509 extension of the TBSCertificateLogEntry
+   (Section 7) or a committed entry extension (Appendix G.4).  Both are
+   committed to the Merkle Tree, so the verification procedure is
+   identical either way.  The trade is compactness and committed/
+   uncommitted symmetry against a criticality lever and MTCRS-agnostic
+   log and cosigner software.  The entry extension also keeps the
+   amended MTCProof parse free of an identifier this document defines,
+   which the X.509 extension does not (Appendix C). _Preference:_ the
+   X.509 extension, because it lets the mechanism layer onto an
+   unmodified MTC log and cosigner deployment.  Whichever is chosen
+   becomes the single anchor home for the ecosystem.
 
-   3.  *Does the base specification want general proof-level
-       extensibility at all?* This is separable from question 2.  The
-       proof_extensions field (Appendix E) is worth adopting only if the
-       working group wants a reusable extension point for future proof-
-       level mechanisms.  If it is adopted, the tick should use it
-       rather than a bare trailing field. _Preference:_ not adopted,
-       since hash chain revocation alone does not require it
-       (Appendix E).
+D.2.  How Is the Tick Carried in the MTCProof?
 
-   4.  *What should the default tick_interval and acceptance window be?*
-       The two jointly set revocation latency: a withheld tick stops
-       verifying within (k + 1) tick_intervals, where k is the number of
-       preceding periods a relying party accepts (Section 14.10).  This
-       document uses one hour (Appendix F.3) with k = 1, which is where
-       the two-period bound quoted throughout comes from.  They are
-       worth settling separately because they have different owners.
-       tick_interval is per-certificate and set by the CA, carried in
-       the certificate for every verifier to read (Section 4), whereas
-       the acceptance window is relying-party or root-program policy
-       applying uniformly to every certificate that party validates
-       (Section 14.11).  A one-day interval is also viable and
-       materially shifts the balance between revocation latency and
-       outage tolerance (Section 15.1).  Widening k buys outage
-       tolerance at a one-for-one cost in latency (Section 14.10).
-       _Preference:_ one hour with k = 1.  Neither is a protocol
-       question.  Both concern recommended defaults and what root
-       programs should require.  The one protocol question adjacent to
-       them is the width of the tick's period field, which caps how
-       short a period can be at all and bounds the forward hashing a CA
-       can impose on relying parties (Section 4).  That is question 7.
+   Either as a trailing status_tick field (Section 8.1.1) or as a
+   hash_chain_tick proof extension (Appendix G.8). _Preference:_ the
+   trailing field, as the minimal change to a base-specification-owned
+   structure, adding no variable-length "ignore if unknown" region.
 
-   5.  *Should period 0 enforce revocation?* The period 0 tick is the
-       public anchor, which gives the CA a one-period grace before it
-       must serve a new certificate's first secret tick but defers
-       enforcement of a just-issued certificate to the start of period 2
-       (Appendix F.4).  Computing the hash chain one element longer
-       removes the grace and enforces from period 1.  That construction
-       is given in Appendix F.4. _Preference:_ keep the grace, as the
-       operational headroom is generally worth more than sub-two-period
-       revocation of a brand-new certificate.
+D.3.  Does the Base Specification Want General Proof-Level Extensibility
+      at All?
 
-   6.  *Is "tick" the right name for the revealed value?* The name
-       appears throughout this document and in the field and parameter
-       names it proposes (status_tick, tick_interval, tickInterval), so
-       it is cheap to change now and expensive later.  It was chosen for
-       its clock connotation, one per period on a fixed cadence, and
-       because it is unclaimed in TLS and PKI, unlike "token",
-       "witness", "checkpoint" and "heartbeat".  "Token" is doubly
-       unavailable, since this document already uses it for the
-       capability that addresses a tick URL (Section 10.3) and its
-       bearer-credential connotation is the opposite of what a tick is,
-       which is public, unsigned, and useless without the certificate.
-       The weakness of "tick" is that it ordinarily names a time event
-       rather than a value, which is why this document always presents
-       it as the pair {period, value}. _Preference:_ keep "tick", with
-       the accurate alternative "non-revocation proof" used as the gloss
-       at first mention rather than as the primary name.
+   This is separable from Appendix D.2.  The proof_extensions field
+   (Appendix E) is worth adopting only if the working group wants a
+   reusable extension point for future proof-level mechanisms.  If it is
+   adopted, the tick should use it rather than a bare trailing field.
+   _Preference:_ not adopted, since hash chain revocation alone does not
+   require it (Appendix E).
 
-   7.  *How should the worst-case verification cost be bounded, and by
-       which lever?* Verification hashes forward once per elapsed
-       period, so a relying party validating an arbitrary certificate is
-       exposed not to the typical cost but to the worst case the wire
-       format permits, which the 16-bit period field fixes at 65,535
-       hash computations however the issuing CA sets its parameters
-       (Section 4, Section 15.6).  Two levers reduce that bound, and
-       they are alternatives rather than complements, since either makes
-       the other unnecessary.  A hierarchical construction buys the
-       reduction with bytes, taking the worst case to 511 for a 66-byte
-       tick in place of a 34-byte one, and removing the CA's per-
-       certificate traversal state (Appendix G.6.1, Section 15.2.1).  A
-       narrower period field buys it with parameter freedom, an 8-bit
-       field bounding the worst case at 254 while saving a byte rather
-       than spending 32 (Appendix G.6.3).  A longer default
-       tick_interval reduces the typical cost by more than a two-level
-       chain does and spends no bytes, but it does not touch this bound
-       at all, and it is question 4 rather than a third lever here
-       because what it trades against is revocation latency.  Whichever
-       lever is chosen, the choice is made once for the ecosystem rather
-       than per certificate (Appendix G.6), as the anchor's home is in
-       question 1. _Preference:_ neither, keeping the flat chain for its
-       simplicity and smaller per-handshake cost, and the 16-bit field
-       because the configuration an 8-bit one would forbid is a
-       configuration a root program currently permits.  This is the
-       least settled preference in this section.  A working group that
-       treats constrained relying parties as a first-class constituency
-       should adopt one of the two levers, and should not adopt both
-       (Appendix G.6.3).
+D.4.  Should the Per-Certificate Tick URL Be a Link Relation?
 
-   8.  *Should revocations be recorded in the log?* Revocation here is
-       the absence of a tick, so nothing attests that a revocation
-       occurred (Section 14.8).  The base specification's
-       MTCLogEntryType is extensible, so a revocation entry is
-       constructible, and Section 14.8.1 sketches one.  It would supply
-       a permanent, non-repudiable record, could carry a reason code,
-       and would make a logged revocation contradicted by a later tick
-       provable by anyone offline.  It would not make silent withholding
-       detectable, because absence is not attributable and the remedy
-       Certificate Transparency uses is unavailable to a mechanism whose
-       relying parties fetch nothing.  The cost is that CA cosigners
-       must recognize the new entry type before they can sign any
-       subtree containing one (Section 5.4 of
-       [I-D.ietf-plants-merkle-tree-certs]).  The question is also
-       separable from hash chains, since such a record would serve the
-       base revoked-ranges mechanism equally well. _Preference:_ not in
-       this document, which asks the base specification for one change
-       and has no implementations yet.  A companion document, or the
-       base specification itself, is the better home.  A working group
-       that regards the missing revocation record as the more pressing
-       gap may reasonably decide otherwise.
+   Where a CA uses unguessable tick URLs, this document carries the
+   complete per-certificate URL in a tickURL field of the ACME order
+   object (Section 11).  The base specification's own ACME extension
+   reaches for a different instrument in the same situation, defining an
+   acme-optional-alternate link relation served on the certificate
+   response rather than adding a field to the order object (Section 9.1
+   of [I-D.ietf-plants-merkle-tree-certs]).  A link relation fits
+   tickURL for the same reason it fits there, since what it names is a
+   resource belonging to the issued certificate rather than a property
+   of the order that produced it, and it would register in the same
+   registry the base specification already uses.  The question is only
+   about this one field. tickBaseURL is a per-CA constant and belongs in
+   the directory metadata either way (Section 11). _Preference:_ the
+   order object field, as the simpler of the two and the one for which
+   Section 9.7.2 of [RFC8555] already provides a registry.  The working
+   group may reasonably weigh consistency with the base specification's
+   idiom above that.
+
+D.5.  What Should the Default tick_interval and Acceptance Window Be?
+
+   The two jointly set revocation latency: a withheld tick stops
+   verifying within (k + 1) tick_intervals, where k is the number of
+   preceding periods a relying party accepts (Section 16.10).  This
+   document uses one hour (Appendix F.3) with k = 1, which is where the
+   two-period bound quoted throughout comes from.  They are worth
+   settling separately because they have different owners. tick_interval
+   is per-certificate and set by the CA, carried in the certificate for
+   every verifier to read (Section 4), whereas the acceptance window is
+   relying-party or root-program policy applying uniformly to every
+   certificate that party validates (Section 16.11).  A one-day interval
+   is also viable and materially shifts the balance between revocation
+   latency and outage tolerance (Section 13.1).  Widening k buys outage
+   tolerance at a one-for-one cost in latency (Section 16.10).
+   _Preference:_ one hour with k = 1.  Neither is a protocol question.
+   Both concern recommended defaults and what root programs should
+   require.  The one protocol question adjacent to them is the width of
+   the tick's period field, which caps how short a period can be at all
+   and bounds the forward hashing a CA can impose on relying parties
+   (Section 4, Appendix D.8).
+
+D.6.  Should Period 0 Enforce Revocation?
+
+   The period 0 tick is the public anchor, which gives the CA a one-
+   period grace before it must serve a new certificate's first secret
+   tick but defers enforcement of a just-issued certificate to the start
+   of period 2 (Appendix F.4).  Computing the hash chain one element
+   longer removes the grace and enforces from period 1.  That
+   construction is given in Appendix F.4. _Preference:_ keep the grace,
+   as the operational headroom is generally worth more than sub-two-
+   period revocation of a brand-new certificate.
+
+D.7.  Is "Tick" the Right Name for the Revealed Value?
+
+   The name appears throughout this document and in the field and
+   parameter names it proposes (status_tick, tick_interval,
+   tickInterval), so it is cheap to change now and expensive later.  It
+   was chosen for its clock connotation, one per period on a fixed
+   cadence, and because it is unclaimed in TLS and PKI, unlike "token",
+   "witness", "checkpoint" and "heartbeat".  "Token" is doubly
+   unavailable, since this document already uses it for the capability
+   that addresses a tick URL (Section 10.3) and its bearer-credential
+   connotation is the opposite of what a tick is, which is public,
+   unsigned, and useless without the certificate.  The weakness of
+   "tick" is that it ordinarily names a time event rather than a value,
+   which is why this document always presents it as the pair {period,
+   value}. _Preference:_ keep "tick", with the accurate alternative
+   "non-revocation proof" used as the gloss at first mention rather than
+   as the primary name.
+
+D.8.  How Should the Worst-Case Verification Cost Be Bounded, and by
+      Which Lever?
+
+   Verification hashes forward once per elapsed period, so a relying
+   party validating an arbitrary certificate is exposed not to the
+   typical cost but to the worst case the wire format permits, which the
+   16-bit period field fixes at 65,535 hash computations however the
+   issuing CA sets its parameters (Section 4, Section 13.6).  Two levers
+   reduce that bound, and they are alternatives rather than complements,
+   since either makes the other unnecessary.  A hierarchical
+   construction buys the reduction with bytes, taking the worst case to
+   511 for a 66-byte tick in place of a 34-byte one, and removing the
+   CA's per-certificate traversal state (Appendix G.6.1,
+   Section 13.2.1).  A narrower period field buys it with parameter
+   freedom, an 8-bit field bounding the worst case at 254 while saving a
+   byte rather than spending 32 (Appendix G.6.3).  A longer default
+   tick_interval reduces the typical cost by more than a two-level chain
+   does and spends no bytes, but it does not touch this bound at all,
+   and it belongs to Appendix D.5 rather than being a third lever here,
+   because what it trades against is revocation latency.  Whichever
+   lever is chosen, the choice is made once for the ecosystem rather
+   than per certificate (Appendix G.6), as the anchor's home is in
+   Appendix D.1. _Preference:_ neither, keeping the flat chain for its
+   simplicity and smaller per-handshake cost, and the 16-bit field
+   because the configuration an 8-bit one would forbid is a
+   configuration a root program currently permits.  This is the least
+   settled preference in this section.  A working group that treats
+   constrained relying parties as a first-class constituency should
+   adopt one of the two levers, and should not adopt both
+   (Appendix G.6.3).
+
+D.9.  Should Revocations Be Recorded in the Log?
+
+   Revocation here is the absence of a tick, so nothing attests that a
+   revocation occurred (Section 16.8).  The base specification's
+   MTCLogEntryType is extensible, so a revocation entry is
+   constructible, and Section 16.8.1 sketches one.  It would supply a
+   permanent, non-repudiable record, could carry a reason code, and
+   would make a logged revocation contradicted by a later tick provable
+   by anyone offline.  It would not make silent withholding detectable,
+   because absence is not attributable and the remedy Certificate
+   Transparency uses is unavailable to a mechanism whose relying parties
+   fetch nothing.  The cost is that CA cosigners must recognize the new
+   entry type before they can sign any subtree containing one
+   (Section 5.4 of [I-D.ietf-plants-merkle-tree-certs]).  The question
+   is also separable from hash chains, since such a record would serve
+   the base revoked-ranges mechanism equally well. _Preference:_ not in
+   this document, which asks the base specification for one change and
+   has no implementations yet.  A companion document, or the base
+   specification itself, is the better home.  A working group that
+   regards the missing revocation record as the more pressing gap may
+   reasonably decide otherwise.
 
 Appendix E.  Proposed MTCProof Extensibility
 
@@ -4391,8 +4477,8 @@ Appendix E.  Proposed MTCProof Extensibility
    worth adopting only if the base specification wants future
    mechanisms, beyond hash chain revocation, to attach data to the
    certificate presentation without a further structural change each
-   time.  It is not required for hash chain revocation alone, and it
-   carries the abuse surface discussed in Appendix E.1.
+   time (Appendix D.3).  It is not required for hash chain revocation
+   alone, and it carries the abuse surface discussed in Appendix E.1.
 
    The structure itself belongs to the base specification, and this
    appendix deliberately does not define it (Appendix C).  Its shape is
@@ -4505,7 +4591,7 @@ F.1.  Why Functional Revocation Is Superior to Passive Expiry
        hash chain revocation, this is at most two periods (e.g., two
        hours) at any full handshake, and at a client that resumes
        sessions it is bounded instead by that client's resumption window
-       (Section 15.7).
+       (Section 13.7).
 
    3.  *CA validation frequency:* How often the CA re-verifies that the
        subscriber remains authorized (domain control, organization
@@ -4586,7 +4672,7 @@ F.1.1.  The Role of CA Validation Frequency
    directly into security improvement.  The CA can act on a detected
    problem at the very next period boundary, by withholding that
    certificate's tick, and the certificate stops verifying within at
-   most two periods of the decision (Section 5.1, Section 14.10).  This
+   most two periods of the decision (Section 5.1, Section 16.10).  This
    creates an incentive structure where CAs that validate more
    frequently provide measurably better security, an incentive that does
    not exist in a pure short-lived-certificate model without revocation.
@@ -4649,9 +4735,9 @@ F.3.  Why One Hour (or One Day) Periods
    Revocation latency:  A certificate stops being usable within at most
       two hours of the CA's decision to revoke it, the current period
       plus the one preceding period the acceptance window admits
-      (Section 14.10).  That bound is per certificate, so retiring a
+      (Section 16.10).  That bound is per certificate, so retiring a
       compromised key means revoking every unexpired certificate for it
-      (Section 14.9).
+      (Section 16.9).
 
    Operational feasibility:  Authenticating parties must fetch a new
       tick once per hour.  This is a trivial HTTP request for a small
@@ -4661,28 +4747,28 @@ F.3.  Why One Hour (or One Day) Periods
       1,128, well inside the 65,535 the 16-bit period field permits
       (Section 4).  Verification requires at most 1,127 hash
       computations, a few hundred microseconds on a general-purpose core
-      and tens of milliseconds on a constrained one (Section 15.6).
+      and tens of milliseconds on a constrained one (Section 13.6).
 
    CA storage:  A CA MAY store one seed per active certificate (32 bytes
       each, or 32 GB for 1 billion), but need not.  Deriving seeds from
-      a single long-term CA secret (Section 15.2.2) reduces per-
+      a single long-term CA secret (Section 13.2.2) reduces per-
       certificate secret storage to nothing, since any hash chain is
       recomputed on demand from that one secret and the public entry
-      identity.  Traversal or checkpoint schemes (Section 15.2.1) bound
+      identity.  Traversal or checkpoint schemes (Section 13.2.1) bound
       the recomputation cost, so "store millions of secret seeds" is a
       choice, not a requirement.
 
    A one-day period is also viable, reducing operational frequency at
    the cost of up to 48-hour revocation latency.  At day-scale periods
    the hash chain is short enough that a CA can store each hash chain in
-   full and skip the fractal traversal of Section 15.2.1 entirely, since
+   full and skip the fractal traversal of Section 13.2.1 entirely, since
    hash_chain_length is then on the order of the lifetime in days, e.g.
    47 for a 47-day certificate.  It cuts relying-party verification cost
    by the same factor, from at most 1,127 hash computations to at most
    46, which makes it the cheapest accommodation available for
    constrained verifiers, since it spends no additional bytes
-   (Section 15.6, Appendix G.6).  The once-per-day fetch cadence also
-   gives a far more forgiving outage-tolerance budget (Section 15.1),
+   (Section 13.6, Appendix G.6).  The once-per-day fetch cadence also
+   gives a far more forgiving outage-tolerance budget (Section 13.1),
    and the price is coarser revocation.
 
    A day-scale period should be compared against a same-lifetime
@@ -4745,7 +4831,8 @@ F.4.  Rationale for Using the Anchor as the Period 0 Tick
    secret value h[hash_chain_length], which the CA can withhold.  This
    document uses the shorter construction because the operational grace
    period is generally more valuable than sub-two-period revocation of a
-   just-issued certificate.
+   just-issued certificate, and refers the choice to the working group
+   (Appendix D.6).
 
 F.5.  Why Embed the Tick in the MTCProof
 
@@ -4840,9 +4927,9 @@ F.6.1.  Why Micali's CRS Did Not Deploy
    *  *Delivery is free.* The tick rides inside the MTCProof the
       authenticating party already presents in the handshake
       (Section 8), so the relying party receives it with the certificate
-      and fetches nothing (Section 14.5).  The only fetch is the
+      and fetches nothing (Section 16.5).  The only fetch is the
       server's own once-per-period refresh, a static cacheable GET that
-      can be delegated (Section 15.5).
+      can be delegated (Section 13.5).
 
    *  *The commitment is free.* MTC already commits the anchor in the
       Merkle Tree and covers it with cosignatures (Section 7), so the
@@ -4852,8 +4939,8 @@ F.6.1.  Why Micali's CRS Did Not Deploy
 
    *  *The remaining costs are tractable at scale.* Zero per-period
       signing keeps post-quantum signatures off the revocation path
-      (Section 14.2), precomputation is bounded by fractal traversal
-      (Section 15.2.1), and distribution is delegable, which addresses
+      (Section 16.2), precomputation is bounded by fractal traversal
+      (Section 13.2.1), and distribution is delegable, which addresses
       the generation and distribution load that also burdened CRS.
 
    CRS's limitation was therefore delivery and enforcement, not the hash
@@ -4913,7 +5000,7 @@ F.6.2.  Why OCSP Stapling Is Not Enforceable, and This Is
    unsigned fetch rather than a time-bounded signed response with a
    responder certificate, and where Must-Staple binds one certificate to
    one responder with no fallback, a server can hold certificates from
-   several CAs and present one whose tick is current (Section 15.1).
+   several CAs and present one whose tick is current (Section 13.1).
 
    Adoption is the other half of Must-Staple's failure, and it turns on
    incentives rather than on fragility.  Must-Staple asked a site
@@ -4949,11 +5036,11 @@ F.6.2.  Why OCSP Stapling Is Not Enforceable, and This Is
    rather than sudden, since a failure to refresh raises an operational
    alarm while the certificate is still working (Section 12), and it is
    recoverable by ordinary certificate selection rather than by any new
-   failover machinery (Section 15.1).
+   failover machinery (Section 13.1).
 
    What remains true is that an ecosystem requiring this mechanism makes
    tick distribution part of its availability floor, which is the
-   substance of the trade (Section 15.1).
+   substance of the trade (Section 13.1).
 
 F.6.3.  Operational Simplicity and Resilience
 
@@ -4966,17 +5053,17 @@ F.6.3.  Operational Simplicity and Resilience
    overloaded tick service can only serve public precomputed values.  It
    cannot mint a false non-revocation statement, unlike a responder
    whose signing key is a high-value online target.  Relying parties
-   impose no load at all, because they never fetch (Section 14.5), which
+   impose no load at all, because they never fetch (Section 16.5), which
    removes the responder-in-the-hot-path that made online OCSP a
    latency, availability, and privacy problem.
 
    Two qualifications apply.  The new cost is on the generation side,
    since the CA must produce the current tick for every non-revoked
-   certificate each period, a precompute workload (Section 15.2) rather
+   certificate each period, a precompute workload (Section 13.2) rather
    than OCSP's sign-on-demand.  And the failure mode differs by design:
    an OCSP responder outage fails open, whereas a tick-distribution
    outage lasting longer than the buffer fails closed for the affected
-   certificate (Section 15.1).
+   certificate (Section 13.1).
 
 F.6.4.  Why the Browser Move to Pushed Lists Is Not a Counter-Example
 
@@ -4989,10 +5076,10 @@ F.6.4.  Why the Browser Move to Pushed Lists Is Not a Counter-Example
    reasons for that move do not apply here.  Online OCSP had to soft-
    fail, whereas this mechanism hard-fails by construction.  Client-
    driven OCSP leaked relying-party browsing to CAs, whereas relying
-   parties here never contact the CA at all (Section 14.5).  Must-
+   parties here never contact the CA at all (Section 16.5).  Must-
    Staple's stapling pipeline was fragile, whereas the refresh here is a
    trivial cacheable GET with no signing, buffered for a period and
-   backed by multi-CA fallback (Section 14.4).
+   backed by multi-CA fallback (Section 16.4).
 
    The pushed-list systems remain valuable and complementary, being
    comprehensive and fail-closed, but they are vendor-controlled and
@@ -5022,7 +5109,7 @@ F.6.5.  Why CAs Are Retiring OCSP
    CA that chooses not to retain that information may still be compelled
    to collect it.  This mechanism does not reduce that exposure, it
    removes the interaction that creates it.  Relying parties never
-   contact the CA or any distributor (Section 14.5), because the tick is
+   contact the CA or any distributor (Section 16.5), because the tick is
    already embedded in the certificate presentation and verified offline
    (Section 9).  There is no relying-party request to observe, to log,
    or to be compelled to retain.  The objection that ended OCSP is
@@ -5046,7 +5133,7 @@ F.6.5.  Why CAs Are Retiring OCSP
    precomputed public values that are immutable within their period
    (Appendix F.6.3).  It can therefore be run as ordinary static content
    distribution and delegated in whole to parties trusted for
-   availability alone (Section 15.5), which is exactly what an online
+   availability alone (Section 13.5), which is exactly what an online
    signing service cannot be.
 
    One consequence of the retirement cuts the other way.  CAs retiring
@@ -5064,6 +5151,8 @@ F.7.  Incremental Deployment and Transition
    ecosystem where not every relying party will support hash chain
    revocation at once.
 
+F.7.1.  The Criticality Lever
+
    Marking id-pe-hashChainAnchor non-critical (Section 7.2) lets CAs
    begin issuing certificates with hash chain anchors before every
    relying party enforces them.  Aware relying parties act on the
@@ -5077,6 +5166,8 @@ F.7.  Incremental Deployment and Transition
    applies to an ecosystem in which all relying parties are known to
    support the mechanism, or to a root program once adoption is
    sufficient.
+
+F.7.2.  Amending the MTCProof
 
    Amending MTCProof needs more care, because the base MTCProof has no
    extensibility point and Section 7.2 of
@@ -5123,6 +5214,8 @@ F.7.  Incremental Deployment and Transition
    Folding it into the base specification now, while MTC is greenfield,
    avoids any lasting split between aware and unaware parsers.
    Retrofitting it after wide deployment would be far harder.
+
+F.7.3.  Negotiating the Extended Parse
 
    Negotiation is a compatibility guard rather than a fourth independent
    route.  The trailing bytes still have to be defined by whoever owns
@@ -5173,7 +5266,7 @@ F.7.  Incremental Deployment and Transition
 
    A second identifier, meaning that the relying party will not accept
    an MTC certificate lacking an anchor, would let it state the
-   Section 14.9 mitigation for itself rather than depend on the
+   Section 16.9 mitigation for itself rather than depend on the
    deployment having kept anchored and unanchored certificates on
    separate keys.  Neither identifier adds enforcement power, since a
    relying party can reject on either ground unilaterally, and what they
@@ -5205,10 +5298,10 @@ G.1.  DNS-Based Tick Distribution
    {serial_number}._tick.<zone> on demand from the same hash chain state
    (Section 10), so no per-certificate records are stored.  A TTL no
    longer than tick_interval bounds staleness: a briefly stale record
-   stays acceptable under the one-period grace (Section 14.10), and the
+   stays acceptable under the one-period grace (Section 16.10), and the
    authenticating party's pre-installation check (Section 9) refetches
    an unexpectedly stale one.  Because ticks are self-authenticating,
-   the delegated-distribution model (Section 15.5) applies unchanged,
+   the delegated-distribution model (Section 13.5) applies unchanged,
    with edge DNS nodes fed the same bundle.
 
    DNSSEC is neither required nor worth adding here.  Each tick is self-
@@ -5259,7 +5352,7 @@ G.2.  OCSP-Based Tick Distribution
    *  *It invites relying-party fetching.* OCSP is strongly associated
       with client-side status checking, so an OCSP-shaped interface
       risks reintroducing the CA-visible relying-party fetch, latency,
-      and soft-fail that Section 14.5 forbids and this design avoids.
+      and soft-fail that Section 16.5 forbids and this design avoids.
 
    Because the relying party only ever sees the embedded tick, an
    additional CA-to-authenticating-party transport is a bilateral choice
@@ -5289,9 +5382,9 @@ G.3.  AIA-Based Tick URL Discovery
 
    Only the authenticating party needs it:  Relying parties verify the
       embedded tick offline against the committed anchor and never fetch
-      ticks (Section 14.5).  Putting a per-certificate URL in the
+      ticks (Section 16.5).  Putting a per-certificate URL in the
       certificate would not make fetching infeasible, since the URL is
-      derivable regardless (Section 14.5).  Placing it in a field
+      derivable regardless (Section 16.5).  Placing it in a field
       relying parties routinely parse would, however, standardize and
       encourage client-side tick fetching, reintroducing the OCSP-style
       privacy leak, latency, and soft-fail problems this mechanism
@@ -5403,23 +5496,23 @@ G.5.  Truncating the Anchor and Tick
    would save 16 bytes in every log entry, cutting the committed
    overhead from about 50 bytes to about 34, and 16 bytes in every
    handshake, cutting the tick from 34 bytes to 18.  It would also halve
-   the CA's traversal state (Section 15.2.1).  Given how much of MTC's
+   the CA's traversal state (Section 13.2.1).  Given how much of MTC's
    design is spent on compactness, this looks attractive.
 
    It is nonetheless rejected, because the saving comes directly out of
    the security margin this mechanism depends on, and out of the one
    property MTC exists to provide.  The non-revocation guarantee rests
-   on preimage resistance (Section 14.1): forging a tick for a period
+   on preimage resistance (Section 16.1): forging a tick for a period
    the CA has not revealed means inverting one hash step.  An n-bit hash
    offers 2^n preimage resistance classically but only about 2^(n/2)
-   against Grover's algorithm (Section 14.2).  At the full 256 bits that
+   against Grover's algorithm (Section 16.2).  At the full 256 bits that
    leaves about 2^128, an ample quantum margin.  Truncated to 128 bits
    it leaves about 2^64, which is not a margin at all for a mechanism
    whose entire premise is post-quantum readiness.  Multi-target search
    makes it worse still.  An attacker needs only one forgery to keep one
    revoked certificate alive, and searching a CA's 10^9 anchors together
    brings the quantum cost of a truncated anchor to about 2^49
-   (Section 14.2).
+   (Section 16.2).
 
    The economics are also poor even setting security aside.  The 16
    bytes come off a TBSCertificateLogEntry of a few hundred bytes, so
@@ -5433,7 +5526,7 @@ G.5.  Truncating the Anchor and Tick
 
    A deployment that wants smaller anchors should reduce them by
    choosing a CA whose tree hash is smaller, since this mechanism
-   inherits HASH from the issuing CA (Section 14.2), rather than by
+   inherits HASH from the issuing CA (Section 16.2), rather than by
    truncating a stronger hash beneath the security level the rest of the
    ecosystem assumes.
 
@@ -5452,7 +5545,7 @@ G.6.  Shortening the Verification Path
 
    This document uses a single flat hash chain, so a relying party
    hashes forward once per elapsed period and verification costs up to
-   hash_chain_length - 1 hash computations (Section 15.6).  Two levers
+   hash_chain_length - 1 hash computations (Section 13.6).  Two levers
    reduce that, and they belong to different parties.
 
    The first is tick_interval, since hash_chain_length is ceil(lifetime
@@ -5462,8 +5555,8 @@ G.6.  Shortening the Verification Path
    construction below achieves, and it costs no additional bytes.  What
    it costs is revocation latency, about two days in place of about two
    hours (Appendix F.3).  That trade is already before the working group
-   as the choice of default interval (Appendix D), and the lever is the
-   issuing CA's rather than the relying party's.
+   as the choice of default interval (Appendix D.5), and the lever is
+   the issuing CA's rather than the relying party's.
 
    The second is the construction, and it is the only lever a relying
    party has.  A relying party validating an arbitrary server's
@@ -5519,7 +5612,7 @@ G.6.  Shortening the Verification Path
    insist on is a different proposal, and the construction is the wrong
    variable for such a policy.  What a relying party bears is a number
    of hash computations, which it can already bound directly from
-   committed fields (Section 14.11), and the two do not track each
+   committed fields (Section 16.11), and the two do not track each
    other.  A flat chain over 48 daily periods costs 47 computations,
    whereas a two-level chain over the longest chain the period field
    admits costs 511, so a relying party insisting on the hierarchy would
@@ -5568,12 +5661,12 @@ G.6.1.  Hierarchical Hash Chains
    The first is verification cost.  It falls from about 300 microseconds
    to about 18 microseconds on a general-purpose core, and from tens of
    milliseconds to one or two milliseconds on a constrained one
-   (Section 15.6).  The worst case any certificate can impose matters
+   (Section 13.6).  The worst case any certificate can impose matters
    more than the typical one, and it falls from 65,535 hash computations
    to 511, which is about 140 microseconds on a general-purpose core and
    around ten milliseconds on a constrained one.  That would make the
    worst case affordable for every verifier, so the local ceiling of
-   Section 14.11 and the defensive bound of verification step 5 would no
+   Section 16.11 and the defensive bound of verification step 5 would no
    longer be needed.  As specified in this document, a constrained
    relying party validating an arbitrary server's certificate can only
    bear the cost or reject the certificate, because the issuing CA
@@ -5581,9 +5674,9 @@ G.6.1.  Hierarchical Hash Chains
 
    The second is that it would remove the CA's per-certificate mutable
    state.  Any tick becomes recomputable from the seed in about 2b hash
-   computations, so fractal traversal (Section 15.2.1) would be
+   computations, so fractal traversal (Section 13.2.1) would be
    unnecessary, and a CA deriving seeds from a long-term secret
-   (Section 15.2.2) would hold no per-certificate state at all.  The
+   (Section 13.2.2) would hold no per-certificate state at all.  The
    CA's hashing rises in exchange, from about 5 hash computations per
    revealed value to about 2b, which at 10^9 certificates and hourly
    periods is a few cores rather than a storage system.
@@ -5597,7 +5690,7 @@ G.6.1.  Hierarchical Hash Chains
    also less simple than a single chain, and the period decomposition
    would have to be reconciled with the period 0 grace (Appendix F.4),
    with backdating (Section 4), and with the acceptance window
-   (Section 14.10).
+   (Section 16.10).
 
 G.6.2.  A Merkle Tree over Periods
 
@@ -5653,7 +5746,7 @@ G.6.3.  Narrowing the Period Field
    hash_chain_length at 255 and so bound the worst case at 254 hash
    computations, which is affordable on any verifier, including the
    constrained ones for which even a two-level chain's 511 is a visible
-   cost (Section 15.6).  It would also save a byte in every handshake
+   cost (Section 13.6).  It would also save a byte in every handshake
    rather than spending 32.
 
    What it costs is the range of parameters a CA may choose, because the
@@ -5672,7 +5765,7 @@ G.6.3.  Narrowing the Period Field
    would forbid is one a root program currently permits, and because the
    worst case 16 bits admit is bounded rather than unbounded.  Like the
    choice of construction, the width is referred to the working group
-   (Appendix D), and the two are substitutes rather than complements.
+   (Appendix D.8), and the two are substitutes rather than complements.
    With hash_chain_length capped at 255 a flat chain's worst case is
    already affordable, so a hierarchy adopted alongside an 8-bit field
    would spend 32 bytes to save work that is no longer expensive.
@@ -5768,7 +5861,7 @@ G.9.  Shorter Certificate Lifetimes
    heavier to keep continuously live than a lightweight tick fetch.
    Hash chain revocation buys the same fine-grained revocation for a few
    hundred microseconds of hashing per full handshake instead
-   (Section 15.6), which is the cheap side of the trade by a wide
+   (Section 13.6), which is the cheap side of the trade by a wide
    margin.
 
    Hash chain revocation provides the revocation latency benefits of
@@ -5800,7 +5893,7 @@ G.10.  CRLite / CRLSets / External Revocation
       relationship.
 
    These mechanisms remain valuable as defense in depth and as a
-   fallback for the hash chain mechanism, as discussed in Section 14.7.
+   fallback for the hash chain mechanism, as discussed in Section 16.7.
 
 G.11.  Per-Certificate Signatures (OCSP-like)
 
