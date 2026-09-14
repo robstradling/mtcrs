@@ -1438,6 +1438,306 @@ A node still holding the preceding period's tick keeps serving correctly while i
 This is the point at which OCSP stapling has historically been most difficult to operate, because a stapled response is a signed object with its own validity window and responder certificate that has to reach every terminator before it goes stale ({{ocsp-stapling-comparison}}).
 A tick has none of those properties, which is why this document leaves the choice to the deployment rather than specifying a distribution mechanism for it.
 
+# Operational and Availability Considerations {#operational-considerations}
+
+This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, what running it costs a CA, how tick distribution is scaled and delegated, and what it costs a relying party to verify.
+None of it changes the wire protocol, which {{distribution}} defines in full, and none of it is visible to relying parties, which never fetch ({{rp-no-fetch}}).
+The subsections run in the order the work does, from the CA that generates hash chains, through the interface that distributes them, to the relying party that verifies a tick in a handshake.
+
+## Availability Considerations {#availability-considerations}
+
+An authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}).
+A tick fetched for period `t` remains acceptable until the end of period `t+1`, because a relying party also accepts the immediately preceding period's tick (step 4 of {{verification-procedure}}).
+A single successful fetch therefore provides between one and two periods of runway, depending on how far into period `t` it landed.
+An outage that outlasts that runway renders the affected certificate unusable until a fresh tick is obtained.
+This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
+It is intrinsic to enforceable revocation rather than a defect.
+A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects ({{ocsp-stapling-comparison}}).
+The goal is therefore to bound the dependency, not to eliminate it.
+Several factors and mitigations limit its impact:
+
+- **The tick interval is the outage-tolerance budget.**
+  The runway above is measured in periods, so `tick_interval` sets its absolute length: hours for a one-hour period, days for a one-day one, at the cost of proportionally delayed revocation enforcement.
+  Deployments choose `tick_interval` to balance revocation latency against their realistic availability expectations for tick distribution.
+
+- **The dependency is on a lightweight service.**
+  Fetching a tick is a single lightweight HTTP GET with no per-request cryptography.
+  It is far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
+  Because the authenticating party keeps serving through the runway above, brief outages are invisible to relying parties.
+
+- **The fetch need not leave the deployment.**
+  The dependency is on reaching some distributor, not on reaching the CA.
+  This matters where servers have no outbound connectivity at all, since under base MTC such a server can be handed a certificate by an out-of-band process and reach nothing for the rest of that certificate's life, whereas this mechanism needs a tick each period.
+  An operator in that position runs a distributor itself ({{delegated-distribution}}), or has one connected node fetch and push ticks to the others exactly as it already pushes certificates ({{ap-behavior}}).
+  Either restores the original property, because a tick verifies against the committed anchor wherever it was obtained ({{verification}}).
+
+- **The acceptance window can be widened, deliberately.**
+  A relying party MAY accept ticks from further preceding periods, converting a tick-distribution outage longer than one period into bounded additional revocation latency rather than a hard failure ({{clock-skew}}).
+  This is a relying-party (or root-program) policy, not something a server can switch on, and it applies to every certificate that relying party validates, so it loosens revocation freshness ecosystem-wide.
+  It is therefore a conscious fallback for known-poor availability, not a default.
+  It remains hard-fail once the widened window elapses: a bounded extension of acceptable staleness, not a fail-open.
+  The multi-CA approach below is preferable wherever it is available, because it restores availability without accepting any additional staleness.
+
+- **Multiple independent CAs remove the single point of failure.**
+  Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
+  Failover needs no new protocol.
+  The tick is embedded in the MTCProof rather than negotiated as a separate stapled response.
+  A server holding certificates from several CAs therefore simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
+  It is driven by a background tick refresh, not by a handshake-time refetch or a new failover exchange.
+  Its preconditions are that the relying party support the alternate CA's trust anchor, and that the two CAs fail independently, which is not automatic (see below).
+  Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
+
+The last of these mitigations rests on an assumption.
+Ticks are safe to delegate because they are self-authenticating, so a CA is encouraged to serve them from mirrors, content delivery networks, or other distributors ({{delegated-distribution}}).
+Relatively few operators run distribution infrastructure at that scale, so two CAs may delegate to the same one, and their tick availability is then perfectly correlated.
+Holding certificates from both buys nothing in that case, and the concentration makes the failure large as well as correlated, since a single distributor's outage renders every affected certificate unusable once its runway expires, whichever CA issued it.
+A deployment relying on multi-CA failover SHOULD therefore confirm that its CAs do not share a tick distributor, and CAs SHOULD publish enough about their distribution arrangements for that to be checkable.
+Delegation and multi-CA operation are both worth doing, but they are not independent of one another, and a deployment that treats them as independent overestimates its resilience.
+
+### The Dependency Relative to Short Lifetimes
+
+Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
+Short-lived certificates do not remove the dependency on CA availability.
+They relocate it.
+Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
+
+The difference is cadence and weight.
+MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly GET with no cryptography ({{operational-resilience}}).
+That is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
+Multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
+A longer `tick_interval` trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
+
+The alternative, no in-band revocation at all, instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
+
+## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
+
+A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted `L` below): how to produce each period's revealed value, and where the per-certificate seed comes from.
+Both are CA-side only, and the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
+
+### Storing Versus Recomputing Hash Chain Values {#hash-chain-traversal}
+
+Neither naive extreme is attractive at scale.
+Storing each hash chain in full costs O(L) per certificate, roughly 35 KiB at `L` = 1128 (a 47-day lifetime with a one-hour period), or some 36 TB across 10<sup>9</sup> certificates.
+Storing only the seed costs O(1) but recomputes each revealed value from scratch, up to `L` hash evaluations, which is O(L<sup>2</sup>) hashing over the certificate's lifetime.
+
+A CA MAY instead use fractal hash chain traversal {{FRACTAL}} {{ALMOST-OPTIMAL}}, which addresses exactly this setting: a hash chain computed forward from a secret seed and revealed in reverse ({{revealing-values}}).
+It keeps about log<sub>2</sub>(L) precomputed values per certificate, parked at self-similar positions along the hash chain, and spends about half that many hash evaluations per period advancing the more distant of them toward where they will next be needed.
+At `L` = 1128 that is some 350 bytes per certificate, about 340 GB across 10<sup>9</sup>, and about 5 hash evaluations per revealed value.
+It dominates a square-root checkpoint scheme, which would need about 1.1 TB and up to 34 hashes per value, on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
+
+The hashing is not what binds at that scale.
+Advancing every certificate's traversal once per period is on the order of 10<sup>5</sup> read-modify-write operations per second against those 340 GB, spread through the interval as certificates reach their own period boundaries ({{construction}}).
+Sizing that state store, rather than the hashing, is the CA-side engineering problem, and a hierarchical chain would remove it entirely, since any value becomes recomputable from the seed and no per-certificate state is kept ({{shorter-verification}}).
+The stored values are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
+
+### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
+
+The per-certificate seed itself can also be eliminated from storage.
+Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed KDF or PRF, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_ca_id || entry_id)`, where `entry_id` is whatever value the CA uses to distinguish one entry from another.
+That value never appears on the wire and this document does not constrain it, but it MUST differ between entries, since two entries deriving the same seed would hold the same hash chain and could not be revoked independently.
+HashChainInput carries no per-entry salt ({{encoding}}), so the seed is the only thing separating one certificate's chain from another's, and a CA choosing `entry_id` should prefer a value it can fix before the entry is sequenced into the log, such as a hash of the certificate inputs, rather than the entry's index.
+The keying is what makes derived seeds computationally indistinguishable from the independent random seeds of {{construction}}, which is why a raw `Hash(ca_seed || ...)` is forbidden ({{seed-confidentiality}}).
+Any hash chain is then recomputable on demand from `ca_seed` and the public entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
+
+The cost is concentration.
+Compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it demands the custody of an issuance signing key ({{seed-confidentiality}}).
+Being a single small key, it is nonetheless better suited to that custody than a bulk per-certificate seed store.
+Per-log or per-epoch sub-seeds bound the blast radius and can be retired as their logs expire, and they are the finest granularity available, because a certificate's entire hash chain derives from the seed fixed at its issuance rather than from anything per-period.
+As with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
+
+## Distributing Tick Requests {#load-distribution}
+
+Because a relying party also accepts a tick for the immediately preceding period ({{verification}}), an authenticating party has up to one full `tick_interval` of slack in which to fetch each new tick and need not fetch at the period boundary.
+
+Period boundaries are each certificate's own, counted from its `notBefore` ({{construction}}), so they are staggered to whatever extent issuance times are.
+They coincide only where `notBefore` values coincide, which is common in practice: CAs frequently round `notBefore`, and automated renewal tends to arrive in waves.
+A thundering herd is therefore a consequence of clustered issuance rather than of the period schedule itself, and the two mechanisms below exploit the slack above to blunt it in either case.
+
+### Client-Side: Deterministic Per-Entry Offset
+
+Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own certificate's `serialNumber`:
+
+~~~pseudocode
+offset = serial_number mod max(1, tick_interval / 2)
+~~~
+
+where the division is integer division.
+The authenticating party reads the serial from its own certificate, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by the serial.
+The authenticating party fetches the current period's tick at `period_start + offset`, where `period_start` is the start time of that period.
+During the first offset seconds of the period it continues to serve the preceding period's tick.
+
+The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}).
+A verifier whose clock is ahead by more than (`tick_interval` - offset) already expects the following period and rejects a tick two periods behind its expectation.
+Bounding the offset to half of `tick_interval` leaves at least half a period of that grace available to absorb verifier clock skew, while still spreading fetches across a wide window.
+
+Because the index component of the serial is assigned sequentially, certificates issued in a burst take consecutive offsets and so spread evenly across the window by construction, which is exactly the clustered-issuance case that produces a thundering herd.
+The offset needs no coordination, shared state, or central scheduler, and is stable from period to period, which aids caching and diagnosis.
+This is preferable to independent random jitter, which can still cluster and which varies each period.
+
+### Server-Side: Cache Freshness and Retry-After
+
+The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than `tick_interval` seconds ({{response-format}}), so that a caching layer can collapse repeated requests for the same entry into a single origin fetch per period.
+This helps an entry that has several fetchers, as in a multi-node deployment ({{ap-behavior}}), and does nothing for an entry that has one.
+A CA MAY additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.
+
+Under transient overload, the CA or edge MAY respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
+To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
+Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
+
+The deterministic per-entry offset above and edge caching together flatten period-boundary load.
+Neither reduces the number of distinct entries an origin must answer for in a period, which is what delegating the serving path addresses ({{delegated-distribution}}).
+This document specifies both as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
+A specific load-shaping or availability target is left to root-program or CA operational policy.
+
+## Bulk Retrieval for Large Deployments {#bulk-retrieval}
+
+The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates, such as a large hosting provider or CDN, issues on the order of N fetches per period for N certificates.
+The per-entry offset ({{load-distribution}}) spreads them across the period but does not reduce their number.
+This stays inexpensive.
+Each tick is a 34-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
+An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}).
+The CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.
+
+A CA MAY additionally offer a batch endpoint keyed by a list of `serial_number` values, or of tokens ({{unguessable-urls}}).
+The trade-off is cacheability.
+A batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
+It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
+This document standardizes neither a batch wire format nor the CA-to-distributor bundle ({{delegated-distribution}}).
+Both are bilateral agreements, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends and is what guarantees interoperability ({{distribution}}).
+An operator large enough to find per-entry fetches unattractive is therefore choosing between a private batch arrangement with each of its CAs and becoming a distributor for each, and neither is interoperable today.
+Specifying the bundle would be the more useful of the two, since a single format would serve delegated distribution and bulk retrieval alike, and this document leaves that to the working group.
+It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
+
+## Delegated Tick Distribution {#delegated-distribution}
+
+Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity.
+A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance ({{hash-function-requirements}}), nor serve a tampered value that verifies.
+Distribution is therefore safe to delegate to third parties, which serve only public values and hold no seed and no signing key.
+
+The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `serial_number`, refreshing it as certificates advance through their own periods ({{construction}}).
+A CA that uses unguessable tick URLs ({{unguessable-urls}}) keys the bundle by `tick_token` instead, so that its key matches what its distributors are asked for.
+Each distributor serves those values through the HTTP interface of {{distribution}}.
+This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA ({{distribution}}).
+The bundle is small in relation to that volume.
+One serial-keyed record is a serial and a tick, 42 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 42 GB per period.
+Because period boundaries are each certificate's own ({{construction}}), that need not be sent as a periodic bulk transfer.
+A CA can stream records as certificates cross their boundaries, which at hourly periods is a sustained rate of roughly 90 Mbit/s to each distributor.
+To revoke a certificate the CA drops its entry from subsequent refreshes, so absence is revocation and no revocation list is exchanged.
+Compromising a distributor exposes nothing that is not already public.
+
+MTC mirrors are a natural home for this role, since they already replicate and serve MTC log data at high availability.
+Content delivery networks and relying-party-side operators can serve on the same terms, including browser providers, which already run large-scale revocation-distribution infrastructure.
+Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several distributors concurrently with no added trust, removing its own origin as a single point of failure.
+How much redundancy to provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
+Running such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation.
+A relying-party-side organization may perfectly well operate one that authenticating parties fetch from.
+
+What is delegated is distribution, not revocation authority.
+The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal.
+A distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
+The only trust placed in any distributor is for availability.
+
+A CA MAY publish only already-revealed values, in which case each distributor depends on it for every refresh and it retains sole, immediate control of revocation.
+Alternatively, as disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values so that certificates stay usable through a CA-side outage.
+That is a delegation of liveness, and it costs exactly what it buys.
+A certificate cannot be revoked through a distributor that already holds its future values, so the buffer length caps revocation latency through that channel, leaving only the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}) during the window.
+Buffered values are as sensitive as the CA's own unrevealed ones ({{seed-confidentiality}}), since compromising the distributor keeps a revoked certificate alive for the remainder of the buffer.
+A CA SHOULD therefore keep the buffer short, sized to its outage-tolerance against revocation-latency budget, and SHOULD pre-provision only distributors trusted to stop serving on instruction.
+
+The buffer is compact and inherently bounded.
+For N periods the CA sends one value per certificate, the value that will be revealed N periods ahead, from which the distributor derives every intervening period by hashing forward ({{revealing-values}}).
+It confers no power beyond period `t+N`, since any later period would require inverting the hash.
+
+A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}), which would grant the unbounded ability to forge non-revocation for the entire certificate population, and MUST NOT hand that secret or per-certificate seeds to a successor operator even in disaster recovery.
+It is as sensitive as the issuance signing key, so transferring it is a root-key-custody event that destroys forward security.
+It is also unnecessary.
+The bounded buffer keeps issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
+If the disaster is itself a seed compromise, the response is the revoked-ranges fallback, not wider custody of a tainted secret.
+
+The feed from CA to distributor SHOULD be authenticated and integrity-protected.
+This is not required for relying-party security, which rests on self-authentication and the authenticating party's pre-installation check ({{verification}}), but it prevents a distributor being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
+
+## Verification Cost {#verification-cost}
+
+A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
+Two properties of that loop set its cost.
+Each step hashes a 45-byte HashChainInput ({{encoding}}), which occupies a single compression block, so the work is one block per elapsed period.
+The steps cannot be batched or pipelined, because each input is the preceding output, so every step also pays the hash function's initialization and finalization.
+
+On a current x86-64 core with SHA-256 instructions, 1,127 steps measure approximately 300 microseconds, or about 270 nanoseconds per step.
+That is the same order as the handshake's asymmetric cryptography rather than negligible beside it.
+On the same core it is roughly five times the cost of one ECDSA P-256 signature verification.
+The figure is small in absolute terms and is paid only on full handshakes, but a deployment budgeting for it should treat it as equivalent to a few additional signature checks rather than as free.
+
+The cost is proportional to `hash_chain_length`, which is `ceil(lifetime / tick_interval)` ({{construction}}), so a shorter certificate lifetime or a longer `tick_interval` reduces it directly.
+It is also worst at the end of a certificate's life and near zero just after issuance, averaging half the maximum.
+
+Constrained relying parties are where this cost is significant.
+A software SHA-256 on a 32-bit microcontroller without a hash accelerator costs on the order of a thousand cycles per block, which puts 1,127 steps in the tens of milliseconds at typical clock rates.
+A hardware SHA engine lowers the per-block cost but not the per-call overhead, which dominates for single-block messages.
+Such a verifier can compute `hash_chain_length` from the certificate and reject before hashing anything if it exceeds a configured ceiling (step 5 of {{verification-procedure}}, {{rp-policy}}), and a deployment that controls its own CA can choose parameters that suit it.
+Neither remedy helps a constrained client validating an arbitrary server's certificate, where the issuing CA chooses both the lifetime and `tick_interval` and the client can only bear the cost or reject the certificate.
+
+The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}).
+That measures approximately 18 milliseconds on the general-purpose core above and is of the order of a second on a constrained one, which is why a relying party that cannot afford it rejects such a certificate before hashing (step 5 of {{verification-procedure}}).
+
+Across the many connections a page load opens, the total stays bounded.
+Most connections pay nothing.
+A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
+The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
+A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
+One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check ({{ap-behavior}}).
+As there, the shortcut applies only when the presented period exceeds the retained one, and a relying party MUST NOT compute the difference in unsigned arithmetic.
+The opposite case arises without an attacker, since the acceptance window admits `expected_period` - 1 while the relying party may hold a tick for `expected_period` itself, so a presented period below the retained one is ordinary and the relying party verifies from the anchor instead.
+On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
+
+Selecting a different hash function does not materially change any of this.
+The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what keeps an algorithm identifier out of the anchor and the tick ({{conventions-and-definitions}}).
+Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
+The quantity that governs this cost is the number of periods, not the speed of the primitive, and reducing it is a property of the construction ({{shorter-verification}}).
+
+## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
+
+A relying party checks the non-revocation proof ({{verification}}) only when it validates the certificate, which happens during a full TLS handshake.
+The following TLS behaviors mean this check does not recur for the life of a connection or a resumed session.
+The effective client-side revocation latency is therefore bounded not by `tick_interval` alone but by how long a client keeps or resumes a connection:
+
+Established connections:
+: Once a full handshake completes, the certificate, and hence the tick, is not re-evaluated for the lifetime of that connection.
+  A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
+
+Session resumption:
+: A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked.
+  A client may therefore resume without re-checking revocation for as long as its session tickets remain usable.
+  TLS 1.3 caps a ticket's lifetime at seven days ({{Section 4.7.1 of !RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
+  This covers 0-RTT early data ({{Section 2.3 of !RFC9846}}), which travels on a pre-shared key established by an earlier full handshake and so presents no certificate either.
+  A client sends it before the resumed handshake completes, so it is the case in which application data moves furthest ahead of the last tick that was checked.
+
+Renegotiation:
+: TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick.
+  There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
+
+The effective latency before a revocation takes effect at a given client is therefore approximately the maximum of `tick_interval`, the remaining lifetime of any established connection, and the client's session-resumption window.
+A deployment that wants revocation to take effect within about one `tick_interval` SHOULD bound the session-ticket lifetime, and where practical the lifetime of long-lived connections, to a value near `tick_interval`.
+That forces a fresh full handshake, and thus a fresh tick, within that period.
+On the relying-party side this is a policy choice ({{rp-policy}}).
+A client MAY cap how long it reuses session tickets and force a periodic full handshake so that the tick is re-checked, independently of the server's ticket-lifetime setting.
+
+This limitation is not specific to this mechanism.
+Every handshake-time revocation mechanism (OCSP {{?RFC6960}}, CRLite {{CRLite}}, CRLSets {{CRLSets}}) is likewise consulted only when the certificate is validated, and the base MTC short-lived-certificate model has the same property.
+A revoked-but-unexpired certificate is equally accepted on a resumed session.
+Relative to passive expiry, this mechanism still improves matters, because every full handshake re-checks a per-period non-revocation proof rather than trusting a static `notAfter`.
+
+# Implementation Status
+
+This section records the status of known implementations of the mechanism defined by this specification at the time of posting of this Internet-Draft, following {{?RFC7942}}.
+It is requested that the RFC Editor remove this section before publication.
+
+There are no known implementations at the time of writing.
+{{role-summary}} summarizes what implementing the mechanism involves for each party.
+The author intends to produce a reference implementation covering hash chain generation ({{construction}}), tick distribution ({{distribution}}), and relying-party verification ({{verification}}), and to report interoperability results to the working group.
+The test vectors of {{test-vectors}} are given so that independent implementations can check their HashChainInput encoding and hashing order against a fixed example before any interoperable deployment exists.
+
 # Privacy Considerations
 
 The Privacy Considerations of the base MTC specification ({{Section 11 of !I-D.ietf-plants-merkle-tree-certs}}) apply to Merkle Tree Certificates that use this mechanism.
@@ -1828,306 +2128,6 @@ Fixed, not a lever:
 If the base specification adopts the general `proof_extensions` field ({{mtcproof-extensibility}}), further relying-party handling applies: size-budget enforcement, committed admissibility, and unknown-type handling ({{proof-extensions-considerations}}).
 
 The resilience levers that involve holding certificates from multiple CAs, operating redundant tick distribution, and choosing `tick_interval` are authenticating-party or CA decisions, not relying-party policy ({{availability-considerations}}, {{construction}}).
-
-# Operational and Availability Considerations {#operational-considerations}
-
-This section covers the operational characteristics of the mechanism that are not security properties in themselves: the availability dependency introduced by periodic tick refresh, what running it costs a CA, how tick distribution is scaled and delegated, and what it costs a relying party to verify.
-None of it changes the wire protocol, which {{distribution}} defines in full, and none of it is visible to relying parties, which never fetch ({{rp-no-fetch}}).
-The subsections run in the order the work does, from the CA that generates hash chains, through the interface that distributes them, to the relying party that verifies a tick in a handshake.
-
-## Availability Considerations {#availability-considerations}
-
-An authenticating party must fetch a fresh tick at least once per `tick_interval` ({{distribution}}).
-A tick fetched for period `t` remains acceptable until the end of period `t+1`, because a relying party also accepts the immediately preceding period's tick (step 4 of {{verification-procedure}}).
-A single successful fetch therefore provides between one and two periods of runway, depending on how far into period `t` it landed.
-An outage that outlasts that runway renders the affected certificate unusable until a fresh tick is obtained.
-This is an availability dependency that the base MTC short-lived-certificate model does not have, and deployments SHOULD plan for it.
-It is intrinsic to enforceable revocation rather than a defect.
-A mechanism that let a server keep presenting a usable certificate regardless of CA state would, by construction, fail open, which is the soft-fail behavior this design rejects ({{ocsp-stapling-comparison}}).
-The goal is therefore to bound the dependency, not to eliminate it.
-Several factors and mitigations limit its impact:
-
-- **The tick interval is the outage-tolerance budget.**
-  The runway above is measured in periods, so `tick_interval` sets its absolute length: hours for a one-hour period, days for a one-day one, at the cost of proportionally delayed revocation enforcement.
-  Deployments choose `tick_interval` to balance revocation latency against their realistic availability expectations for tick distribution.
-
-- **The dependency is on a lightweight service.**
-  Fetching a tick is a single lightweight HTTP GET with no per-request cryptography.
-  It is far less fragile than ACME issuance or an OCSP responder, and simpler to operate and more resilient than the latter ({{operational-resilience}}).
-  Because the authenticating party keeps serving through the runway above, brief outages are invisible to relying parties.
-
-- **The fetch need not leave the deployment.**
-  The dependency is on reaching some distributor, not on reaching the CA.
-  This matters where servers have no outbound connectivity at all, since under base MTC such a server can be handed a certificate by an out-of-band process and reach nothing for the rest of that certificate's life, whereas this mechanism needs a tick each period.
-  An operator in that position runs a distributor itself ({{delegated-distribution}}), or has one connected node fetch and push ticks to the others exactly as it already pushes certificates ({{ap-behavior}}).
-  Either restores the original property, because a tick verifies against the committed anchor wherever it was obtained ({{verification}}).
-
-- **The acceptance window can be widened, deliberately.**
-  A relying party MAY accept ticks from further preceding periods, converting a tick-distribution outage longer than one period into bounded additional revocation latency rather than a hard failure ({{clock-skew}}).
-  This is a relying-party (or root-program) policy, not something a server can switch on, and it applies to every certificate that relying party validates, so it loosens revocation freshness ecosystem-wide.
-  It is therefore a conscious fallback for known-poor availability, not a default.
-  It remains hard-fail once the widened window elapses: a bounded extension of acceptable staleness, not a fail-open.
-  The multi-CA approach below is preferable wherever it is available, because it restores availability without accepting any additional staleness.
-
-- **Multiple independent CAs remove the single point of failure.**
-  Authenticating parties SHOULD obtain Merkle Tree Certificates from multiple independent CAs, so that if one CA's tick distribution becomes unavailable they can immediately present a certificate from another whose ticks remain current.
-  Failover needs no new protocol.
-  The tick is embedded in the MTCProof rather than negotiated as a separate stapled response.
-  A server holding certificates from several CAs therefore simply presents, in each handshake, one for which it currently holds a fresh tick and whose trust anchor the relying party supports, using the base MTC certificate-selection mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}).
-  It is driven by a background tick refresh, not by a handshake-time refetch or a new failover exchange.
-  Its preconditions are that the relying party support the alternate CA's trust anchor, and that the two CAs fail independently, which is not automatic (see below).
-  Because Merkle Tree Certificates are lightweight to obtain and maintain, the incremental cost of holding certificates from two or three CAs is modest relative to the resilience gained.
-
-The last of these mitigations rests on an assumption.
-Ticks are safe to delegate because they are self-authenticating, so a CA is encouraged to serve them from mirrors, content delivery networks, or other distributors ({{delegated-distribution}}).
-Relatively few operators run distribution infrastructure at that scale, so two CAs may delegate to the same one, and their tick availability is then perfectly correlated.
-Holding certificates from both buys nothing in that case, and the concentration makes the failure large as well as correlated, since a single distributor's outage renders every affected certificate unusable once its runway expires, whichever CA issued it.
-A deployment relying on multi-CA failover SHOULD therefore confirm that its CAs do not share a tick distributor, and CAs SHOULD publish enough about their distribution arrangements for that to be checkable.
-Delegation and multi-CA operation are both worth doing, but they are not independent of one another, and a deployment that treats them as independent overestimates its resilience.
-
-### The Dependency Relative to Short Lifetimes
-
-Compared with relying on short lifetimes alone, this is a shift in the availability dependency rather than a new one, and the shift is smaller than it first appears.
-Short-lived certificates do not remove the dependency on CA availability.
-They relocate it.
-Such a certificate depends on the CA's issuance pipeline being reachable each time it must renew, and one due to renew during an issuance outage expires just as an MTCRS certificate does when a tick outage outlasts its runway.
-
-The difference is cadence and weight.
-MTCRS moves the dependency onto a static, cacheable, CDN- and anycast-friendly GET with no cryptography ({{operational-resilience}}).
-That is far easier to keep at very high availability than the ACME issuance, validation, signing, logging, and CT path a short-lived certificate depends on.
-Multi-CA operation removes even that as a single point of failure, so a single CA's tick outage need not break any certificate globally.
-A longer `tick_interval` trades the runway back toward a short-lived certificate's issuance cadence while still permitting the in-life revocation that passive expiry cannot.
-
-The alternative, no in-band revocation at all, instead makes the ecosystem depend entirely on external revocation systems whose availability the CA does not control.
-
-## CA-Side Storage and Computation Trade-off {#storage-tradeoff}
-
-A CA has two largely independent implementation choices for each certificate's hash chain of length `hash_chain_length` (denoted `L` below): how to produce each period's revealed value, and where the per-certificate seed comes from.
-Both are CA-side only, and the on-the-wire tick and the relying party's verification procedure ({{verification}}) are unchanged.
-
-### Storing Versus Recomputing Hash Chain Values {#hash-chain-traversal}
-
-Neither naive extreme is attractive at scale.
-Storing each hash chain in full costs O(L) per certificate, roughly 35 KiB at `L` = 1128 (a 47-day lifetime with a one-hour period), or some 36 TB across 10<sup>9</sup> certificates.
-Storing only the seed costs O(1) but recomputes each revealed value from scratch, up to `L` hash evaluations, which is O(L<sup>2</sup>) hashing over the certificate's lifetime.
-
-A CA MAY instead use fractal hash chain traversal {{FRACTAL}} {{ALMOST-OPTIMAL}}, which addresses exactly this setting: a hash chain computed forward from a secret seed and revealed in reverse ({{revealing-values}}).
-It keeps about log<sub>2</sub>(L) precomputed values per certificate, parked at self-similar positions along the hash chain, and spends about half that many hash evaluations per period advancing the more distant of them toward where they will next be needed.
-At `L` = 1128 that is some 350 bytes per certificate, about 340 GB across 10<sup>9</sup>, and about 5 hash evaluations per revealed value.
-It dominates a square-root checkpoint scheme, which would need about 1.1 TB and up to 34 hashes per value, on both axes, and turns the seed-only extreme's O(L<sup>2</sup>) lifetime cost into O(L log L).
-
-The hashing is not what binds at that scale.
-Advancing every certificate's traversal once per period is on the order of 10<sup>5</sup> read-modify-write operations per second against those 340 GB, spread through the interval as certificates reach their own period boundaries ({{construction}}).
-Sizing that state store, rather than the hashing, is the CA-side engineering problem, and a hierarchical chain would remove it entirely, since any value becomes recomputable from the seed and no per-certificate state is kept ({{shorter-verification}}).
-The stored values are unrevealed hash chain values and therefore carry the same confidentiality requirement as the seed ({{seed-confidentiality}}).
-
-### Deriving Seeds from a Long-Term CA Secret {#derived-seeds}
-
-The per-certificate seed itself can also be eliminated from storage.
-Instead of generating and storing an independent random seed per certificate, a CA MAY derive each seed from a single long-term CA secret with a keyed KDF or PRF, for example `h[0] = HMAC-SHA256(ca_seed, label || issuer_ca_id || entry_id)`, where `entry_id` is whatever value the CA uses to distinguish one entry from another.
-That value never appears on the wire and this document does not constrain it, but it MUST differ between entries, since two entries deriving the same seed would hold the same hash chain and could not be revoked independently.
-HashChainInput carries no per-entry salt ({{encoding}}), so the seed is the only thing separating one certificate's chain from another's, and a CA choosing `entry_id` should prefer a value it can fix before the entry is sequenced into the log, such as a hash of the certificate inputs, rather than the entry's index.
-The keying is what makes derived seeds computationally indistinguishable from the independent random seeds of {{construction}}, which is why a raw `Hash(ca_seed || ...)` is forbidden ({{seed-confidentiality}}).
-Any hash chain is then recomputable on demand from `ca_seed` and the public entry identity, giving O(1) secret storage for the entire CA and stateless, reconstructible issuance, with no change visible to verifiers.
-
-The cost is concentration.
-Compromise of `ca_seed` exposes every certificate's hash chain, past, present, and future, so it demands the custody of an issuance signing key ({{seed-confidentiality}}).
-Being a single small key, it is nonetheless better suited to that custody than a bulk per-certificate seed store.
-Per-log or per-epoch sub-seeds bound the blast radius and can be retired as their logs expire, and they are the finest granularity available, because a certificate's entire hash chain derives from the seed fixed at its issuance rather than from anything per-period.
-As with any seed compromise, rotation protects only certificates issued afterward, and already-committed anchors still require the revoked-ranges fallback ({{seed-confidentiality}}).
-
-## Distributing Tick Requests {#load-distribution}
-
-Because a relying party also accepts a tick for the immediately preceding period ({{verification}}), an authenticating party has up to one full `tick_interval` of slack in which to fetch each new tick and need not fetch at the period boundary.
-
-Period boundaries are each certificate's own, counted from its `notBefore` ({{construction}}), so they are staggered to whatever extent issuance times are.
-They coincide only where `notBefore` values coincide, which is common in practice: CAs frequently round `notBefore`, and automated renewal tends to arrive in waves.
-A thundering herd is therefore a consequence of clustered issuance rather than of the period schedule itself, and the two mechanisms below exploit the slack above to blunt it in either case.
-
-### Client-Side: Deterministic Per-Entry Offset
-
-Rather than fetching at the start of each period, an authenticating party SHOULD fetch at a fixed offset into the first half of the period, derived deterministically from its own certificate's `serialNumber`:
-
-~~~pseudocode
-offset = serial_number mod max(1, tick_interval / 2)
-~~~
-
-where the division is integer division.
-The authenticating party reads the serial from its own certificate, so the offset is available even when the tick URL is addressed by an unguessable token ({{unguessable-urls}}) rather than by the serial.
-The authenticating party fetches the current period's tick at `period_start + offset`, where `period_start` is the start time of that period.
-During the first offset seconds of the period it continues to serve the preceding period's tick.
-
-The serving delay and a verifier whose clock runs ahead both draw on the same one-period preceding-tick grace ({{clock-skew}}).
-A verifier whose clock is ahead by more than (`tick_interval` - offset) already expects the following period and rejects a tick two periods behind its expectation.
-Bounding the offset to half of `tick_interval` leaves at least half a period of that grace available to absorb verifier clock skew, while still spreading fetches across a wide window.
-
-Because the index component of the serial is assigned sequentially, certificates issued in a burst take consecutive offsets and so spread evenly across the window by construction, which is exactly the clustered-issuance case that produces a thundering herd.
-The offset needs no coordination, shared state, or central scheduler, and is stable from period to period, which aids caching and diagnosis.
-This is preferable to independent random jitter, which can still cluster and which varies each period.
-
-### Server-Side: Cache Freshness and Retry-After
-
-The CA (or an edge cache) SHOULD serve each tick with a Cache-Control max-age no longer than `tick_interval` seconds ({{response-format}}), so that a caching layer can collapse repeated requests for the same entry into a single origin fetch per period.
-This helps an entry that has several fetchers, as in a multi-node deployment ({{ap-behavior}}), and does nothing for an entry that has one.
-A CA MAY additionally apply a small per-response jitter to max-age so that cache entries for different entries do not all expire simultaneously.
-
-Under transient overload, the CA or edge MAY respond with HTTP status code 429 (Too Many Requests) or 503 (Service Unavailable) together with a Retry-After header indicating when the authenticating party should retry.
-To avoid a synchronized second wave, the CA SHOULD randomize Retry-After values across clients rather than returning a single fixed value.
-Because the authenticating party retains its previously fetched tick, which remains valid until the end of the current period, backing off in response to Retry-After does not interrupt service, provided a fresh tick is obtained before the previous one expires.
-
-The deterministic per-entry offset above and edge caching together flatten period-boundary load.
-Neither reduces the number of distinct entries an origin must answer for in a period, which is what delegating the serving path addresses ({{delegated-distribution}}).
-This document specifies both as SHOULD rather than MUST, because fetch timing is not observable to relying parties and affects neither interoperability nor the security of verification.
-A specific load-shaping or availability target is left to root-program or CA operational policy.
-
-## Bulk Retrieval for Large Deployments {#bulk-retrieval}
-
-The HTTP interface ({{distribution}}) addresses one tick per request, so an operator fronting many certificates, such as a large hosting provider or CDN, issues on the order of N fetches per period for N certificates.
-The per-entry offset ({{load-distribution}}) spreads them across the period but does not reduce their number.
-This stays inexpensive.
-Each tick is a 34-byte value that is immutable within its period and cacheable ({{response-format}}), and HTTP/2 and HTTP/3 multiplex many such small requests over a few persistent connections, so N fetches is not N connections or N round-trip stalls.
-An operator that prefers fewer requests can front its certificates with its own cache, or act as a delegated distributor ({{delegated-distribution}}).
-The CA-to-distributor bundle is exactly a bulk transfer of the currently-revealed ticks, so taking that feed obtains all of them in one exchange.
-
-A CA MAY additionally offer a batch endpoint keyed by a list of `serial_number` values, or of tokens ({{unguessable-urls}}).
-The trade-off is cacheability.
-A batch response is specific to the set requested, and so is far less cacheable by generic HTTP intermediaries than the per-entry GETs.
-It therefore suits an operator fetching from the CA or a mirror it controls rather than from a shared edge cache.
-This document standardizes neither a batch wire format nor the CA-to-distributor bundle ({{delegated-distribution}}).
-Both are bilateral agreements, layered on the single-tick interface rather than replacing it, since that interface is mandatory at both ends and is what guarantees interoperability ({{distribution}}).
-An operator large enough to find per-entry fetches unattractive is therefore choosing between a private batch arrangement with each of its CAs and becoming a distributor for each, and neither is interoperable today.
-Specifying the bundle would be the more useful of the two, since a single format would serve delegated distribution and bulk retrieval alike, and this document leaves that to the working group.
-It does not affect relying parties, who never fetch ({{rp-no-fetch}}).
-
-## Delegated Tick Distribution {#delegated-distribution}
-
-Because a tick is self-authenticating ({{verification}}), the party that serves ticks need not be trusted for integrity.
-A distributor cannot forge a tick for a period the CA has not revealed, by preimage resistance ({{hash-function-requirements}}), nor serve a tampered value that verifies.
-Distribution is therefore safe to delegate to third parties, which serve only public values and hold no seed and no signing key.
-
-The CA publishes to its authorized distributors the value currently revealed for each entry, as a bundle keyed by `serial_number`, refreshing it as certificates advance through their own periods ({{construction}}).
-A CA that uses unguessable tick URLs ({{unguessable-urls}}) keys the bundle by `tick_token` instead, so that its key matches what its distributors are asked for.
-Each distributor serves those values through the HTTP interface of {{distribution}}.
-This is what makes the aggregate request volume tractable, because a distributor answers from the bundle it already holds and no per-certificate request need reach the CA ({{distribution}}).
-The bundle is small in relation to that volume.
-One serial-keyed record is a serial and a tick, 42 bytes, so a CA with 10<sup>9</sup> active certificates publishes about 42 GB per period.
-Because period boundaries are each certificate's own ({{construction}}), that need not be sent as a periodic bulk transfer.
-A CA can stream records as certificates cross their boundaries, which at hourly periods is a sustained rate of roughly 90 Mbit/s to each distributor.
-To revoke a certificate the CA drops its entry from subsequent refreshes, so absence is revocation and no revocation list is exchanged.
-Compromising a distributor exposes nothing that is not already public.
-
-MTC mirrors are a natural home for this role, since they already replicate and serve MTC log data at high availability.
-Content delivery networks and relying-party-side operators can serve on the same terms, including browser providers, which already run large-scale revocation-distribution infrastructure.
-Because none of them is trusted for integrity, a CA MAY spread distribution across anycast, several independent CDNs, or several distributors concurrently with no added trust, removing its own origin as a single point of failure.
-How much redundancy to provide is a matter for root-program or CA policy rather than an interoperability requirement of this document.
-Running such a service is distinct from the prohibition in {{rp-no-fetch}}, which forbids a relying party from using the endpoint as its own online responder during validation.
-A relying-party-side organization may perfectly well operate one that authenticating parties fetch from.
-
-What is delegated is distribution, not revocation authority.
-The CA retains the seed and the unrevealed hash chain values ({{seed-confidentiality}}), so it alone decides what to reveal.
-A distributor can at most withhold or delay the values it was given ({{dos-withholding}}), which is an availability fault mitigated by redundancy, not a way to un-revoke a certificate.
-The only trust placed in any distributor is for availability.
-
-A CA MAY publish only already-revealed values, in which case each distributor depends on it for every refresh and it retains sole, immediate control of revocation.
-Alternatively, as disaster-recovery planning, a CA MAY pre-provision a distributor with a small buffer of future periods' values so that certificates stay usable through a CA-side outage.
-That is a delegation of liveness, and it costs exactly what it buys.
-A certificate cannot be revoked through a distributor that already holds its future values, so the buffer length caps revocation latency through that channel, leaving only the base MTC revoked-ranges fallback ({{interaction-with-base-mtc-revocation}}) during the window.
-Buffered values are as sensitive as the CA's own unrevealed ones ({{seed-confidentiality}}), since compromising the distributor keeps a revoked certificate alive for the remainder of the buffer.
-A CA SHOULD therefore keep the buffer short, sized to its outage-tolerance against revocation-latency budget, and SHOULD pre-provision only distributors trusted to stop serving on instruction.
-
-The buffer is compact and inherently bounded.
-For N periods the CA sends one value per certificate, the value that will be revealed N periods ahead, from which the distributor derives every intervening period by hashing forward ({{revealing-values}}).
-It confers no power beyond period `t+N`, since any later period would require inverting the hash.
-
-A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}), which would grant the unbounded ability to forge non-revocation for the entire certificate population, and MUST NOT hand that secret or per-certificate seeds to a successor operator even in disaster recovery.
-It is as sensitive as the issuance signing key, so transferring it is a root-key-custody event that destroys forward security.
-It is also unnecessary.
-The bounded buffer keeps issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
-If the disaster is itself a seed compromise, the response is the revoked-ranges fallback, not wider custody of a tainted secret.
-
-The feed from CA to distributor SHOULD be authenticated and integrity-protected.
-This is not required for relying-party security, which rests on self-authentication and the authenticating party's pre-installation check ({{verification}}), but it prevents a distributor being fed corrupt bundles that would cause authenticating parties to reject ticks and refetch.
-
-## Verification Cost {#verification-cost}
-
-A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
-Two properties of that loop set its cost.
-Each step hashes a 45-byte HashChainInput ({{encoding}}), which occupies a single compression block, so the work is one block per elapsed period.
-The steps cannot be batched or pipelined, because each input is the preceding output, so every step also pays the hash function's initialization and finalization.
-
-On a current x86-64 core with SHA-256 instructions, 1,127 steps measure approximately 300 microseconds, or about 270 nanoseconds per step.
-That is the same order as the handshake's asymmetric cryptography rather than negligible beside it.
-On the same core it is roughly five times the cost of one ECDSA P-256 signature verification.
-The figure is small in absolute terms and is paid only on full handshakes, but a deployment budgeting for it should treat it as equivalent to a few additional signature checks rather than as free.
-
-The cost is proportional to `hash_chain_length`, which is `ceil(lifetime / tick_interval)` ({{construction}}), so a shorter certificate lifetime or a longer `tick_interval` reduces it directly.
-It is also worst at the end of a certificate's life and near zero just after issuance, averaging half the maximum.
-
-Constrained relying parties are where this cost is significant.
-A software SHA-256 on a 32-bit microcontroller without a hash accelerator costs on the order of a thousand cycles per block, which puts 1,127 steps in the tens of milliseconds at typical clock rates.
-A hardware SHA engine lowers the per-block cost but not the per-call overhead, which dominates for single-block messages.
-Such a verifier can compute `hash_chain_length` from the certificate and reject before hashing anything if it exceeds a configured ceiling (step 5 of {{verification-procedure}}, {{rp-policy}}), and a deployment that controls its own CA can choose parameters that suit it.
-Neither remedy helps a constrained client validating an arbitrary server's certificate, where the issuing CA chooses both the lifetime and `tick_interval` and the client can only bear the cost or reject the certificate.
-
-The worst case any certificate can impose is the 65,535 forward hashes the 16-bit period field permits ({{construction}}).
-That measures approximately 18 milliseconds on the general-purpose core above and is of the order of a second on a constrained one, which is why a relying party that cannot afford it rejects such a certificate before hashing (step 5 of {{verification-procedure}}).
-
-Across the many connections a page load opens, the total stays bounded.
-Most connections pay nothing.
-A resumed session carries no Certificate message and verifies no tick ({{enforcement-latency}}), and connection coalescing (HTTP/2 and HTTP/3) collapses many same-origin assets onto one connection.
-The cost is incurred per full handshake rather than per request, so it does not grow with page complexity.
-A relying party that revalidates the same (entry, period), for example a recurring third-party CDN origin, MAY cache the verified result and skip the forward hashing on repeat.
-One that has retained a verified tick for an earlier period of the same entry can do better still, verifying the current tick by hashing it forward only the difference between the two periods, for the same reason and with the same security as the authenticating party's incremental check ({{ap-behavior}}).
-As there, the shortcut applies only when the presented period exceeds the retained one, and a relying party MUST NOT compute the difference in unsigned arithmetic.
-The opposite case arises without an attacker, since the acceptance window admits `expected_period` - 1 while the relying party may hold a tick for `expected_period` itself, so a presented period below the retained one is ordinary and the relying party verifies from the anchor instead.
-On a battery-powered sensor or wearable one verification costs a fraction of a millijoule, comparable to the asymmetric operations the same handshake performs.
-
-Selecting a different hash function does not materially change any of this.
-The cost is one compression block per elapsed period whatever the primitive, and this mechanism inherits HASH from the issuing CA ({{construction}}) rather than choosing it, which is what keeps an algorithm identifier out of the anchor and the tick ({{conventions-and-definitions}}).
-Primitives faster than SHA-256 in software on 32-bit cores do exist, but they offer a small constant factor, are less likely to be hardware-accelerated, and would diverge from the hash the surrounding ecosystem already uses.
-The quantity that governs this cost is the number of periods, not the speed of the primitive, and reducing it is a property of the construction ({{shorter-verification}}).
-
-## Client-Side Enforcement Latency and Session Resumption {#enforcement-latency}
-
-A relying party checks the non-revocation proof ({{verification}}) only when it validates the certificate, which happens during a full TLS handshake.
-The following TLS behaviors mean this check does not recur for the life of a connection or a resumed session.
-The effective client-side revocation latency is therefore bounded not by `tick_interval` alone but by how long a client keeps or resumes a connection:
-
-Established connections:
-: Once a full handshake completes, the certificate, and hence the tick, is not re-evaluated for the lifetime of that connection.
-  A long-lived connection (HTTP keep-alive, HTTP/2, or HTTP/3) may continue to use a certificate that has since been revoked until the connection closes.
-
-Session resumption:
-: A resumed TLS session carries no Certificate message: the server's authentication is derived from the original full handshake and is not re-validated, so no tick is presented and none is checked.
-  A client may therefore resume without re-checking revocation for as long as its session tickets remain usable.
-  TLS 1.3 caps a ticket's lifetime at seven days ({{Section 4.7.1 of !RFC9846}}), and implementations commonly use shorter, configurable limits, but within that window resumption bypasses tick verification.
-  This covers 0-RTT early data ({{Section 2.3 of !RFC9846}}), which travels on a pre-shared key established by an earlier full handshake and so presents no certificate either.
-  A client sends it before the resumed handshake completes, so it is the case in which application data moves furthest ahead of the last tick that was checked.
-
-Renegotiation:
-: TLS 1.3 removed renegotiation, and browsers have disabled or restricted TLS 1.2 renegotiation, so renegotiation cannot be relied upon to re-present a fresh tick.
-  There is likewise no mechanism for a server to push an updated certificate or tick mid-connection.
-
-The effective latency before a revocation takes effect at a given client is therefore approximately the maximum of `tick_interval`, the remaining lifetime of any established connection, and the client's session-resumption window.
-A deployment that wants revocation to take effect within about one `tick_interval` SHOULD bound the session-ticket lifetime, and where practical the lifetime of long-lived connections, to a value near `tick_interval`.
-That forces a fresh full handshake, and thus a fresh tick, within that period.
-On the relying-party side this is a policy choice ({{rp-policy}}).
-A client MAY cap how long it reuses session tickets and force a periodic full handshake so that the tick is re-checked, independently of the server's ticket-lifetime setting.
-
-This limitation is not specific to this mechanism.
-Every handshake-time revocation mechanism (OCSP {{?RFC6960}}, CRLite {{CRLite}}, CRLSets {{CRLSets}}) is likewise consulted only when the certificate is validated, and the base MTC short-lived-certificate model has the same property.
-A revoked-but-unexpired certificate is equally accepted on a resumed session.
-Relative to passive expiry, this mechanism still improves matters, because every full handshake re-checks a per-period non-revocation proof rather than trusting a static `notAfter`.
-
-# Implementation Status
-
-This section records the status of known implementations of the mechanism defined by this specification at the time of posting of this Internet-Draft, following {{?RFC7942}}.
-It is requested that the RFC Editor remove this section before publication.
-
-There are no known implementations at the time of writing.
-{{role-summary}} summarizes what implementing the mechanism involves for each party.
-The author intends to produce a reference implementation covering hash chain generation ({{construction}}), tick distribution ({{distribution}}), and relying-party verification ({{verification}}), and to report interoperability results to the working group.
-The test vectors of {{test-vectors}} are given so that independent implementations can check their HashChainInput encoding and hashing order against a fixed example before any interoperable deployment exists.
 
 # IANA Considerations {#iana-considerations}
 
