@@ -281,6 +281,7 @@ Period:
 Tick:
 : The pair `{period, value}` that the CA reveals for a period and the authenticating party embeds in the MTCProof ({{cert-format}}).
   A tick is the certificate's *non-revocation proof*: the component of the MTCProof attesting that the certificate has not been revoked as of that period, complementing the inclusion proof and cosignatures that attest authenticity.
+  Whether "tick" is the right name for it is one of the questions this document puts to the working group ({{oq-naming}}).
 
 `serial_number`:
 : The certificate's `serialNumber`, which the base specification builds from the entry's log number and its index within that log, and which addresses that entry's tick in the distribution interface unless the CA uses unguessable tick URLs ({{distribution}}, {{unguessable-urls}}).
@@ -415,7 +416,7 @@ That population is a round figure above the base specification's own estimates, 
 | Log entry | About 50 bytes for the committed anchor, a fifth to a quarter of a domain-validated entry ({{anchor-x509-extension}}). |
 | Handshake | 34 bytes for the tick, 5 to 9 percent of the inclusion proof it travels beside ({{cert-format}}). |
 
-The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period ({{verification-cost}}), which is why the worst case that hashing can reach is referred to the working group ({{open-questions}}).
+The bytes are paid on every certificate and every handshake, and the hashing is borne by a party that chose neither the certificate's lifetime nor its period ({{verification-cost}}), which is why the worst case that hashing can reach is referred to the working group ({{oq-cost-bound}}).
 
 # Hash Chain Construction {#construction}
 
@@ -1960,7 +1961,7 @@ The base specification's own extensibility would, however, admit a record built 
 MTCLogEntryType is an extensible enum, and the base specification states that future documents MAY define new values for it with corresponding semantics ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 A revocation record is therefore constructible within the log.
 This document does not define one.
-The sketch here exists so that the working group can judge whether it wants one, and where it belongs ({{open-questions}}).
+The sketch here exists so that the working group can judge whether it wants one, and where it belongs ({{oq-log-record}}).
 
 The construction is a new MTCLogEntryType whose data identifies the revoked entry by its serial number, gives the first period for which ticks will be withheld, and optionally carries a reason code.
 The CA appends it to its issuance log, so it is covered by the subtree hash and by the cosignatures over that subtree.
@@ -2382,77 +2383,84 @@ This section collects the choices behind those proposals that the author conside
 A working group that adopts this document should expect to settle them.
 Nothing in this section is itself a normative requirement.
 
-1. **Where does the anchor live?**
-   The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{anchor-x509-extension}}) or a committed entry extension ({{anchor-entry-extension}}).
-   Both are committed to the Merkle Tree, so the verification procedure is identical either way.
-   The trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
-   The entry extension also keeps the amended MTCProof parse free of an identifier this document defines, which the X.509 extension does not ({{base-spec-amendments}}).
-   *Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
-   Whichever is chosen becomes the single anchor home for the ecosystem.
+## Where Does the Anchor Live? {#oq-anchor-home}
 
-2. **How is the tick carried in the MTCProof?**
-   Either as a trailing `status_tick` field ({{tick-trailing-field}}) or as a `hash_chain_tick` proof extension ({{tick-proof-extension}}).
-   *Preference:* the trailing field, as the minimal change to a base-specification-owned structure, adding no variable-length "ignore if unknown" region.
+The anchor can be an X.509 extension of the TBSCertificateLogEntry ({{anchor-x509-extension}}) or a committed entry extension ({{anchor-entry-extension}}).
+Both are committed to the Merkle Tree, so the verification procedure is identical either way.
+The trade is compactness and committed/uncommitted symmetry against a criticality lever and MTCRS-agnostic log and cosigner software.
+The entry extension also keeps the amended MTCProof parse free of an identifier this document defines, which the X.509 extension does not ({{base-spec-amendments}}).
+*Preference:* the X.509 extension, because it lets the mechanism layer onto an unmodified MTC log and cosigner deployment.
+Whichever is chosen becomes the single anchor home for the ecosystem.
 
-3. **Does the base specification want general proof-level extensibility at all?**
-   This is separable from question 2.
-   The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms.
-   If it is adopted, the tick should use it rather than a bare trailing field.
-   *Preference:* not adopted, since hash chain revocation alone does not require it ({{mtcproof-extensibility}}).
+## How Is the Tick Carried in the MTCProof? {#oq-tick-carriage}
 
-4. **What should the default `tick_interval` and acceptance window be?**
-   The two jointly set revocation latency: a withheld tick stops verifying within (`k` + 1) `tick_interval`s, where `k` is the number of preceding periods a relying party accepts ({{clock-skew}}).
-   This document uses one hour ({{why-one-hour}}) with `k` = 1, which is where the two-period bound quoted throughout comes from.
-   They are worth settling separately because they have different owners.
-   `tick_interval` is per-certificate and set by the CA, carried in the certificate for every verifier to read ({{construction}}), whereas the acceptance window is relying-party or root-program policy applying uniformly to every certificate that party validates ({{rp-policy}}).
-   A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}).
-   Widening `k` buys outage tolerance at a one-for-one cost in latency ({{clock-skew}}).
-   *Preference:* one hour with `k` = 1.
-   Neither is a protocol question.
-   Both concern recommended defaults and what root programs should require.
-   The one protocol question adjacent to them is the width of the tick's period field, which caps how short a period can be at all and bounds the forward hashing a CA can impose on relying parties ({{construction}}).
-   That is question 7.
+Either as a trailing `status_tick` field ({{tick-trailing-field}}) or as a `hash_chain_tick` proof extension ({{tick-proof-extension}}).
+*Preference:* the trailing field, as the minimal change to a base-specification-owned structure, adding no variable-length "ignore if unknown" region.
 
-5. **Should period 0 enforce revocation?**
-   The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
-   Computing the hash chain one element longer removes the grace and enforces from period 1.
-   That construction is given in {{period-zero-rationale}}.
-   *Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
+## Does the Base Specification Want General Proof-Level Extensibility at All? {#oq-proof-extensibility}
 
-6. **Is "tick" the right name for the revealed value?**
-   The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
-   It was chosen for its clock connotation, one per period on a fixed cadence, and because it is unclaimed in TLS and PKI, unlike "token", "witness", "checkpoint" and "heartbeat".
-   "Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL ({{unguessable-urls}}) and its bearer-credential connotation is the opposite of what a tick is, which is public, unsigned, and useless without the certificate.
-   The weakness of "tick" is that it ordinarily names a time event rather than a value, which is why this document always presents it as the pair `{period, value}`.
-   *Preference:* keep "tick", with the accurate alternative "non-revocation proof" used as the gloss at first mention rather than as the primary name.
+This is separable from {{oq-tick-carriage}}.
+The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms.
+If it is adopted, the tick should use it rather than a bare trailing field.
+*Preference:* not adopted, since hash chain revocation alone does not require it ({{mtcproof-extensibility}}).
 
-7. **How should the worst-case verification cost be bounded, and by which lever?**
-   Verification hashes forward once per elapsed period, so a relying party validating an arbitrary certificate is exposed not to the typical cost but to the worst case the wire format permits, which the 16-bit period field fixes at 65,535 hash computations however the issuing CA sets its parameters ({{construction}}, {{verification-cost}}).
-   Two levers reduce that bound, and they are alternatives rather than complements, since either makes the other unnecessary.
-   A hierarchical construction buys the reduction with bytes, taking the worst case to 511 for a 66-byte tick in place of a 34-byte one, and removing the CA's per-certificate traversal state ({{hierarchical-chains}}, {{hash-chain-traversal}}).
-   A narrower period field buys it with parameter freedom, an 8-bit field bounding the worst case at 254 while saving a byte rather than spending 32 ({{period-field-width}}).
-   A longer default `tick_interval` reduces the typical cost by more than a two-level chain does and spends no bytes, but it does not touch this bound at all, and it is question 4 rather than a third lever here because what it trades against is revocation latency.
-   Whichever lever is chosen, the choice is made once for the ecosystem rather than per certificate ({{shorter-verification}}), as the anchor's home is in question 1.
-   *Preference:* neither, keeping the flat chain for its simplicity and smaller per-handshake cost, and the 16-bit field because the configuration an 8-bit one would forbid is a configuration a root program currently permits.
-   This is the least settled preference in this section.
-   A working group that treats constrained relying parties as a first-class constituency should adopt one of the two levers, and should not adopt both ({{period-field-width}}).
+## What Should the Default tick_interval and Acceptance Window Be? {#oq-interval-defaults}
 
-8. **Should revocations be recorded in the log?**
-   Revocation here is the absence of a tick, so nothing attests that a revocation occurred ({{revocation-transparency}}).
-   The base specification's MTCLogEntryType is extensible, so a revocation entry is constructible, and {{logged-revocation}} sketches one.
-   It would supply a permanent, non-repudiable record, could carry a reason code, and would make a logged revocation contradicted by a later tick provable by anyone offline.
-   It would not make silent withholding detectable, because absence is not attributable and the remedy Certificate Transparency uses is unavailable to a mechanism whose relying parties fetch nothing.
-   The cost is that CA cosigners must recognize the new entry type before they can sign any subtree containing one ({{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}}).
-   The question is also separable from hash chains, since such a record would serve the base revoked-ranges mechanism equally well.
-   *Preference:* not in this document, which asks the base specification for one change and has no implementations yet.
-   A companion document, or the base specification itself, is the better home.
-   A working group that regards the missing revocation record as the more pressing gap may reasonably decide otherwise.
+The two jointly set revocation latency: a withheld tick stops verifying within (`k` + 1) `tick_interval`s, where `k` is the number of preceding periods a relying party accepts ({{clock-skew}}).
+This document uses one hour ({{why-one-hour}}) with `k` = 1, which is where the two-period bound quoted throughout comes from.
+They are worth settling separately because they have different owners.
+`tick_interval` is per-certificate and set by the CA, carried in the certificate for every verifier to read ({{construction}}), whereas the acceptance window is relying-party or root-program policy applying uniformly to every certificate that party validates ({{rp-policy}}).
+A one-day interval is also viable and materially shifts the balance between revocation latency and outage tolerance ({{availability-considerations}}).
+Widening `k` buys outage tolerance at a one-for-one cost in latency ({{clock-skew}}).
+*Preference:* one hour with `k` = 1.
+Neither is a protocol question.
+Both concern recommended defaults and what root programs should require.
+The one protocol question adjacent to them is the width of the tick's period field, which caps how short a period can be at all and bounds the forward hashing a CA can impose on relying parties ({{construction}}, {{oq-cost-bound}}).
+
+## Should Period 0 Enforce Revocation? {#oq-period-enforcement}
+
+The period 0 tick is the public anchor, which gives the CA a one-period grace before it must serve a new certificate's first secret tick but defers enforcement of a just-issued certificate to the start of period 2 ({{period-zero-rationale}}).
+Computing the hash chain one element longer removes the grace and enforces from period 1.
+That construction is given in {{period-zero-rationale}}.
+*Preference:* keep the grace, as the operational headroom is generally worth more than sub-two-period revocation of a brand-new certificate.
+
+## Is "Tick" the Right Name for the Revealed Value? {#oq-naming}
+
+The name appears throughout this document and in the field and parameter names it proposes (`status_tick`, `tick_interval`, `tickInterval`), so it is cheap to change now and expensive later.
+It was chosen for its clock connotation, one per period on a fixed cadence, and because it is unclaimed in TLS and PKI, unlike "token", "witness", "checkpoint" and "heartbeat".
+"Token" is doubly unavailable, since this document already uses it for the capability that addresses a tick URL ({{unguessable-urls}}) and its bearer-credential connotation is the opposite of what a tick is, which is public, unsigned, and useless without the certificate.
+The weakness of "tick" is that it ordinarily names a time event rather than a value, which is why this document always presents it as the pair `{period, value}`.
+*Preference:* keep "tick", with the accurate alternative "non-revocation proof" used as the gloss at first mention rather than as the primary name.
+
+## How Should the Worst-Case Verification Cost Be Bounded, and by Which Lever? {#oq-cost-bound}
+
+Verification hashes forward once per elapsed period, so a relying party validating an arbitrary certificate is exposed not to the typical cost but to the worst case the wire format permits, which the 16-bit period field fixes at 65,535 hash computations however the issuing CA sets its parameters ({{construction}}, {{verification-cost}}).
+Two levers reduce that bound, and they are alternatives rather than complements, since either makes the other unnecessary.
+A hierarchical construction buys the reduction with bytes, taking the worst case to 511 for a 66-byte tick in place of a 34-byte one, and removing the CA's per-certificate traversal state ({{hierarchical-chains}}, {{hash-chain-traversal}}).
+A narrower period field buys it with parameter freedom, an 8-bit field bounding the worst case at 254 while saving a byte rather than spending 32 ({{period-field-width}}).
+A longer default `tick_interval` reduces the typical cost by more than a two-level chain does and spends no bytes, but it does not touch this bound at all, and it belongs to {{oq-interval-defaults}} rather than being a third lever here, because what it trades against is revocation latency.
+Whichever lever is chosen, the choice is made once for the ecosystem rather than per certificate ({{shorter-verification}}), as the anchor's home is in {{oq-anchor-home}}.
+*Preference:* neither, keeping the flat chain for its simplicity and smaller per-handshake cost, and the 16-bit field because the configuration an 8-bit one would forbid is a configuration a root program currently permits.
+This is the least settled preference in this section.
+A working group that treats constrained relying parties as a first-class constituency should adopt one of the two levers, and should not adopt both ({{period-field-width}}).
+
+## Should Revocations Be Recorded in the Log? {#oq-log-record}
+
+Revocation here is the absence of a tick, so nothing attests that a revocation occurred ({{revocation-transparency}}).
+The base specification's MTCLogEntryType is extensible, so a revocation entry is constructible, and {{logged-revocation}} sketches one.
+It would supply a permanent, non-repudiable record, could carry a reason code, and would make a logged revocation contradicted by a later tick provable by anyone offline.
+It would not make silent withholding detectable, because absence is not attributable and the remedy Certificate Transparency uses is unavailable to a mechanism whose relying parties fetch nothing.
+The cost is that CA cosigners must recognize the new entry type before they can sign any subtree containing one ({{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}}).
+The question is also separable from hash chains, since such a record would serve the base revoked-ranges mechanism equally well.
+*Preference:* not in this document, which asks the base specification for one change and has no implementations yet.
+A companion document, or the base specification itself, is the better home.
+A working group that regards the missing revocation record as the more pressing gap may reasonably decide otherwise.
 
 # Proposed MTCProof Extensibility {#mtcproof-extensibility}
 
 The RECOMMENDED way to carry the tick is the fixed trailing `status_tick` field ({{tick-trailing-field}}), which needs no general extensibility mechanism.
 This section describes an alternative: a general, reusable proof-level extensions field that the base MTC specification {{!I-D.ietf-plants-merkle-tree-certs}} MAY adopt.
-It is worth adopting only if the base specification wants future mechanisms, beyond hash chain revocation, to attach data to the certificate presentation without a further structural change each time.
+It is worth adopting only if the base specification wants future mechanisms, beyond hash chain revocation, to attach data to the certificate presentation without a further structural change each time ({{oq-proof-extensibility}}).
 It is not required for hash chain revocation alone, and it carries the abuse surface discussed in {{proof-extensions-considerations}}.
 
 The structure itself belongs to the base specification, and this appendix deliberately does not define it ({{base-spec-amendments}}).
@@ -2646,7 +2654,7 @@ Narrow, low-value window:
 A deployment that instead requires revocation enforcement from the moment of issuance, with no period 0 grace, can obtain it by treating the anchor as an ordinary secret hash chain element.
 It computes the hash chain one element longer, uses `h[hash_chain_length + 1]` as the anchor, and hashes the revealed value `period + 1` times (rather than `period` times) during verification.
 The period 0 tick is then the secret value `h[hash_chain_length]`, which the CA can withhold.
-This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate.
+This document uses the shorter construction because the operational grace period is generally more valuable than sub-two-period revocation of a just-issued certificate, and refers the choice to the working group ({{oq-period-enforcement}}).
 
 ## Why Embed the Tick in the MTCProof {#why-embed}
 
@@ -3013,7 +3021,7 @@ Two levers reduce that, and they belong to different parties.
 The first is `tick_interval`, since `hash_chain_length` is `ceil(lifetime / tick_interval)` ({{construction}}).
 Moving a 47-day certificate from one-hour to one-day periods takes the worst case from 1,127 hash computations to 46, a larger reduction than the two-level construction below achieves, and it costs no additional bytes.
 What it costs is revocation latency, about two days in place of about two hours ({{why-one-hour}}).
-That trade is already before the working group as the choice of default interval ({{open-questions}}), and the lever is the issuing CA's rather than the relying party's.
+That trade is already before the working group as the choice of default interval ({{oq-interval-defaults}}), and the lever is the issuing CA's rather than the relying party's.
 
 The second is the construction, and it is the only lever a relying party has.
 A relying party validating an arbitrary server's certificate chooses neither that certificate's lifetime nor its `tick_interval`, so what concerns it is the worst case any certificate can impose, which the 16-bit period field fixes at 65,535 hash computations however the interval is set ({{construction}}).
@@ -3108,7 +3116,7 @@ That accommodates the 7-day validity the Chrome policy recommends, which is 168 
 Widening the field instead would permit sub-minute periods on multi-week certificates, at a correspondingly larger worst case for every relying party.
 
 This document keeps 16 bits, because the configuration an 8-bit field would forbid is one a root program currently permits, and because the worst case 16 bits admit is bounded rather than unbounded.
-Like the choice of construction, the width is referred to the working group ({{open-questions}}), and the two are substitutes rather than complements.
+Like the choice of construction, the width is referred to the working group ({{oq-cost-bound}}), and the two are substitutes rather than complements.
 With `hash_chain_length` capped at 255 a flat chain's worst case is already affordable, so a hierarchy adopted alongside an 8-bit field would spend 32 bytes to save work that is no longer expensive.
 
 ## TLS Extension or status_request Reuse {#tls-extension-alternative}
