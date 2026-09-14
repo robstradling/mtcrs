@@ -935,7 +935,9 @@ Hash chain revocation is keyed by the log entry, not by the certificate profile:
 - The certificate's `serialNumber` is fixed by the entry's position in the log ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}), so both profiles carry the same serial and therefore resolve to the same tick URL ({{distribution}}).
 - The HashChainTick for a given period is therefore identical in both certificates.
 
-An authenticating party may hold both a standalone and a landmark-relative certificate for the same entry, for example during the renewal overlap described in {{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}.
+An authenticating party commonly holds both a standalone and a landmark-relative certificate for the same entry.
+Under ACME the standalone certificate response carries a link to the landmark-relative one, which the CA constructs and serves once a landmark covering the entry has been allocated ({{Section 9.2 of !I-D.ietf-plants-merkle-tree-certs}}).
+It may also hold both during the renewal overlap described in {{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}.
 It fetches the entry's tick once per period and writes that same value into the MTCProof of whichever certificate it presents.
 Refreshing the tick is independent of profile selection: the authenticating party selects between the two certificates using the base MTC mechanism ({{Section 8 of !I-D.ietf-plants-merkle-tree-certs}}), and updates the HashChainTick in whichever MTCProof it sends.
 
