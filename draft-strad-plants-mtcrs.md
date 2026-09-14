@@ -1368,6 +1368,7 @@ It instead returns the complete per-certificate URL in a `tickURL` field of the 
 
 The two fields therefore live in different objects and cannot collide: `tickBaseURL` is a property of the CA and `tickURL` a property of one issuance.
 A CA MUST NOT publish `tickBaseURL` while issuing token-addressed ticks, since an authenticating party that used it would derive an address the CA does not serve.
+Whether a per-certificate URL is better carried as a link relation on the certificate response, which is the form the base specification's own ACME extension takes, is left open ({{oq-acme-carriage}}).
 
 CAs using issuance protocols other than ACME SHOULD provide an equivalent mechanism for communicating the tick base URL, or the complete per-certificate URL, during certificate provisioning.
 
@@ -2417,6 +2418,16 @@ This is separable from {{oq-tick-carriage}}.
 The `proof_extensions` field ({{mtcproof-extensibility}}) is worth adopting only if the working group wants a reusable extension point for future proof-level mechanisms.
 If it is adopted, the tick should use it rather than a bare trailing field.
 *Preference:* not adopted, since hash chain revocation alone does not require it ({{mtcproof-extensibility}}).
+
+## Should the Per-Certificate Tick URL Be a Link Relation? {#oq-acme-carriage}
+
+Where a CA uses unguessable tick URLs, this document carries the complete per-certificate URL in a `tickURL` field of the ACME order object ({{acme-integration}}).
+The base specification's own ACME extension reaches for a different instrument in the same situation, defining an `acme-optional-alternate` link relation served on the certificate response rather than adding a field to the order object ({{Section 9.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+A link relation fits `tickURL` for the same reason it fits there, since what it names is a resource belonging to the issued certificate rather than a property of the order that produced it, and it would register in the same registry the base specification already uses.
+The question is only about this one field.
+`tickBaseURL` is a per-CA constant and belongs in the directory metadata either way ({{acme-integration}}).
+*Preference:* the order object field, as the simpler of the two and the one for which {{Section 9.7.2 of !RFC8555}} already provides a registry.
+The working group may reasonably weigh consistency with the base specification's idiom above that.
 
 ## What Should the Default tick_interval and Acceptance Window Be? {#oq-interval-defaults}
 
