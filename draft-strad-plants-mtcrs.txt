@@ -5241,9 +5241,10 @@ F.7.3.  Negotiating the Extended Parse
    case that extension's privacy guidance asks relying parties to prefer
    (Section 9.1 of [I-D.ietf-tls-trust-anchor-ids]).  Against that, a
    trust anchor ID is defined to represent a trust anchor or a group of
-   them, and certificate selection is defined as matching a candidate
-   path's own identifier or one of its group inclusions (Section 3 of
-   [I-D.ietf-tls-trust-anchor-ids], Section 4.2 of
+   them, and a candidate certification path matches only when a
+   requested identifier equals the path's own trust anchor ID or is
+   contained in one of its trust anchor group patterns (Section 4 of
+   [I-D.ietf-tls-trust-anchor-ids], Section 5.3 of
    [I-D.ietf-tls-trust-anchor-ids]).  A capability marker is neither, so
    it matches nothing and is inert to a server that does not implement
    this mechanism, which is harmless but is not what that extension says
