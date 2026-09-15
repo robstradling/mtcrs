@@ -2912,7 +2912,7 @@ It is therefore gentler than marking the extension critical, which makes that sa
 
 One identifier for the whole ecosystem is what makes the trust anchor extension a tempting carrier, and also what makes the fit imperfect.
 Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer ({{Section 9.1 of ?I-D.ietf-tls-trust-anchor-ids}}).
-Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions ({{Section 3 of ?I-D.ietf-tls-trust-anchor-ids}}, {{Section 4.2 of ?I-D.ietf-tls-trust-anchor-ids}}).
+Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and a candidate certification path matches only when a requested identifier equals the path's own trust anchor ID or is contained in one of its trust anchor group patterns ({{Section 4 of ?I-D.ietf-tls-trust-anchor-ids}}, {{Section 5.3 of ?I-D.ietf-tls-trust-anchor-ids}}).
 A capability marker is neither, so it matches nothing and is inert to a server that does not implement this mechanism, which is harmless but is not what that extension says it carries.
 The alternative carrier is a TLS extension of this document's own, against which the objection of {{tls-extension-alternative}} does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.
 
