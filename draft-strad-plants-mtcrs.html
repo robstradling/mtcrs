@@ -1053,7 +1053,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Stradling</td>
-<td class="center">Expires 18 March 2027</td>
+<td class="center">Expires 19 March 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1066,12 +1066,12 @@ svg {
 <dd class="internet-draft">draft-strad-plants-mtcrs-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-09-14" class="published">14 September 2026</time>
+<time datetime="2026-09-15" class="published">15 September 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Experimental</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-03-18">18 March 2027</time></dd>
+<dd class="expires"><time datetime="2027-03-19">19 March 2027</time></dd>
 <dt class="label-authors">Author:</dt>
 <dd class="authors">
 <div class="author">
@@ -1126,7 +1126,7 @@ The relying party can then cryptographically verify that the certificate has not
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 18 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 19 March 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1631,7 +1631,8 @@ It notes that existing mechanisms such as CRLs and OCSP apply unchanged (<span><
 Its own serial-range revocation (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.5" class="relref">Section 7.5</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) is a complementary mitigation for CA misbehavior rather than a per-certificate revocation service.
 <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-12.7" class="relref">Section 12.7</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span> also observes that the sequential serial numbers its issuance logs assign may enable future improvements to revocation, while placing such work out of scope.
 This document is an attempt at that work.<a href="#section-1-1" class="pilcrow">¶</a></p>
-<p id="section-1-2">However, deployments such as Chrome's draft Quantum-resistant Root Program policy <span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span> permit certificate lifetimes of up to 47 days.
+<p id="section-1-2">What counts as short-lived, however, is set by root program policy.
+Deployments such as Chrome's draft Quantum-resistant Root Program policy <span>[<a href="#CHROME-MTC" class="cite xref">CHROME-MTC</a>]</span> permit certificate lifetimes of up to 47 days.
 That policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
 Without revocation, exposure to key compromise or certificate misissuance is bounded only by expiry: a week in the recommended case, and a month and a half at the permitted maximum.
 Relying parties that have them may fall back to out-of-band systems such as <span>[<a href="#CRLite" class="cite xref">CRLite</a>]</span> or <span>[<a href="#CRLSets" class="cite xref">CRLSets</a>]</span>, but these are vendor-controlled and not universal, and no in-band mechanism exists.<a href="#section-1-2" class="pilcrow">¶</a></p>
@@ -2120,7 +2121,7 @@ The certificate therefore becomes unusable within at most two periods.<a href="#
         <h3 id="name-what-each-party-implements">
 <a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-what-each-party-implements" class="section-name selfRef">What Each Party Implements</a>
         </h3>
-<p id="section-3.1-1">The work this mechanism creates falls to three parties, and this table collects what each of them builds, in the order the work happens.
+<p id="section-3.1-1">The work this mechanism creates falls to three parties, and this table collects what each of them builds, in the order the work happens, together with the two parties it asks nothing new of.
 Nothing here is a new requirement, and each entry cites the section that states it.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
 <table class="center" id="table-1">
           <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
@@ -2849,7 +2850,7 @@ struct {
             <p id="section-8.1-3.2.1">The period number for which this tick is valid.
 It tells the relying party two things.
 The first is the freshness the tick asserts: that the certificate was not revoked as of this period, checked against the relying party's clock (<a href="#verification" class="auto internal xref">Section 9</a>).
-The second is how many times to hash value forward to reach the committed anchor.
+The second is how many times to hash <code>value</code> forward to reach the committed anchor.
 The field is 16 bits, which caps both the period number and the relying party's forward-hash count at 65,535 for every certificate, whatever <code>tick_interval</code> its issuer chose (<a href="#construction" class="auto internal xref">Section 4</a>).<a href="#section-8.1-3.2.1" class="pilcrow">¶</a></p>
 </dd>
           <dd class="break"></dd>
@@ -3184,7 +3185,7 @@ An out-of-window tick does not establish that.
 It means only that non-revocation is unproven as of now, which a distribution outage (<a href="#availability-considerations" class="auto internal xref">Section 13.1</a>), an authenticating party that failed to refresh, or a skewed clock (<a href="#clock-skew" class="auto internal xref">Section 16.10</a>) all produce just as a genuine revocation does.
 Claiming revocation would assert something the relying party cannot know and would misdirect diagnosis of what is usually an availability fault.<a href="#section-9.2-2.4.1" class="pilcrow">¶</a></p>
 <p id="section-9.2-2.4.2">
-Two edges of the window need separate treatment.
+The two edges of the window are not symmetric.
 There is no period below 0, so when <code>expected_period</code> is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
 The upper neighbor needs no such treatment.
 A relying party does not know <code>hash_chain_length</code> (<a href="#anchor-x509-extension" class="auto internal xref">Section 7</a>), so it cannot tell whether <code>expected_period</code> + 1 lies beyond the certificate's last period, and it need not.
@@ -3308,8 +3309,8 @@ An authenticating party <span class="bcp14">MUST NOT</span> fetch from a base UR
 It <span class="bcp14">MUST</span> also check that the named algorithm's output length equals the length of the anchor in its own certificate, and <span class="bcp14">MUST NOT</span> fetch if the two disagree.
 That check costs nothing and needs no other input.
 Without it the mismatch is not caught until every fetched tick fails, either on the response-length check (<a href="#response-format" class="auto internal xref">Section 10.4</a>) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
-It detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
-Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it <span class="bcp14">SHOULD</span> report a disagreement as a CA misconfiguration.<a href="#section-10.1.1-2.4.1" class="pilcrow">¶</a></p>
+The check detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
+Where the authenticating party also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it <span class="bcp14">SHOULD</span> report a disagreement as a CA misconfiguration.<a href="#section-10.1.1-2.4.1" class="pilcrow">¶</a></p>
 </dd>
             <dd class="break"></dd>
 <dt id="section-10.1.1-2.5">
@@ -3327,7 +3328,7 @@ It is encoded in big-endian order as exactly 16 lowercase hexadecimal digits, ze
           <h4 id="name-addressing-by-serial-number">
 <a href="#section-10.1.2" class="section-number selfRef">10.1.2. </a><a href="#name-addressing-by-serial-number" class="section-name selfRef">Addressing by Serial Number</a>
           </h4>
-<p id="section-10.1.2-1">Both parties read the serial straight from the certificate.
+<p id="section-10.1.2-1">The CA and the authenticating party both read the serial straight from the certificate.
 The authenticating party in particular does not reconstruct the log entry, so deriving its own tick URL costs it no cryptography and needs no per-request metadata from the CA.<a href="#section-10.1.2-1" class="pilcrow">¶</a></p>
 <p id="section-10.1.2-2">The serial is the base specification's own identifier for an entry, used to locate it in the log during verification (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-7.2" class="relref">Section 7.2</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) and to name it in the revocation record sketched in <a href="#logged-revocation" class="auto internal xref">Section 16.8.1</a>.
 Keying ticks on it therefore keeps one identifier for one entry throughout.
@@ -3674,7 +3675,7 @@ Its first fetch must succeed before it can be served (<a href="#construction" cl
         <h3 id="name-responding-to-fetch-failure">
 <a href="#section-12.3" class="section-number selfRef">12.3. </a><a href="#name-responding-to-fetch-failure" class="section-name selfRef">Responding to Fetch Failures</a>
         </h3>
-<p id="section-12.3-1">Repeated failure to obtain a fresh tick after period 0 is different.
+<p id="section-12.3-1">Unlike a 404 during period 0, repeated failure to obtain a fresh tick is not harmless.
 It is the observable signature of either revocation (<a href="#revoking" class="auto internal xref">Section 5.2</a>) or a distribution failure, and a 404 does not tell the authenticating party which (<a href="#response-format" class="auto internal xref">Section 10.4</a>).
 An authenticating party <span class="bcp14">SHOULD</span> therefore raise an operational alarm once it has failed to obtain a fresh tick for a full <code>tick_interval</code>, rather than waiting until the certificate stops working.
 By then it has at most one period of runway left.<a href="#section-12.3-1" class="pilcrow">¶</a></p>
@@ -3951,7 +3952,7 @@ For N periods the CA sends one value per certificate, the value that will be rev
 It confers no power beyond period <code>t+N</code>, since any later period would require inverting the hash.<a href="#section-13.5-6" class="pilcrow">¶</a></p>
 <p id="section-13.5-7">A CA <span class="bcp14">MUST NOT</span> instead share the seed-derivation secret (<a href="#derived-seeds" class="auto internal xref">Section 13.2.2</a>), which would grant the unbounded ability to forge non-revocation for the entire certificate population, and <span class="bcp14">MUST NOT</span> hand that secret or per-certificate seeds to a successor operator even in disaster recovery.
 It is as sensitive as the issuance signing key, so transferring it is a root-key-custody event that destroys forward security.
-It is also unnecessary.
+Sharing it is also unnecessary.
 The bounded buffer keeps issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-plants-merkle-tree-certs-05#section-10.4" class="relref">Section 10.4</a> of [<a href="#I-D.ietf-plants-merkle-tree-certs" class="cite xref">I-D.ietf-plants-merkle-tree-certs</a>]</span>) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
 If the disaster is itself a seed compromise, the response is the revoked-ranges fallback, not wider custody of a tainted secret.<a href="#section-13.5-7" class="pilcrow">¶</a></p>
 <p id="section-13.5-8">The feed from CA to distributor <span class="bcp14">SHOULD</span> be authenticated and integrity-protected.
@@ -4381,7 +4382,7 @@ It earns that place only where anchoring varies within a CA, since a CA that anc
 This document does not define such a parameter, which is separable from this mechanism and can be specified on its own.
 What it cannot become is enforcement.
 <span><a href="https://rfc-editor.org/rfc/rfc8659#section-1" class="relref">Section 1</a> of [<a href="#RFC8659" class="cite xref">RFC8659</a>]</span> states that relying parties <span class="bcp14">MUST NOT</span> use CAA records as part of certificate validation, because a CAA record set grants authority as of now whereas a certificate issued before the record was published remains what it was.
-It therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor.
+CAA therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor.
 It is not a defense against an attacker who holds a key and finds a CA willing to issue.<a href="#section-16.9-6" class="pilcrow">¶</a></p>
 <p id="section-16.9-7">A root program reaches further than either measure, because it both admits the CA and configures the relying party.
 Requiring that every certificate a member CA issues carries a hash chain anchor empties the population of unanchored certificates, and rejecting an MTC certificate that carries none enforces that requirement at the point of use, which is the step CAA cannot take.
@@ -4842,7 +4843,7 @@ When the <span class="bcp14">RECOMMENDED</span> trailing <code>status_tick</code
 <dd class="break"></dd>
 <dt id="I-D.ietf-tls-trust-anchor-ids">[I-D.ietf-tls-trust-anchor-ids]</dt>
         <dd>
-<span class="refAuthor">Beck, B.</span>, <span class="refAuthor">Benjamin, D.</span>, <span class="refAuthor">O'Brien, D.</span>, and <span class="refAuthor">K. Nekritz</span>, <span class="refTitle">"TLS Trust Anchor Identifiers"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-trust-anchor-ids-04</span>, <time datetime="2026-04-30" class="refDate">30 April 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04">https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04</a>&gt;</span>. </dd>
+<span class="refAuthor">Beck, B.</span>, <span class="refAuthor">Benjamin, D.</span>, <span class="refAuthor">O'Brien, D.</span>, and <span class="refAuthor">K. Nekritz</span>, <span class="refTitle">"TLS Trust Anchor Identifiers"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-trust-anchor-ids-05</span>, <time datetime="2026-09-14" class="refDate">14 September 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-05">https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-05</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="LE-OCSP">[LE-OCSP]</dt>
         <dd>
@@ -5423,7 +5424,7 @@ Traversal or checkpoint schemes (<a href="#hash-chain-traversal" class="auto int
 </dl>
 <p id="appendix-F.3-3">A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 At day-scale periods the hash chain is short enough that a CA can store each hash chain in full and skip the fractal traversal of <a href="#hash-chain-traversal" class="auto internal xref">Section 13.2.1</a> entirely, since <code>hash_chain_length</code> is then on the order of the lifetime in days, e.g. 47 for a 47-day certificate.
-It cuts relying-party verification cost by the same factor, from at most 1,127 hash computations to at most 46, which makes it the cheapest accommodation available for constrained verifiers, since it spends no additional bytes (<a href="#verification-cost" class="auto internal xref">Section 13.6</a>, <a href="#shorter-verification" class="auto internal xref">Appendix G.6</a>).
+A day-scale period cuts relying-party verification cost by that same factor, from at most 1,127 hash computations to at most 46, which makes it the cheapest accommodation available for constrained verifiers, since it spends no additional bytes (<a href="#verification-cost" class="auto internal xref">Section 13.6</a>, <a href="#shorter-verification" class="auto internal xref">Appendix G.6</a>).
 The once-per-day fetch cadence also gives a far more forgiving outage-tolerance budget (<a href="#availability-considerations" class="auto internal xref">Section 13.1</a>), and the price is coarser revocation.<a href="#appendix-F.3-3" class="pilcrow">¶</a></p>
 <p id="appendix-F.3-4">A day-scale period should be compared against a same-lifetime certificate with no in-band revocation, whose worst-case exposure is the full remaining lifetime, rather than against a one-day short-lived certificate.
 Its worst-case revocation latency is about two periods (up to ~48 hours), which is longer than a one-day certificate's 24-hour exposure but far shorter than the tens of days a long-lived certificate without revocation would allow.
@@ -5634,7 +5635,8 @@ A mechanism that asks CAs to operate a new per-certificate, per-period status se
 The two reasons given divide cleanly, and only one of them applies here.<a href="#appendix-F.6.5-1" class="pilcrow">¶</a></p>
 <p id="appendix-F.6.5-2">The first, given as the primary reason, was privacy.
 When a relying party checks status online, "the Certificate Authority operating the OCSP responder immediately becomes aware of which website is being visited from that visitor's particular IP address" <span>[<a href="#LE-OCSP" class="cite xref">LE-OCSP</a>]</span>, and a CA that chooses not to retain that information may still be compelled to collect it.
-This mechanism does not reduce that exposure, it removes the interaction that creates it.
+This mechanism does not reduce that exposure.
+It removes the interaction that creates it.
 Relying parties never contact the CA or any distributor (<a href="#rp-no-fetch" class="auto internal xref">Section 16.5</a>), because the tick is already embedded in the certificate presentation and verified offline (<a href="#verification" class="auto internal xref">Section 9</a>).
 There is no relying-party request to observe, to log, or to be compelled to retain.
 The objection that ended OCSP is therefore answered here by construction, and in the strongest available form, which is that the data never comes into existence rather than that it is discarded.<a href="#appendix-F.6.5-2" class="pilcrow">¶</a></p>
@@ -5715,8 +5717,8 @@ It costs no second certificate, because the tick is not committed to the tree an
 One certificate serves both populations, since omitting the tick leaves an MTCProof byte-identical to a base one, which an unaware relying party parses and accepts while ignoring the anchor it does not recognize.
 It is therefore gentler than marking the extension critical, which makes that same party fail the handshake instead.<a href="#appendix-F.7.3-1" class="pilcrow">¶</a></p>
 <p id="appendix-F.7.3-2">One identifier for the whole ecosystem is what makes the trust anchor extension a tempting carrier, and also what makes the fit imperfect.
-Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-9.1" class="relref">Section 9.1</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
-Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-3" class="relref">Section 3</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>, <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-4.2" class="relref">Section 4.2</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
+Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-05#section-9.1" class="relref">Section 9.1</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
+Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and certificate selection is defined as matching a candidate path's own identifier or one of its group inclusions (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-05#section-3" class="relref">Section 3</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>, <span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-05#section-4.2" class="relref">Section 4.2</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).
 A capability marker is neither, so it matches nothing and is inert to a server that does not implement this mechanism, which is harmless but is not what that extension says it carries.
 The alternative carrier is a TLS extension of this document's own, against which the objection of <a href="#tls-extension-alternative" class="auto internal xref">Appendix G.7</a> does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.<a href="#appendix-F.7.3-2" class="pilcrow">¶</a></p>
 <p id="appendix-F.7.3-3">The cost falls on the discriminant rather than on issuance.
@@ -5726,7 +5728,7 @@ A relying party keys its requirement to the committed anchor and never to the ne
 What remains is that a relying party implementing this mechanism must advertise it or be denied certificates it would otherwise accept, and that an authenticating party receiving no signal at all should include the tick, which is how it behaves without negotiation.<a href="#appendix-F.7.3-3" class="pilcrow">¶</a></p>
 <p id="appendix-F.7.3-4">A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, would let it state the <a href="#downgrade" class="auto internal xref">Section 16.9</a> mitigation for itself rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
 Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally, and what they buy is letting the authenticating party choose a certificate that will be accepted rather than fail a handshake avoidably.
-The second earns its place only where anchoring varies within a CA, because where it is a per-CA property an ordinary trust anchor list already expresses the same preference, which is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-8.6" class="relref">Section 8.6</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).<a href="#appendix-F.7.3-4" class="pilcrow">¶</a></p>
+The second earns its place only where anchoring varies within a CA, because where it is a per-CA property an ordinary trust anchor list already expresses the same preference, which is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements (<span><a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-05#section-8.6" class="relref">Section 8.6</a> of [<a href="#I-D.ietf-tls-trust-anchor-ids" class="cite xref">I-D.ietf-tls-trust-anchor-ids</a>]</span>).<a href="#appendix-F.7.3-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -6110,7 +6112,7 @@ Not all deployments can support arbitrarily short lifetimes.<a href="#appendix-G
 </dl>
 <p id="appendix-G.9-3">Matching a one-hour period's revocation latency with lifetime alone would mean certificates expiring about every two hours.
 That attains comparable worst-case exposure but does not remove the cost.
-It moves it to the heavier places cataloged above.
+It moves the cost to the heavier places cataloged above.
 For the CA that means a roughly hundredfold increase in issuance, tree cosigning, and log growth, and for relying parties the same increase in trusted-subtree sync, discarding the batched compactness MTC exists to provide.
 It also imposes a stricter availability dependency, since re-issuance (key generation, CSR, challenge, log inclusion) is far heavier to keep continuously live than a lightweight tick fetch.
 Hash chain revocation buys the same fine-grained revocation for a few hundred microseconds of hashing per full handshake instead (<a href="#verification-cost" class="auto internal xref">Section 13.6</a>), which is the cheap side of the trade by a wide margin.<a href="#appendix-G.9-3" class="pilcrow">¶</a></p>
