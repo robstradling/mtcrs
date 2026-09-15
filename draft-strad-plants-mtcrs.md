@@ -160,7 +160,8 @@ Its own serial-range revocation ({{Section 7.5 of !I-D.ietf-plants-merkle-tree-c
 {{Section 12.7 of !I-D.ietf-plants-merkle-tree-certs}} also observes that the sequential serial numbers its issuance logs assign may enable future improvements to revocation, while placing such work out of scope.
 This document is an attempt at that work.
 
-However, deployments such as Chrome's draft Quantum-resistant Root Program policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days.
+What counts as short-lived, however, is set by root program policy.
+Deployments such as Chrome's draft Quantum-resistant Root Program policy {{CHROME-MTC}} permit certificate lifetimes of up to 47 days.
 That policy recommends a 7-day validity and requires each MTC CA to operate at least one cosigner key limited to it, while permitting up to three further keys that issue at 47 days.
 Without revocation, exposure to key compromise or certificate misissuance is bounded only by expiry: a week in the recommended case, and a month and a half at the permitted maximum.
 Relying parties that have them may fall back to out-of-band systems such as {{CRLite}} or {{CRLSets}}, but these are vendor-controlled and not universal, and no in-band mechanism exists.
@@ -390,7 +391,7 @@ It reuses the small example of {{test-vectors}}: a hash chain of length `hash_ch
 
 ## What Each Party Implements {#role-summary}
 
-The work this mechanism creates falls to three parties, and this table collects what each of them builds, in the order the work happens.
+The work this mechanism creates falls to three parties, and this table collects what each of them builds, in the order the work happens, together with the two parties it asks nothing new of.
 Nothing here is a new requirement, and each entry cites the section that states it.
 
 | Party | What it implements |
@@ -803,7 +804,7 @@ period:
 : The period number for which this tick is valid.
   It tells the relying party two things.
   The first is the freshness the tick asserts: that the certificate was not revoked as of this period, checked against the relying party's clock ({{verification}}).
-  The second is how many times to hash value forward to reach the committed anchor.
+  The second is how many times to hash `value` forward to reach the committed anchor.
   The field is 16 bits, which caps both the period number and the relying party's forward-hash count at 65,535 for every certificate, whatever `tick_interval` its issuer chose ({{construction}}).
 
 value:
@@ -1035,7 +1036,7 @@ Using these inputs, the verifier performs the following steps:
    It means only that non-revocation is unproven as of now, which a distribution outage ({{availability-considerations}}), an authenticating party that failed to refresh, or a skewed clock ({{clock-skew}}) all produce just as a genuine revocation does.
    Claiming revocation would assert something the relying party cannot know and would misdirect diagnosis of what is usually an availability fault.
 
-   Two edges of the window need separate treatment.
+   The two edges of the window are not symmetric.
    There is no period below 0, so when `expected_period` is 0 the lower neighbor is simply absent and the default accepted set is {0, 1}.
    The upper neighbor needs no such treatment.
    A relying party does not know `hash_chain_length` ({{anchor-x509-extension}}), so it cannot tell whether `expected_period` + 1 lies beyond the certificate's last period, and it need not.
@@ -1136,8 +1137,8 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
   It MUST also check that the named algorithm's output length equals the length of the anchor in its own certificate, and MUST NOT fetch if the two disagree.
   That check costs nothing and needs no other input.
   Without it the mismatch is not caught until every fetched tick fails, either on the response-length check ({{response-format}}) or because forward hashing under the wrong algorithm can never reach an anchor of a different length.
-  It detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
-  Where it also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
+  The check detects a disagreement in output length rather than in algorithm, so it does not catch a substitution between two hashes of the same size.
+  Where the authenticating party also holds the CA certificate, the algorithm named by that certificate's Merkle Tree CA extension type is authoritative, and it SHOULD report a disagreement as a CA misconfiguration.
 
 `serial_number`:
 : The certificate's `serialNumber`, which the base specification constructs from the entry's log number and its zero-based index within that log as `(log_number << 48) | index` ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}).
@@ -1145,7 +1146,7 @@ The tick base URL that the CA publishes ({{discovery}}) MUST have the form `{ori
 
 ### Addressing by Serial Number
 
-Both parties read the serial straight from the certificate.
+The CA and the authenticating party both read the serial straight from the certificate.
 The authenticating party in particular does not reconstruct the log entry, so deriving its own tick URL costs it no cryptography and needs no per-request metadata from the CA.
 
 The serial is the base specification's own identifier for an entry, used to locate it in the log during verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}) and to name it in the revocation record sketched in {{logged-revocation}}.
@@ -1437,7 +1438,7 @@ Its first fetch must succeed before it can be served ({{construction}}).
 
 ## Responding to Fetch Failures
 
-Repeated failure to obtain a fresh tick after period 0 is different.
+Unlike a 404 during period 0, repeated failure to obtain a fresh tick is not harmless.
 It is the observable signature of either revocation ({{revoking}}) or a distribution failure, and a 404 does not tell the authenticating party which ({{response-format}}).
 An authenticating party SHOULD therefore raise an operational alarm once it has failed to obtain a fresh tick for a full `tick_interval`, rather than waiting until the certificate stops working.
 By then it has at most one period of runway left.
@@ -1680,7 +1681,7 @@ It confers no power beyond period `t+N`, since any later period would require in
 
 A CA MUST NOT instead share the seed-derivation secret ({{derived-seeds}}), which would grant the unbounded ability to forge non-revocation for the entire certificate population, and MUST NOT hand that secret or per-certificate seeds to a successor operator even in disaster recovery.
 It is as sensitive as the issuance signing key, so transferring it is a root-key-custody event that destroys forward security.
-It is also unnecessary.
+Sharing it is also unnecessary.
 The bounded buffer keeps issued certificates usable through the outage, and because Merkle Tree Certificates are short-lived ({{Section 10.4 of !I-D.ietf-plants-merkle-tree-certs}}) the failing CA's population ages out while subscribers migrate to a successor issuing under its own key and seed.
 If the disaster is itself a seed compromise, the response is the revoked-ranges fallback, not wider custody of a tainted secret.
 
@@ -2055,7 +2056,7 @@ It earns that place only where anchoring varies within a CA, since a CA that anc
 This document does not define such a parameter, which is separable from this mechanism and can be specified on its own.
 What it cannot become is enforcement.
 {{Section 1 of ?RFC8659}} states that relying parties MUST NOT use CAA records as part of certificate validation, because a CAA record set grants authority as of now whereas a certificate issued before the record was published remains what it was.
-It therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor.
+CAA therefore reaches the CA and never the party that checks the tick, which makes it a defense against an accidental downgrade such as a renewal that quietly moves to a product without an anchor.
 It is not a defense against an attacker who holds a key and finds a CA willing to issue.
 
 A root program reaches further than either measure, because it both admits the CA and configures the relying party.
@@ -2670,7 +2671,7 @@ CA storage:
 
 A one-day period is also viable, reducing operational frequency at the cost of up to 48-hour revocation latency.
 At day-scale periods the hash chain is short enough that a CA can store each hash chain in full and skip the fractal traversal of {{hash-chain-traversal}} entirely, since `hash_chain_length` is then on the order of the lifetime in days, e.g. 47 for a 47-day certificate.
-It cuts relying-party verification cost by the same factor, from at most 1,127 hash computations to at most 46, which makes it the cheapest accommodation available for constrained verifiers, since it spends no additional bytes ({{verification-cost}}, {{shorter-verification}}).
+A day-scale period cuts relying-party verification cost by that same factor, from at most 1,127 hash computations to at most 46, which makes it the cheapest accommodation available for constrained verifiers, since it spends no additional bytes ({{verification-cost}}, {{shorter-verification}}).
 The once-per-day fetch cadence also gives a far more forgiving outage-tolerance budget ({{availability-considerations}}), and the price is coarser revocation.
 
 A day-scale period should be compared against a same-lifetime certificate with no in-band revocation, whose worst-case exposure is the full remaining lifetime, rather than against a one-day short-lived certificate.
@@ -2849,7 +2850,8 @@ The two reasons given divide cleanly, and only one of them applies here.
 
 The first, given as the primary reason, was privacy.
 When a relying party checks status online, "the Certificate Authority operating the OCSP responder immediately becomes aware of which website is being visited from that visitor's particular IP address" {{LE-OCSP}}, and a CA that chooses not to retain that information may still be compelled to collect it.
-This mechanism does not reduce that exposure, it removes the interaction that creates it.
+This mechanism does not reduce that exposure.
+It removes the interaction that creates it.
 Relying parties never contact the CA or any distributor ({{rp-no-fetch}}), because the tick is already embedded in the certificate presentation and verified offline ({{verification}}).
 There is no relying-party request to observe, to log, or to be compelled to retain.
 The objection that ended OCSP is therefore answered here by construction, and in the strongest available form, which is that the data never comes into existence rather than that it is discarded.
@@ -3223,7 +3225,7 @@ Deployment constraints:
 
 Matching a one-hour period's revocation latency with lifetime alone would mean certificates expiring about every two hours.
 That attains comparable worst-case exposure but does not remove the cost.
-It moves it to the heavier places cataloged above.
+It moves the cost to the heavier places cataloged above.
 For the CA that means a roughly hundredfold increase in issuance, tree cosigning, and log growth, and for relying parties the same increase in trusted-subtree sync, discarding the batched compactness MTC exists to provide.
 It also imposes a stricter availability dependency, since re-issuance (key generation, CSR, challenge, log inclusion) is far heavier to keep continuously live than a lightweight tick fetch.
 Hash chain revocation buys the same fine-grained revocation for a few hundred microseconds of hashing per full handshake instead ({{verification-cost}}), which is the cheap side of the trade by a wide margin.
