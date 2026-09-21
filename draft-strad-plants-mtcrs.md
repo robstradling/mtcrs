@@ -401,7 +401,7 @@ Nothing here is a new requirement, and each entry cites the section that states 
 
 Each figure below is derived in the section cited, and collected here so that the whole cost can be seen at once.
 They assume SHA-256, a one-hour period, and a population of 10<sup>9</sup> certificates.
-That population is a round figure above the base specification's own estimates, which give 558 million active certificates for a single large CA and 2.1 billion unexpired across the Web PKI ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}).
+That population is a round figure above the base specification's own estimates, which give 682 million active certificates for a single large CA and 2.9 billion unexpired across the Web PKI ({{Section 6.5 of !I-D.ietf-plants-merkle-tree-certs}}).
 Each cost below is therefore an upper bound for any one CA.
 
 | Party or object | What this mechanism costs |
