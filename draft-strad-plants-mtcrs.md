@@ -249,8 +249,8 @@ It needs HASH only to verify a fetched tick against the anchor committed in its 
 <!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-07 is published, since the renamed structure and the new registries will then be in the published reference. -->
 
 Structures and registries from the base specification follow its editor's copy.
-In that copy SubtreeSignature has been renamed Cosignature, the MTCProof's `inclusion_proof` is declared as an opaque byte string with an unchanged encoding, and IANA registries have been established for log entry types and log entry extension types.
-Readers comparing against draft-ietf-plants-merkle-tree-certs-06 will find the earlier name and declaration, and no such registries.
+In that copy SubtreeSignature has been renamed Cosignature, the MTCProof's `inclusion_proof` is declared as an opaque byte string with an unchanged encoding, GREASE cosignatures are explicitly permitted, and IANA registries have been established for log entry types and log entry extension types.
+Readers comparing against draft-ietf-plants-merkle-tree-certs-06 will find the earlier name and declaration, and neither the GREASE provision nor the registries.
 
 ## Terminology
 
@@ -2530,7 +2530,10 @@ The `proof_extensions` field is, by design, unauthenticated and freely mutable.
 It is not committed to the Merkle Tree, no cosignature covers the MTCProof, and relying parties ignore unrecognized types.
 These properties are what let the tick be updated each period.
 As a general-purpose extension point, however, they also let an authenticating party, or any relaying intermediary, add, alter, or strip proof extensions undetectably and insert data that relying parties silently ignore ("stuffing").
-This does not affect hash chain revocation itself, because the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension, so stuffed or stripped data can neither forge nor suppress a tick.
+The base MTCProof already contains one region of this kind.
+Relying parties ignore cosignatures from cosigners they do not recognize ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), and the base specification permits GREASE {{?RFC8701}} cosignatures whose `signature` is an arbitrary byte string ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}), so that relying parties keep that tolerance in working order.
+`proof_extensions` would therefore add a second such region rather than the first, and it is the controls below, not the presence of such a region, that would decide whether it is acceptable.
+Stuffing does not affect hash chain revocation itself, because the tick is self-authenticating and its presence is mandated by the committed id-pe-hashChainAnchor extension, so stuffed or stripped data can neither forge nor suppress a tick.
 If the base MTC specification adopts `proof_extensions` as a general mechanism, three controls matter most.
 A relying party can enforce the first two without understanding any extension's contents:
 
