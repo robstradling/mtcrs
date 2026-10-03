@@ -1994,7 +1994,8 @@ The base specification's own extensibility would, however, admit a record built 
 
 ### A Logged Revocation Entry {#logged-revocation}
 
-MTCLogEntryType is an extensible enum, and the base specification states that future documents MAY define new values for it with corresponding semantics ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+MTCLogEntryType is an extensible enum, and the base specification states that future documents MAY define new values for it by adding to its "MTC Log Entry Types" registry ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+That registry's policy is Specification Required, so a new entry type needs a specification but no change to the base specification.
 A revocation record is therefore constructible within the log.
 This document does not define one.
 The sketch here exists so that the working group can judge whether it wants one, and where it belongs ({{oq-log-record}}).
@@ -2392,12 +2393,15 @@ Exactly one change to the base specification is required:
   The RECOMMENDED realization appends a trailing `status_tick` field ({{tick-trailing-field}}).
   That realization also gives the base parsing procedure a dependency on an identifier this document owns.
   The variant is selected by `anchor_presence`, which is not encoded in the MTCProof and is determined from the id-pe-hashChainAnchor extension, so an implementation that parses an MTCProof has to recognize that object identifier in order to parse a `signatureValue` correctly, whether or not it implements this mechanism.
-  The optional item below removes that dependency, because it makes the discriminant derivable from a preceding field of the same structure and puts the code point in a registry the base specification owns ({{anchor-entry-extension}}).
+  The optional item below removes that dependency, because it makes the discriminant derivable from a preceding field of the same structure and puts the code point in a registry the base specification owns, its "MTC Log Entry Extension Types" registry ({{anchor-entry-extension}}).
   A base specification that instead adopts the general `proof_extensions` field ({{mtcproof-extensibility}}) carries the tick as a proof extension ({{tick-proof-extension}}) and amends both accordingly.
 
-The following item is optional, and a base specification MAY adopt it but need not:
+The following item is optional.
+It needs no change to the base specification's text, but it is a choice for the base ecosystem rather than for this document alone, so it is listed here:
 
-- **Register a `hash_chain_anchor` entry-extension type** in the MTCLogEntryExtensionType registry, as an alternative home for the anchor, if the base specification is willing to make its entry-extension registry and cosigner software aware of this mechanism ({{anchor-entry-extension}}).
+- **Use a `hash_chain_anchor` entry extension as the anchor's home**, in place of the X.509 extension.
+  The code point would be registered in the base specification's "MTC Log Entry Extension Types" registry, whose Specification Required policy admits a registration by this document or any other.
+  What the choice asks of the base ecosystem is that CA cosigners recognize the type before signing any subtree that contains it ({{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}}), which the X.509 extension does not ({{anchor-entry-extension}}).
 
 Everything else this document defines layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
 That covers the id-pe-hashChainAnchor X.509 extension ({{iana-considerations}}), the hash chain construction ({{construction}}), verification ({{verification}}), and tick distribution ({{distribution}}).
@@ -3006,7 +3010,7 @@ An alternative is to carry it as an MTCLogEntryExtension, the entry-level extens
 Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating.
 The choice is between two extension mechanisms, not between committed and uncommitted storage.
 
-In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered with the base specification, and its `extension_data` carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
+In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered in the base specification's "MTC Log Entry Extension Types" registry, and its `extension_data` carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and `tick_interval` from the entry's `extensions`, which it already reconstructs from the MTCProof's `extensions` field during base MTC verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
 Obtaining the anchor costs neither party any meaningful extra work.
@@ -3043,7 +3047,8 @@ It has three costs, however:
 
 Because of the last point in particular, this document uses the X.509 extension as the primary design.
 It lets this mechanism be layered onto an otherwise unmodified MTC log and cosigner deployment.
-A base specification that is willing to make its entry-extension registry and cosigner software aware of hash chain revocation MAY instead adopt the entry-extension encoding, gaining the compactness and the committed/uncommitted symmetry described above.
+Registering the code point would be straightforward, since that registry's policy is Specification Required.
+If the working group is also willing to have CA cosigner software recognize it, the entry-extension encoding can be adopted instead, gaining the compactness and the committed/uncommitted symmetry described above.
 
 ## Truncating the Anchor and Tick {#truncated-anchor}
 
@@ -3106,7 +3111,7 @@ Making it instead a per-certificate freedom that relying-party policy may insist
 What a relying party bears is a number of hash computations, which it can already bound directly from committed fields ({{rp-policy}}), and the two do not track each other.
 A flat chain over 48 daily periods costs 47 computations, whereas a two-level chain over the longest chain the period field admits costs 511, so a relying party insisting on the hierarchy would reject the cheaper certificate and accept the one ten times dearer.
 Acting on such a policy would mean expressing the construction as a trust anchor the relying party advertises, since the trust anchors it supports are the only thing it signals about a certificate it has not yet received ({{Section 4.5.1.2 of !RFC9846}}), and this mechanism adds nothing to the handshake ({{tls-use}}).
-That much is expressible, since the base specification reserves the OID arc beneath each CA ID and already uses sub-arcs of it to advertise landmark state ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+That much is expressible, since the base specification reserves the OID arc beneath each CA ID, allocates sub-arcs of it through its "MTC CA Identifier Child Components" registry, and already uses two of them to advertise landmark state ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 What makes it the wrong instrument here is that landmark state ages out whereas a construction would not, so it would sit in trust-anchor identity for as long as both constructions existed and double relying-party configuration.
 The certificate states its construction in a committed field, but a relying party must choose what to advertise before it sees one.
 If any substantial population of relying parties may insist on the hierarchy, every CA seeking universal acceptance must issue it, so the ecosystem pays the additional bytes in every handshake and carries both code paths as well.
