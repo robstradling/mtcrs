@@ -620,7 +620,7 @@ label:
   The form follows the base MTC specification's own label, `"subtree/v1\n\0"` ({{Section 5.3.1 of !I-D.ietf-plants-merkle-tree-certs}}), which likewise names the construction and versions it without further prefix, the label space being MTC's already.
   Versioning matters here because a future revision of HashChainInput would otherwise share a domain with this one.
   The NUL terminator keeps the MTC label space prefix-free, so no label can be a prefix of another, and the leading `c` (0x63) is neither 0x30, the DER SEQUENCE tag, nor the start of any other MTC label.
-  At 8 bytes it also keeps a typical HashChainInput within a single hash compression block ({{test-vectors}}).
+  At 8 bytes it also keeps HashChainInput within a single SHA-256 compression block for any `issuer_ca_id` of up to 14 bytes ({{verification-cost}}).
 
 `issuer_ca_id`:
 : The issuing CA's ID, which is its trust anchor ID.
@@ -1693,8 +1693,11 @@ This is not required for relying-party security, which rests on self-authenticat
 
 A relying party verifies a tick by hashing `tick.value` forward `tick.period` times ({{verification}}), so the cost grows with the certificate's age: near the end of a 47-day certificate with a one-hour period it computes up to 1,127 hashes.
 Two properties of that loop set its cost.
-Each step hashes a 45-byte HashChainInput ({{encoding}}), which occupies a single compression block, so the work is one block per elapsed period.
+Each step hashes a HashChainInput of 41 bytes plus the length of the issuing CA's ID ({{encoding}}), 45 bytes for the 4-byte ID of the test vectors.
+Any ID of up to 14 bytes keeps that within a single SHA-256 compression block, so the work is one block per elapsed period.
 The steps cannot be batched or pipelined, because each input is the preceding output, so every step also pays the hash function's initialization and finalization.
+Trust anchor IDs may be as long as 32 bytes ({{Section 4 of ?I-D.ietf-tls-trust-anchor-ids}}), and one longer than 14 bytes adds a second block to every step.
+On a core with SHA-256 instructions that is a small fraction of the per-step cost below, which initialization and finalization dominate, but in software it roughly doubles it.
 
 On a current x86-64 core with SHA-256 instructions, 1,127 steps measure approximately 300 microseconds, or about 270 nanoseconds per step.
 That is the same order as the handshake's asymmetric cryptography rather than negligible beside it.
