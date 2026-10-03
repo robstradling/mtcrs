@@ -246,6 +246,12 @@ An authenticating party has no such configuration, and reads the algorithm from 
 That URL is the one value a CA must convey to it in any case, so the algorithm travels with the locator rather than needing a channel of its own.
 It needs HASH only to verify a fetched tick against the anchor committed in its own certificate before presenting it ({{ap-behavior}}), and takes HASH_SIZE from the length of that anchor ({{anchor-x509-extension}}).
 
+<!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-07 is published, since the renamed structure and the new registries will then be in the published reference. -->
+
+Structures and registries from the base specification follow its editor's copy.
+In that copy SubtreeSignature has been renamed Cosignature, the MTCProof's `inclusion_proof` is declared as an opaque byte string with an unchanged encoding, and IANA registries have been established for log entry types and log entry extension types.
+Readers comparing against draft-ietf-plants-merkle-tree-certs-06 will find the earlier name and declaration, and no such registries.
+
 ## Terminology
 
 This document uses the roles defined in {{!I-D.ietf-plants-merkle-tree-certs}}.
@@ -853,8 +859,8 @@ struct {
     MTCLogEntryExtension extensions<0..2^16-1>;
     uint48 start;
     uint48 end;
-    HashValue inclusion_proof<0..2^16-1>;
-    SubtreeSignature signatures<0..2^24-1>;
+    opaque inclusion_proof<0..2^16-1>;
+    Cosignature signatures<0..2^24-1>;
     select (anchor_presence) {
         case absent:  Empty;
         case present: HashChainTick;
