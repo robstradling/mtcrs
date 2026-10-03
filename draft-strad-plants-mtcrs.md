@@ -2916,7 +2916,7 @@ One certificate serves both populations, since omitting the tick leaves an MTCPr
 It is therefore gentler than marking the extension critical, which makes that same party fail the handshake instead.
 
 One identifier for the whole ecosystem is what makes the trust anchor extension a tempting carrier, and also what makes the fit imperfect.
-Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer ({{Section 9.1 of ?I-D.ietf-tls-trust-anchor-ids}}).
+Support is a property of the relying party's code, so one flag serves every CA at once, does not grow with the number of CAs, and is shared by every party implementing this mechanism, which is the low-exposure case that extension's privacy guidance asks relying parties to prefer ({{Section 10.1 of ?I-D.ietf-tls-trust-anchor-ids}}).
 Against that, a trust anchor ID is defined to represent a trust anchor or a group of them, and a candidate certification path matches only when a requested identifier equals the path's own trust anchor ID or is contained in one of its trust anchor group patterns ({{Section 4 of ?I-D.ietf-tls-trust-anchor-ids}}, {{Section 5.3 of ?I-D.ietf-tls-trust-anchor-ids}}).
 A capability marker is neither, so it matches nothing and is inert to a server that does not implement this mechanism, which is harmless but is not what that extension says it carries.
 The alternative carrier is a TLS extension of this document's own, against which the objection of {{tls-extension-alternative}} does not hold, since that objection concerns carrying a status that can be silently omitted rather than a client capability, which is bound into the handshake transcript and cannot be altered without breaking it.
@@ -2929,7 +2929,7 @@ What remains is that a relying party implementing this mechanism must advertise 
 
 A second identifier, meaning that the relying party will not accept an MTC certificate lacking an anchor, would let it state the {{downgrade}} mitigation for itself rather than depend on the deployment having kept anchored and unanchored certificates on separate keys.
 Neither identifier adds enforcement power, since a relying party can reject on either ground unilaterally, and what they buy is letting the authenticating party choose a certificate that will be accepted rather than fail a handshake avoidably.
-The second earns its place only where anchoring varies within a CA, because where it is a per-CA property an ordinary trust anchor list already expresses the same preference, which is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements ({{Section 8.6 of ?I-D.ietf-tls-trust-anchor-ids}}).
+The second earns its place only where anchoring varies within a CA, because where it is a per-CA property an ordinary trust anchor list already expresses the same preference, which is the answer the trust anchor extension itself gives for relying parties with differing revocation requirements ({{Section 9.6 of ?I-D.ietf-tls-trust-anchor-ids}}).
 
 # Alternatives Considered {#alternatives}
 
