@@ -837,7 +837,7 @@ An authenticating party MAY present the certificate as delivered for as long as 
 The HashChainTick travels in the MTCProof's existing `signatures` field, as a Cosignature ({{Section 6.2 of !I-D.ietf-plants-merkle-tree-certs}}) attributed to a cosigner ID reserved for the purpose.
 The base MTCProof structure, and the way the base specification parses it, are unchanged.
 
-The *tick cosigner ID* of a CA is the trust anchor ID formed by appending the component hashChainTick(TBD) to that CA's ID, `{caID hashChainTick(TBD)}`, using the "MTC CA Identifier Child Components" registry of the base specification ({{iana-considerations}}).
+The *tick cosigner ID* of a CA is the trust anchor ID formed by appending the component hashChainTick(TBD) to that CA's ID, `{caID hashChainTick(TBD)}`, using the "MTC CA Identifier Child Components" registry of the base specification ({{Section 13.2.3 of !I-D.ietf-plants-merkle-tree-certs}}), as requested in {{iana-considerations}}.
 For the CA ID 32473.1 of the test vectors, and assuming the value 3, the tick cosigner ID is 32473.1.3, whose binary representation is the five bytes 81fd590103 ({{test-vectors}}).
 Both the authenticating party and the relying party form it from the certificate's `issuer`, as they obtain `issuer_ca_id` ({{encoding}}), so nothing need be configured to distribute it.
 
@@ -1982,7 +1982,7 @@ The base specification's own extensibility would, however, admit a record built 
 
 ### A Logged Revocation Entry {#logged-revocation}
 
-MTCLogEntryType is an extensible enum, and the base specification states that future documents MAY define new values for it by adding to its "MTC Log Entry Types" registry ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+MTCLogEntryType is an extensible enum, and the base specification states that future documents MAY define new values for it ({{Section 5.2.1 of !I-D.ietf-plants-merkle-tree-certs}}) by adding to its "MTC Log Entry Types" registry ({{Section 13.2.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 That registry's policy is Specification Required, so a new entry type needs a specification but no change to the base specification.
 A revocation record is therefore constructible within the log.
 This document does not define one.
@@ -2231,7 +2231,7 @@ A CA that publishes `tickURL` does not publish `tickBaseURL` ({{acme-integration
 
 ## MTC CA Identifier Child Component
 
-IANA is requested to register the following entry in the "MTC CA Identifier Child Components" registry established by {{!I-D.ietf-plants-merkle-tree-certs}}:
+IANA is requested to register the following entry in the "MTC CA Identifier Child Components" registry established by {{Section 13.2.3 of !I-D.ietf-plants-merkle-tree-certs}}:
 
 | Value | Name          | Reference     |
 |-------|---------------|---------------|
@@ -2388,7 +2388,7 @@ Each item is specified in full in the section cited.
 
 No change to the MTCProof structure, or to how the base specification parses and verifies it, is required.
 The tick travels as a cosignature ({{tick-cosignature}}), which the base parsing rules already accept and which a relying party that does not implement this mechanism already ignores ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}).
-The tick cosigner ID needs a component in the base specification's "MTC CA Identifier Child Components" registry, whose Specification Required policy lets this document request it ({{iana-considerations}}).
+The tick cosigner ID needs a component in the base specification's "MTC CA Identifier Child Components" registry ({{Section 13.2.3 of !I-D.ietf-plants-merkle-tree-certs}}), whose Specification Required policy lets this document request it ({{iana-considerations}}).
 
 One clarification is requested:
 
@@ -2402,7 +2402,7 @@ The following item is optional.
 It needs no change to the base specification's text, but it is a choice for the base ecosystem rather than for this document alone, so it is listed here:
 
 - **Use a `hash_chain_anchor` entry extension as the anchor's home**, in place of the X.509 extension.
-  The code point would be registered in the base specification's "MTC Log Entry Extension Types" registry, whose Specification Required policy admits a registration by this document or any other.
+  The code point would be registered in the base specification's "MTC Log Entry Extension Types" registry ({{Section 13.2.2 of !I-D.ietf-plants-merkle-tree-certs}}), whose Specification Required policy admits a registration by this document or any other.
   What the choice asks of the base ecosystem is that CA cosigners recognize the type before signing any subtree that contains it ({{Section 5.4 of !I-D.ietf-plants-merkle-tree-certs}}), which the X.509 extension does not ({{anchor-entry-extension}}).
 
 Everything else this document defines layers on top of an otherwise unmodified base MTC log and cosigner deployment and needs no base-specification change.
@@ -2912,7 +2912,7 @@ An alternative is to carry it as an MTCLogEntryExtension, the entry-level extens
 Both are committed to the Merkle Tree, so either home makes the anchor self-authenticating.
 The choice is between two extension mechanisms, not between committed and uncommitted storage.
 
-In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered in the base specification's "MTC Log Entry Extension Types" registry, and its `extension_data` carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
+In this alternative, a new MTCLogEntryExtensionType (for example, `hash_chain_anchor`) is registered in the base specification's "MTC Log Entry Extension Types" registry ({{Section 13.2.2 of !I-D.ietf-plants-merkle-tree-certs}}), and its `extension_data` carries the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded structure).
 The verifier reads the anchor and `tick_interval` from the entry's `extensions`, which it already reconstructs from the MTCProof's `extensions` field during base MTC verification ({{Section 7.2 of !I-D.ietf-plants-merkle-tree-certs}}), rather than from an X.509 extension.
 
 Obtaining the anchor costs neither party any meaningful extra work.
@@ -3010,7 +3010,7 @@ Making it instead a per-certificate freedom that relying-party policy may insist
 What a relying party bears is a number of hash computations, which it can already bound directly from committed fields ({{rp-policy}}), and the two do not track each other.
 A flat chain over 48 daily periods costs 47 computations, whereas a two-level chain over the longest chain the period field admits costs 511, so a relying party insisting on the hierarchy would reject the cheaper certificate and accept the one ten times dearer.
 Acting on such a policy would mean expressing the construction as a trust anchor the relying party advertises, since the trust anchors it supports are the only thing it signals about a certificate it has not yet received ({{Section 4.5.1.2 of !RFC9846}}), and this mechanism adds nothing to the handshake ({{tls-use}}).
-That much is expressible, since the base specification reserves the OID arc beneath each CA ID, allocates sub-arcs of it through its "MTC CA Identifier Child Components" registry, and already uses two of them to advertise landmark state ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
+That much is expressible, since the base specification reserves the OID arc beneath each CA ID, allocates sub-arcs of it through its "MTC CA Identifier Child Components" registry ({{Section 13.2.3 of !I-D.ietf-plants-merkle-tree-certs}}), and already uses two of them to advertise landmark state ({{Section 5.1 of !I-D.ietf-plants-merkle-tree-certs}}).
 What makes it the wrong instrument here is that landmark state ages out whereas a construction would not, so it would sit in trust-anchor identity for as long as both constructions existed and double relying-party configuration.
 The certificate states its construction in a committed field, but a relying party must choose what to advertise before it sees one.
 If any substantial population of relying parties may insist on the hierarchy, every CA seeking universal acceptance must issue it, so the ecosystem pays the additional bytes in every handshake and carries both code paths as well.
