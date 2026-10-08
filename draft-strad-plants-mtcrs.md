@@ -246,12 +246,6 @@ An authenticating party has no such configuration, and reads the algorithm from 
 That URL is the one value a CA must convey to it in any case, so the algorithm travels with the locator rather than needing a channel of its own.
 It needs HASH only to verify a fetched tick against the anchor committed in its own certificate before presenting it ({{ap-behavior}}), and takes HASH_SIZE from the length of that anchor ({{anchor-x509-extension}}).
 
-<!-- TODO: delete the following paragraph once draft-ietf-plants-merkle-tree-certs-07 is published, since the renamed structure and the new registries will then be in the published reference. -->
-
-Structures and registries from the base specification follow its editor's copy.
-In that copy SubtreeSignature has been renamed Cosignature, the MTCProof's `inclusion_proof` is declared as an opaque byte string with an unchanged encoding, GREASE cosignatures are explicitly permitted, including in landmark-relative certificates, and IANA registries have been established for log entry types, log entry extension types, and CA identifier child components.
-Readers comparing against draft-ietf-plants-merkle-tree-certs-06 will find the earlier name and declaration, and neither the GREASE provision nor the registries.
-
 ## Terminology
 
 This document uses the roles defined in {{!I-D.ietf-plants-merkle-tree-certs}}.
