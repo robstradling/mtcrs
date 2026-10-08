@@ -4,8 +4,8 @@
 
 PKI, Logs, And Tree Signatures                              R. Stradling
 Internet-Draft                                                   Sectigo
-Intended status: Experimental                             4 October 2026
-Expires: 7 April 2027
+Intended status: Experimental                             8 October 2026
+Expires: 11 April 2027
 
 
           Merkle Tree Certificates: Revocation Status (MTCRS)
@@ -61,7 +61,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 7 April 2027.
+   This Internet-Draft will expire on 11 April 2027.
 
 Copyright Notice
 
@@ -395,17 +395,6 @@ Table of Contents
    tick against the anchor committed in its own certificate before
    presenting it (Section 12), and takes HASH_SIZE from the length of
    that anchor (Section 7).
-
-   Structures and registries from the base specification follow its
-   editor's copy.  In that copy SubtreeSignature has been renamed
-   Cosignature, the MTCProof's inclusion_proof is declared as an opaque
-   byte string with an unchanged encoding, GREASE cosignatures are
-   explicitly permitted, including in landmark-relative certificates,
-   and IANA registries have been established for log entry types, log
-   entry extension types, and CA identifier child components.  Readers
-   comparing against draft-ietf-plants-merkle-tree-certs-06 will find
-   the earlier name and declaration, and neither the GREASE provision
-   nor the registries.
 
 2.1.  Terminology
 
@@ -1351,13 +1340,14 @@ Table of Contents
    The _tick cosigner ID_ of a CA is the trust anchor ID formed by
    appending the component hashChainTick(TBD) to that CA's ID, {caID
    hashChainTick(TBD)}, using the "MTC CA Identifier Child Components"
-   registry of the base specification (Section 17).  For the CA ID
-   32473.1 of the test vectors, and assuming the value 3, the tick
-   cosigner ID is 32473.1.3, whose binary representation is the five
-   bytes 81fd590103 (Appendix B).  Both the authenticating party and the
-   relying party form it from the certificate's issuer, as they obtain
-   issuer_ca_id (Section 6), so nothing need be configured to distribute
-   it.
+   registry of the base specification (Section 13.2.3 of
+   [I-D.ietf-plants-merkle-tree-certs]), as requested in Section 17.
+   For the CA ID 32473.1 of the test vectors, and assuming the value 3,
+   the tick cosigner ID is 32473.1.3, whose binary representation is the
+   five bytes 81fd590103 (Appendix B).  Both the authenticating party
+   and the relying party form it from the certificate's issuer, as they
+   obtain issuer_ca_id (Section 6), so nothing need be configured to
+   distribute it.
 
    When a certificate carries a hash chain anchor, the signatures field
    of every MTCProof presented with it MUST contain a Cosignature whose
@@ -3463,8 +3453,9 @@ Table of Contents
 16.8.1.  A Logged Revocation Entry
 
    MTCLogEntryType is an extensible enum, and the base specification
-   states that future documents MAY define new values for it by adding
-   to its "MTC Log Entry Types" registry (Section 5.2.1 of
+   states that future documents MAY define new values for it
+   (Section 5.2.1 of [I-D.ietf-plants-merkle-tree-certs]) by adding to
+   its "MTC Log Entry Types" registry (Section 13.2.1 of
    [I-D.ietf-plants-merkle-tree-certs]).  That registry's policy is
    Specification Required, so a new entry type needs a specification but
    no change to the base specification.  A revocation record is
@@ -3908,8 +3899,8 @@ Table of Contents
 17.7.  MTC CA Identifier Child Component
 
    IANA is requested to register the following entry in the "MTC CA
-   Identifier Child Components" registry established by
-   [I-D.ietf-plants-merkle-tree-certs]:
+   Identifier Child Components" registry established by Section 13.2.3
+   of [I-D.ietf-plants-merkle-tree-certs]:
 
                  +=======+===============+===============+
                  | Value | Name          | Reference     |
@@ -3930,9 +3921,9 @@ Table of Contents
               Benjamin, D., O'Brien, D., Westerbaan, B., Valenta, L.,
               and F. Valsorda, "Merkle Tree Certificates", Work in
               Progress, Internet-Draft, draft-ietf-plants-merkle-tree-
-              certs-06, 21 September 2026,
+              certs-07, 7 October 2026,
               <https://datatracker.ietf.org/doc/html/draft-ietf-plants-
-              merkle-tree-certs-06>.
+              merkle-tree-certs-07>.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -4259,8 +4250,9 @@ Appendix C.  Amendments Requested of the Base Specification
    mechanism already ignores (Section 7.2 of
    [I-D.ietf-plants-merkle-tree-certs]).  The tick cosigner ID needs a
    component in the base specification's "MTC CA Identifier Child
-   Components" registry, whose Specification Required policy lets this
-   document request it (Section 17).
+   Components" registry (Section 13.2.3 of
+   [I-D.ietf-plants-merkle-tree-certs]), whose Specification Required
+   policy lets this document request it (Section 17).
 
    One clarification is requested:
 
@@ -4285,10 +4277,11 @@ Appendix C.  Amendments Requested of the Base Specification
    *  *Use a hash_chain_anchor entry extension as the anchor's home*, in
       place of the X.509 extension.  The code point would be registered
       in the base specification's "MTC Log Entry Extension Types"
-      registry, whose Specification Required policy admits a
-      registration by this document or any other.  What the choice asks
-      of the base ecosystem is that CA cosigners recognize the type
-      before signing any subtree that contains it (Section 5.4 of
+      registry (Section 13.2.2 of [I-D.ietf-plants-merkle-tree-certs]),
+      whose Specification Required policy admits a registration by this
+      document or any other.  What the choice asks of the base ecosystem
+      is that CA cosigners recognize the type before signing any subtree
+      that contains it (Section 5.4 of
       [I-D.ietf-plants-merkle-tree-certs]), which the X.509 extension
       does not (Appendix F.4).
 
@@ -5219,8 +5212,9 @@ F.4.  Carrying the Anchor as a Merkle Tree Entry Extension
 
    In this alternative, a new MTCLogEntryExtensionType (for example,
    hash_chain_anchor) is registered in the base specification's "MTC Log
-   Entry Extension Types" registry, and its extension_data carries the
-   HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded
+   Entry Extension Types" registry (Section 13.2.2 of
+   [I-D.ietf-plants-merkle-tree-certs]), and its extension_data carries
+   the HashChainAnchorInfo (DER-encoded, or an equivalent TLS-encoded
    structure).  The verifier reads the anchor and tick_interval from the
    entry's extensions, which it already reconstructs from the MTCProof's
    extensions field during base MTC verification (Section 7.2 of
@@ -5425,20 +5419,21 @@ F.6.  Shortening the Verification Path
    nothing to the handshake (Section 8.3).  That much is expressible,
    since the base specification reserves the OID arc beneath each CA ID,
    allocates sub-arcs of it through its "MTC CA Identifier Child
-   Components" registry, and already uses two of them to advertise
-   landmark state (Section 5.1 of [I-D.ietf-plants-merkle-tree-certs]).
-   What makes it the wrong instrument here is that landmark state ages
-   out whereas a construction would not, so it would sit in trust-anchor
-   identity for as long as both constructions existed and double
-   relying-party configuration.  The certificate states its construction
-   in a committed field, but a relying party must choose what to
-   advertise before it sees one.  If any substantial population of
-   relying parties may insist on the hierarchy, every CA seeking
-   universal acceptance must issue it, so the ecosystem pays the
-   additional bytes in every handshake and carries both code paths as
-   well.  A variable-size tick would additionally cost the constant
-   response-length check the distribution interface relies on
-   (Section 10.4).
+   Components" registry (Section 13.2.3 of
+   [I-D.ietf-plants-merkle-tree-certs]), and already uses two of them to
+   advertise landmark state (Section 5.1 of
+   [I-D.ietf-plants-merkle-tree-certs]).  What makes it the wrong
+   instrument here is that landmark state ages out whereas a
+   construction would not, so it would sit in trust-anchor identity for
+   as long as both constructions existed and double relying-party
+   configuration.  The certificate states its construction in a
+   committed field, but a relying party must choose what to advertise
+   before it sees one.  If any substantial population of relying parties
+   may insist on the hierarchy, every CA seeking universal acceptance
+   must issue it, so the ecosystem pays the additional bytes in every
+   handshake and carries both code paths as well.  A variable-size tick
+   would additionally cost the constant response-length check the
+   distribution interface relies on (Section 10.4).
 
 F.6.1.  Hierarchical Hash Chains
 
